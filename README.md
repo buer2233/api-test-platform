@@ -56,7 +56,7 @@ api-test-platform/
 - **pytest**
 ### 当前架构建议方向
 - 核心引擎：Python
-- 模板体系：Jinja2（建议）
+- 模板体系：Jinja2（建议，用于代码生成模板，不作为 Django 页面模板主方案）
 - Web 服务层：Django + DRF（当前确认）
 - 数据存储：MySQL（当前确认）
 - 前端：React + TypeScript（建议）
