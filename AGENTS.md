@@ -22,9 +22,9 @@
 ### 2.1 产品说明书优先
 后续所有开发、设计、重构、改造，都必须优先参考：
 - `product_document/产品需求说明书(全局).md`
-- `product_document/总体架构设计说明书.md`
-- `product_document/中间模型设计说明书.md`
-- `product_document/现有接口自动化测试框架改造方案.md`
+- `product_document/架构设计/总体架构设计说明书.md`
+- `product_document/架构设计/中间模型设计说明书.md`
+- `product_document/架构设计/现有接口自动化测试框架改造方案.md`
 - 后续新增的 V1 / 模块 / 测试说明书
 如果代码现状与文档冲突：
 - 不要擅自按旧代码逻辑延续；
