@@ -1,0 +1,25 @@
+﻿from platform_core.runtime import ApiClient
+
+
+class {{ class_name }}:
+    def __init__(self, client: ApiClient):
+        self.client = client
+
+{% for operation in operations %}
+    def {{ operation.operation_code }}(self{% if operation.signature %}, {{ operation.signature }}{% endif %}):
+{% if operation.has_query_params %}
+        query_params = {}
+{% for line in operation.query_lines %}
+        {{ line }}
+{% endfor %}
+{% else %}
+        query_params = None
+{% endif %}
+        path = {{ operation.path_expression }}
+{% if operation.has_query_params %}
+        return self.client.request("{{ operation.http_method }}", path, params=query_params)
+{% else %}
+        return self.client.request("{{ operation.http_method }}", path)
+{% endif %}
+
+{% endfor %}
