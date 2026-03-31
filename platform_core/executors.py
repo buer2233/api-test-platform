@@ -23,6 +23,8 @@ class PytestExecutor:
         report_dir.mkdir(parents=True, exist_ok=True)
         report_name = f"{test_target.stem}.xml" if test_target.is_file() else "generated-suite.xml"
         report_path = report_dir / report_name
+        basetemp_path = workspace / ".pytest_tmp"
+        basetemp_path.mkdir(parents=True, exist_ok=True)
 
         env = os.environ.copy()
         pythonpath_entries = [str(self.project_root), str(workspace)]
@@ -38,6 +40,7 @@ class PytestExecutor:
                 "pytest",
                 str(test_target),
                 "-v",
+                f"--basetemp={basetemp_path}",
                 f"--junitxml={report_path}",
             ],
             cwd=self.project_root,

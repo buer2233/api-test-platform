@@ -4,10 +4,8 @@
 """
 import base64
 import hashlib
-import json
 import os
 import random
-import re
 import string
 import time
 from datetime import date, datetime, timedelta
@@ -15,11 +13,11 @@ from typing import Optional, Tuple, Dict, Any, List
 
 import requests
 from Crypto.Cipher import AES
-from Crypto.PublicKey import RSA
 from Crypto.Util.Padding import pad, unpad
-import rsa
 
 from config import RunConfig
+from core.private_env import encrypt_password
+from core.session import build_retry_session
 
 
 class BaseAPI:
@@ -44,15 +42,7 @@ class BaseAPI:
 
     def _init_session(self) -> requests.Session:
         """初始化Session并设置超时"""
-        session = requests.Session()
-        adapter = requests.adapters.HTTPAdapter(
-            pool_connections=100,
-            pool_maxsize=100,
-            max_retries=3
-        )
-        session.mount('http://', adapter)
-        session.mount('https://', adapter)
-        return session
+        return build_retry_session()
 
     def _init_account_info(self):
         """初始化账号信息 (由conftest填充)"""
@@ -91,6 +81,8 @@ class BaseAPI:
         Returns:
             响应JSON数据
         """
+        not_json = bool(kwargs.pop("NOTJSON", False))
+
         # 构建完整URL
         if not url.startswith(('http://', 'https://')):
             protocol = 'https://' if self.is_https else 'http://'
@@ -120,6 +112,8 @@ class BaseAPI:
             f"响应: {response.text}"
         )
 
+        if not_json:
+            return response
         return response.json()
 
     def get(self, url: str, eteamsid: Optional[str] = None, **kwargs) -> dict:
@@ -140,18 +134,10 @@ class BaseAPI:
     def password_rsa(password: str) -> str:
         """
         RSA加密密码
-        1. 获取公钥
+        1. 从显式配置中获取公钥
         2. 使用公钥加密密码
         """
-        # 这里简化处理，实际需要从接口获取公钥
-        pub_key_pem = """-----BEGIN PUBLIC KEY-----
-MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDQ7xCQN+...
------END PUBLIC KEY-----"""
-
-        public_key = RSA.import_key(pub_key_pem)
-        message = password.encode('utf-8')
-        encrypted = rsa.encrypt(message, public_key)
-        return base64.b64encode(encrypted).decode('utf-8').replace('\n', '')
+        return encrypt_password(password)
 
     def login(
         self,

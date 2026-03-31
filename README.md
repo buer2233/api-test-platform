@@ -127,13 +127,17 @@ api-test-platform/
 
 ## 7. V1 当前新增落地内容
 
-截至 2026-03-31，已完成两轮 V1 首批落地：
+截至 2026-03-31，已完成四轮 V1 首批落地：
 
 - 新增 `platform_core/`，实现文档解析、中间模型、Jinja2 模板、基础规则、pytest 执行器、CLI 入口和文档驱动闭环服务。
-- 解析输入已支持 `.json`、`.yaml`、`.yml`，兼容 OpenAPI 3.x 和 Swagger 2.0。
-- 闭环执行已支持多接口文档批量生成、整套 `generated/tests` 目录执行，以及 `python -m platform_core.cli run ...` 命令行入口。
-- 新增 `tests/platform_core/`，覆盖模型、解析、模板、规则、执行、CLI 和集成闭环共 22 项本地自动化测试。
-- 已整理旧 `api_test` 本地回归基线：私有环境登录链路用例默认跳过，公开示例与本地工具类测试可稳定执行。
+- 解析输入已支持 `.json`、`.yaml`、`.yml`，兼容 OpenAPI 3.x 和 Swagger 2.0，并可从响应示例补齐 `json_field_equals` 断言候选。
+- 新增 `PlatformApplicationService`，显式约束 V1 当前仅支持 `document` 路线，阻止 `functional_case` 和 `traffic_capture` 越界进入实现。
+- 新增 `AssetWorkspace` 与 `asset_manifest.json`，为生成资产补齐 digest、来源、生成记录和执行记录关联，形成最小资产清单边界。
+- 已补齐资产清单结构校验、工作区检查服务和 CLI `inspect`，使当前工作区不仅可落盘，还能被读取、检查和返回结构化摘要。
+- 规则与模板已增强：`source_ids` 必填、`ai_assisted` 生成记录必须带 `prompt_reference`、可执行接口必须包含 `status_code` 断言，并已支持 `json_field_equals` 断言模板。
+- 旧 `api_test` 底座已新增会话构建与私有环境依赖治理模块，`BaseAPI` 默认使用重试 Session，私有环境 RSA 公钥改为显式环境变量配置，不再依赖占位内容。
+- 根目录 `pytest.ini` 与 `platform_core` 执行器已固定工作区本地 `basetemp`，Windows 默认 pytest 临时目录权限风险已纳入代码约束。
+- 新增 `tests/platform_core/` 与 `api_test/tests/` 对应测试，当前本地基线为 `32 passed` 与 `15 passed, 4 skipped`。
 
 ---
 
@@ -164,13 +168,22 @@ python -m pytest -v
 python -m platform_core.cli run --source <spec-file> --output <workspace-dir>
 ```
 
+### 检查已生成工作区资产清单
+
+```bash
+python -m platform_core.cli inspect --workspace <workspace-dir>
+```
+
 ### 说明
 
 - 2026-03-31 的本地验证结果：
-  - `python -m pytest tests/platform_core -v` -> `22 passed`
-  - `cd api_test && python -m pytest -v` -> `11 passed, 4 skipped`
-- `api_test/tests/test_demo.py` 中带 `private_env` 标记的登录链路用例默认跳过；如需显式执行，请先设置 `ENABLE_PRIVATE_API_TESTS=1`。
-- `api_test/core/base_api.py` 中 RSA 公钥仍为占位内容，因此这些私有环境用例不作为 V1 首批闭环验收基线。
+  - `python -m pytest tests/platform_core -v` -> `32 passed`
+  - `cd api_test && python -m pytest -v` -> `15 passed, 4 skipped`
+- 根目录 `pytest.ini` 已统一配置 `--basetemp=.pytest_tmp`，`platform_core` 执行器也会为生成工作区显式下发本地临时目录，因此当前无需再手工补 `--basetemp`。
+- `api_test/tests/test_demo.py` 中带 `private_env` 标记的登录链路用例默认跳过；如需显式执行，请先设置 `ENABLE_PRIVATE_API_TESTS=1`，并提供有效 `API_TEST_RSA_PUBLIC_KEY`。
+- 私有环境链路已移除 RSA 占位公钥依赖，但这类用例仍依赖真实账号和私有环境，因此不纳入 V1 当前公开回归验收基线。
+- `python -m platform_core.cli run ...` 的输出摘要中已包含 `asset_manifest_path`，可直接定位本轮生成资产清单。
+- `python -m platform_core.cli inspect ...` 可返回 `validation_status`、资产数量、生成记录数量、缺失资产和 digest 不一致信息，用于当前 V1 资产检查。
 
 ---
 

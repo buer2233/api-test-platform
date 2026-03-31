@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
+from platform_core.assets import AssetWorkspace
 from platform_core.executors import PytestExecutor
 from platform_core.models import GenerationRecord, PipelineResult
 from platform_core.parsers import OpenAPIDocumentParser
@@ -31,18 +32,11 @@ class DocumentDrivenPipeline:
 
     def run(self, source_path: str | Path, output_root: str | Path) -> PipelineResult:
         parsed = self.parser.parse(source_path)
-        workspace = Path(output_root)
-        generated_root = workspace / "generated"
-        apis_dir = generated_root / "apis"
-        tests_dir = generated_root / "tests"
-        records_dir = generated_root / "records"
+        asset_workspace = AssetWorkspace(output_root)
+        asset_workspace.prepare()
         generated_paths: dict[str, str] = {}
         generation_records: list[GenerationRecord] = []
-
-        for directory in (generated_root, apis_dir, tests_dir, records_dir, generated_root / "reports"):
-            directory.mkdir(parents=True, exist_ok=True)
-        for init_file in (generated_root / "__init__.py", apis_dir / "__init__.py", tests_dir / "__init__.py"):
-            init_file.write_text("", encoding="utf-8")
+        generated_assets = []
 
         modules_by_id = {module.module_id: module for module in parsed.modules}
         operations_by_module: dict[str, list] = {}
@@ -51,49 +45,74 @@ class DocumentDrivenPipeline:
 
         for module_id, operations in operations_by_module.items():
             module = modules_by_id[module_id]
-            api_path = apis_dir / f"{module.module_code}_api.py"
+            api_path = asset_workspace.apis_dir / f"{module.module_code}_api.py"
             api_path.write_text(self.renderer.render_api_module(module, operations), encoding="utf-8")
             generated_paths[f"api::{module.module_code}"] = str(api_path)
-            generation_records.append(
-                self._write_generation_record(
-                    records_dir=records_dir,
-                    source_id=parsed.source_document.source_id,
+            api_record = self._write_generation_record(
+                records_dir=asset_workspace.records_dir,
+                source_id=parsed.source_document.source_id,
+                asset_type="api_module",
+                asset_path=api_path,
+                template_reference="templates/api/api_module.py.j2",
+            )
+            generation_records.append(api_record)
+            generated_assets.append(
+                asset_workspace.build_asset_record(
                     asset_type="api_module",
                     asset_path=api_path,
-                    template_reference="templates/api/api_module.py.j2",
+                    generation_record=api_record,
+                    module_code=module.module_code,
                 )
             )
 
             for operation in operations:
                 violations = self.validator.validate_operation(operation)
-                test_path = tests_dir / f"test_{operation.operation_code}.py"
+                test_path = asset_workspace.tests_dir / f"test_{operation.operation_code}.py"
                 violations.extend(self.validator.validate_test_file_name(test_path.name))
-                if violations:
-                    raise ValueError("; ".join(violations))
-
                 assertions = [
                     assertion for assertion in parsed.assertions if assertion.operation_id == operation.operation_id
                 ]
+                violations.extend(self.validator.validate_assertions(operation, assertions))
+                if violations:
+                    raise ValueError("; ".join(violations))
                 test_path.write_text(
                     self.renderer.render_test_module(module, operation, assertions),
                     encoding="utf-8",
                 )
                 generated_paths[f"test::{operation.operation_code}"] = str(test_path)
-                generation_records.append(
-                    self._write_generation_record(
-                        records_dir=records_dir,
-                        source_id=parsed.source_document.source_id,
+                test_record = self._write_generation_record(
+                    records_dir=asset_workspace.records_dir,
+                    source_id=parsed.source_document.source_id,
+                    asset_type="test_case",
+                    asset_path=test_path,
+                    template_reference="templates/tests/test_module.py.j2",
+                )
+                generation_records.append(test_record)
+                generated_assets.append(
+                    asset_workspace.build_asset_record(
                         asset_type="test_case",
                         asset_path=test_path,
-                        template_reference="templates/tests/test_module.py.j2",
+                        generation_record=test_record,
+                        module_code=module.module_code,
+                        operation_code=operation.operation_code,
                     )
                 )
 
-        execution_record = self.executor.run(tests_dir, output_root=workspace, target_id="generated-suite")
-        execution_record_path = records_dir / "execution_record.json"
+        execution_record = self.executor.run(
+            asset_workspace.tests_dir,
+            output_root=asset_workspace.workspace_root,
+            target_id="generated-suite",
+        )
+        execution_record_path = asset_workspace.records_dir / "execution_record.json"
         execution_record_path.write_text(
             json.dumps(execution_record.model_dump(mode="json"), ensure_ascii=False, indent=2),
             encoding="utf-8",
+        )
+        asset_manifest, asset_manifest_path = asset_workspace.write_manifest(
+            source_document=parsed.source_document,
+            assets=generated_assets,
+            generation_records=generation_records,
+            execution_record=execution_record,
         )
 
         return PipelineResult(
@@ -103,6 +122,8 @@ class DocumentDrivenPipeline:
             assertions=parsed.assertions,
             generation_records=generation_records,
             execution_record=execution_record,
+            asset_manifest=asset_manifest,
+            asset_manifest_path=str(asset_manifest_path),
             generated_paths=generated_paths,
         )
 
@@ -128,6 +149,9 @@ class DocumentDrivenPipeline:
             review_status="pending",
             execution_status="not_run",
         )
+        violations = self.validator.validate_generation_record(record)
+        if violations:
+            raise ValueError("; ".join(violations))
         record_path = records_dir / f"{record.generation_id}.json"
         record_path.write_text(self.renderer.render_generation_record(record), encoding="utf-8")
         return record

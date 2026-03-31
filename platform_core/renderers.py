@@ -1,7 +1,6 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
-import re
 import textwrap
 from pathlib import Path
 from typing import Any
@@ -57,6 +56,12 @@ class TemplateRenderer:
             elif assertion.assertion_type == "json_field_exists":
                 template_name = "assertions/json_field_exists.py.j2"
                 context = {"target_path": assertion.target_path}
+            elif assertion.assertion_type == "json_field_equals":
+                template_name = "assertions/json_field_equals.py.j2"
+                context = {
+                    "target_path": assertion.target_path,
+                    "expected_value": self._repr_default(assertion.expected_value),
+                }
             else:
                 continue
             rendered.append(
@@ -112,28 +117,3 @@ class TemplateRenderer:
         for param in operation.path_params:
             call_parts.append(f'{param.param_name}="sample-{param.param_name}"')
         return ", ".join(call_parts)
-
-
-class RuleValidator:
-    """V1 最小规则校验器。"""
-
-    _SNAKE_CASE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
-
-    def validate_operation(self, operation: ApiOperation) -> list[str]:
-        violations: list[str] = []
-        if not operation.operation_code or not self._SNAKE_CASE_PATTERN.match(operation.operation_code):
-            violations.append("operation_code 必须为 snake_case")
-        if not operation.module_id:
-            violations.append("module_id 不能为空")
-        if not operation.http_method:
-            violations.append("http_method 不能为空")
-        if not operation.path:
-            violations.append("path 不能为空")
-        return violations
-
-    @staticmethod
-    def validate_test_file_name(file_name: str) -> list[str]:
-        normalized = Path(file_name).name
-        if not normalized.startswith("test_") or not normalized.endswith(".py"):
-            return ["测试文件名必须符合 test_*.py 规范"]
-        return []

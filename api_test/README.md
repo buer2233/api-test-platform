@@ -13,7 +13,7 @@
 
 ```text
 api_test/
-├─ core/                  # 基础请求能力与业务接口封装
+├─ core/                  # 基础请求能力、会话构建与私有环境依赖治理
 ├─ tests/                 # 历史 pytest 用例
 ├─ test_data/             # 测试数据
 ├─ report/                # 测试报告输出目录
@@ -47,7 +47,7 @@ python -m pytest -v
 
 截至 2026-03-31，默认本地结果为：
 
-- `11 passed, 4 skipped`
+- `15 passed, 4 skipped`
 
 ### 公开示例用例
 
@@ -71,7 +71,7 @@ python -m pytest tests/test_demo.py -v -m private_env
 说明：
 
 - 这类用例依赖私有环境、真实账号和有效 RSA 公钥。
-- 当前 `core/base_api.py` 中 RSA 公钥仍为占位内容，因此默认回归跳过这些用例是预期行为。
+- 当前必须通过环境变量 `API_TEST_RSA_PUBLIC_KEY` 显式提供有效公钥，缺失时 `BaseAPI.password_rsa()` 会直接报错，避免继续使用占位配置。
 - 回归结束后，如需恢复当前会话环境变量，可执行 `Remove-Item Env:ENABLE_PRIVATE_API_TESTS`。
 
 ---
@@ -107,11 +107,23 @@ python -m pytest tests/test_demo.py -v -m private_env
 
 1. 公开示例和纯本地工具类测试可稳定执行；
 2. 依赖私有环境的示例必须被显式隔离，不能污染默认回归；
-3. 与新平台方向冲突的能力需要逐步治理，而不是继续无规则扩展。
+3. 会话、配置和私有环境依赖需要逐步拆分，不能继续堆积在单一 `BaseAPI` 中；
+4. 与新平台方向冲突的能力需要逐步治理，而不是继续无规则扩展。
 
 ---
 
-## 6. 与 V1 平台核心的关系
+## 6. 当前环境变量入口
+
+`api_test/` 当前已支持以下显式环境变量入口：
+
+- `API_TEST_BASE_URL`
+- `API_TEST_IS_HTTPS`
+- `API_TEST_TIMEOUT`
+- `API_TEST_RSA_PUBLIC_KEY`
+
+---
+
+## 7. 与 V1 平台核心的关系
 
 当前仓库的 V1 第一阶段主基线已经转移到：
 
@@ -126,13 +138,17 @@ python -m pytest tests/test_demo.py -v -m private_env
 
 ---
 
-## 7. 结论
+## 8. 结论
 
 如果你要验证 V1 当前主能力，请优先运行：
 
 ```bash
 python -m pytest tests/platform_core -v
 ```
+
+说明：
+
+- 根目录 `pytest.ini` 已统一配置 `--basetemp=.pytest_tmp`，`platform_core` 执行器也会为生成工作区传入本地临时目录，因此无需再手工指定临时目录参数。
 
 如果你要确认旧框架基线没有被破坏，再运行：
 

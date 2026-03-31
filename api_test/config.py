@@ -12,13 +12,16 @@ class RunConfig:
 
     # ==================== 环境配置 ====================
     # 测试环境地址 (可根据需要修改)
-    BASE_URL = "10.12.105.158:10600/oa/second"
+    BASE_URL = os.getenv("API_TEST_BASE_URL", "10.12.105.158:10600/oa/second")
 
     # HTTPS开关
-    IS_HTTPS = False
+    IS_HTTPS = os.getenv("API_TEST_IS_HTTPS", "0") == "1"
 
     # 超时时间 (秒)
-    TIMEOUT = 30
+    TIMEOUT = int(os.getenv("API_TEST_TIMEOUT", "30"))
+
+    # 私有环境登录使用的 RSA 公钥
+    RSA_PUBLIC_KEY = os.getenv("API_TEST_RSA_PUBLIC_KEY", "")
 
     # ==================== 测试账号配置 ====================
     # 测试账号文件名

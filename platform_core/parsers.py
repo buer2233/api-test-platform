@@ -318,6 +318,28 @@ class OpenAPIDocumentParser:
                     review_status="pending",
                 )
             )
+        comparable_field = next(
+            (
+                field
+                for field in operation.response_fields
+                if field.can_assert and field.example_value is not None and field.data_type not in {"object", "array"}
+            ),
+            None,
+        )
+        if comparable_field:
+            assertions.append(
+                AssertionCandidate(
+                    assertion_id=f"{operation.operation_id}-field-equals",
+                    operation_id=operation.operation_id,
+                    assertion_type="json_field_equals",
+                    target_path=comparable_field.field_path,
+                    expected_value=comparable_field.example_value,
+                    priority="medium",
+                    source="openapi",
+                    confidence_score=0.7,
+                    review_status="pending",
+                )
+            )
         return assertions
 
     @staticmethod

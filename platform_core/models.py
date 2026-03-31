@@ -129,6 +129,46 @@ class GenerationRecord(PlatformBaseModel):
     execution_status: Literal["not_run", "passed", "failed"] = "not_run"
 
 
+class AssetRecord(PlatformBaseModel):
+    asset_id: str
+    asset_type: Literal["api_module", "test_case"]
+    asset_path: str
+    generation_id: str
+    module_code: str | None = None
+    operation_code: str | None = None
+    source_ids: list[str] = Field(default_factory=list)
+    content_digest: str
+    review_status: Literal["pending", "approved", "rejected", "revised"] = "pending"
+
+
+class AssetManifest(PlatformBaseModel):
+    manifest_id: str
+    source_id: str
+    source_type: str
+    source_digest: str
+    generated_at: datetime
+    workspace_root: str
+    assets: list[AssetRecord] = Field(default_factory=list)
+    generation_ids: list[str] = Field(default_factory=list)
+    execution_id: str | None = None
+    report_path: str | None = None
+
+
+class AssetInspectionResult(PlatformBaseModel):
+    manifest_path: str
+    workspace_root: str
+    source_id: str
+    asset_count: int
+    generation_count: int
+    execution_id: str | None = None
+    report_path: str | None = None
+    report_exists: bool = False
+    missing_assets: list[str] = Field(default_factory=list)
+    digest_mismatches: list[str] = Field(default_factory=list)
+    validation_errors: list[str] = Field(default_factory=list)
+    validation_status: Literal["valid", "invalid"]
+
+
 class ExecutionRecord(PlatformBaseModel):
     execution_id: str
     target_type: str
@@ -156,4 +196,6 @@ class PipelineResult(PlatformBaseModel):
     assertions: list[AssertionCandidate]
     generation_records: list[GenerationRecord]
     execution_record: ExecutionRecord
+    asset_manifest: AssetManifest
+    asset_manifest_path: str
     generated_paths: dict[str, str] = Field(default_factory=dict)
