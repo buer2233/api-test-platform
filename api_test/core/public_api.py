@@ -5,14 +5,117 @@
 from typing import Optional, Dict, Any, List
 
 from core.base_api import BaseAPI
+from core.legacy_assets import LegacyApiOperation
 
 
 class PublicAPI(BaseAPI):
     """公共API类 - 提供业务相关的通用方法"""
 
+    OPERATION_CATALOG = {
+        "invite_user": LegacyApiOperation(
+            operation_name="邀请用户",
+            operation_code="invite_user",
+            module_code="user_management",
+            path_template="/api/basicserver/saves",
+            http_method="POST",
+            payload_mode="json",
+            description="邀请成员进入团队。",
+        ),
+        "change_password": LegacyApiOperation(
+            operation_name="修改密码",
+            operation_code="change_password",
+            module_code="user_management",
+            path_template="/api/basicserver/changePassword",
+            http_method="POST",
+            payload_mode="data",
+            description="通过旧登录链路修改成员密码。",
+        ),
+        "get_team_info": LegacyApiOperation(
+            operation_name="获取团队信息",
+            operation_code="get_team_info",
+            module_code="team_management",
+            path_template="/api/basicserver/info",
+            http_method="GET",
+            description="获取当前租户团队信息。",
+        ),
+        "create_comment": LegacyApiOperation(
+            operation_name="创建评论",
+            operation_code="create_comment",
+            module_code="comment",
+            path_template="/api/{module_name}/common/comment/createComment",
+            http_method="POST",
+            payload_mode="json",
+            description="创建业务评论。",
+        ),
+        "add_watch": LegacyApiOperation(
+            operation_name="添加关注",
+            operation_code="add_watch",
+            module_code="watch",
+            path_template="/api/my/watch/batchAdd",
+            http_method="POST",
+            payload_mode="json",
+            description="添加关注关系。",
+        ),
+        "remove_watch": LegacyApiOperation(
+            operation_name="取消关注",
+            operation_code="remove_watch",
+            module_code="watch",
+            path_template="/api/my/watch/batchDelete",
+            http_method="POST",
+            payload_mode="json",
+            description="删除关注关系。",
+        ),
+        "send_remind": LegacyApiOperation(
+            operation_name="发送提醒",
+            operation_code="send_remind",
+            module_code="remind",
+            path_template="/api/bcw/remind/send",
+            http_method="POST",
+            payload_mode="json",
+            response_mode="raw",
+            description="发送提醒或催办。",
+        ),
+        "save_normal_config": LegacyApiOperation(
+            operation_name="保存普通配置",
+            operation_code="save_normal_config",
+            module_code="configuration",
+            path_template="/api/bcw/base/configuration/saveNormalConfig",
+            http_method="POST",
+            payload_mode="json",
+            description="保存普通配置项。",
+        ),
+    }
+
     def __init__(self):
         """初始化公共API类"""
         super().__init__()
+
+    @classmethod
+    def describe_operations(cls) -> dict[str, LegacyApiOperation]:
+        """返回旧接口目录，供测试治理和后续平台接入复用。"""
+        return dict(cls.OPERATION_CATALOG)
+
+    @classmethod
+    def get_operation(cls, operation_code: str) -> LegacyApiOperation:
+        return cls.OPERATION_CATALOG[operation_code]
+
+    def _call_operation(
+        self,
+        operation_code: str,
+        eteamsid: str,
+        payload: Optional[Dict[str, Any]] = None,
+        *,
+        path_params: Optional[Dict[str, Any]] = None,
+        path_override: Optional[str] = None,
+    ) -> Any:
+        operation = self.get_operation(operation_code)
+        url = path_override or operation.render_path(**(path_params or {}))
+        kwargs: Dict[str, Any] = {}
+        if payload and operation.payload_mode != "none":
+            kwargs[operation.payload_mode] = payload
+        if operation.response_mode == "raw":
+            kwargs["NOTJSON"] = True
+        return self.request(operation.http_method, url, eteamsid=eteamsid, **kwargs)
 
     # ==================== 用户管理 ====================
 
@@ -33,8 +136,6 @@ class PublicAPI(BaseAPI):
         Returns:
             邀请结果
         """
-        url = "/api/basicserver/saves"
-
         payload = {
             "inviteInfos": [{
                 "invitee": name,
@@ -45,7 +146,7 @@ class PublicAPI(BaseAPI):
             }]
         }
 
-        response = self.post(url, eteamsid=eteamsid, json=payload)
+        response = self._call_operation("invite_user", eteamsid=eteamsid, payload=payload)
 
         # 检查响应
         invite_info = response.get('inviteInfos', [{}])[0]
@@ -81,15 +182,13 @@ class PublicAPI(BaseAPI):
         Returns:
             修改结果
         """
-        url = "/api/basicserver/changePassword"
-
         payload = {
             'oldPassword': old_password,
             'newPassword': new_password,
             'employee.id': employee_id
         }
 
-        return self.post(url, eteamsid=eteamsid, data=payload)
+        return self._call_operation("change_password", eteamsid=eteamsid, payload=payload)
 
     # ==================== 团队管理 ====================
 
@@ -103,9 +202,7 @@ class PublicAPI(BaseAPI):
         Returns:
             团队信息
         """
-        url = "/api/basicserver/info"
-
-        response = self.get(url, eteamsid=eteamsid)
+        response = self._call_operation("get_team_info", eteamsid=eteamsid)
 
         return self.get_value(response, ['data', 'tenant'], msg='获取团队信息失败')
 
@@ -136,8 +233,6 @@ class PublicAPI(BaseAPI):
         Returns:
             评论结果
         """
-        url = f"/api/{module_name}/common/comment/createComment"
-
         payload = {
             "attachments": attachments or [],
             "comment": {
@@ -155,7 +250,12 @@ class PublicAPI(BaseAPI):
             "client": client
         }
 
-        response = self.post(url, eteamsid=eteamsid, json=payload)
+        response = self._call_operation(
+            "create_comment",
+            eteamsid=eteamsid,
+            payload=payload,
+            path_params={"module_name": module_name},
+        )
 
         return self.get_value(response, ['data'], msg='创建评论失败')
 
@@ -180,14 +280,13 @@ class PublicAPI(BaseAPI):
         Returns:
             关注结果
         """
-        url = "/api/my/watch/batchAdd" if not is_h5 else "/api/app/my/watch/batchAdd"
-
         payload = {
             "module": module,
             "entityIds": [entity_id]
         }
 
-        return self.post(url, eteamsid=eteamsid, json=payload)
+        path_override = "/api/app/my/watch/batchAdd" if is_h5 else None
+        return self._call_operation("add_watch", eteamsid=eteamsid, payload=payload, path_override=path_override)
 
     def remove_watch(
         self,
@@ -208,14 +307,18 @@ class PublicAPI(BaseAPI):
         Returns:
             取消关注结果
         """
-        url = "/api/my/watch/batchDelete" if not is_h5 else "/api/app/my/watch/batchDelete"
-
         payload = {
             "module": module,
             "entityId": entity_id
         }
 
-        return self.post(url, eteamsid=eteamsid, json=payload)
+        path_override = "/api/app/my/watch/batchDelete" if is_h5 else None
+        return self._call_operation(
+            "remove_watch",
+            eteamsid=eteamsid,
+            payload=payload,
+            path_override=path_override,
+        )
 
     def send_remind(
         self,
@@ -242,8 +345,6 @@ class PublicAPI(BaseAPI):
         Returns:
             状态码
         """
-        url = "/api/bcw/remind/send" if not is_h5 else "/api/app/bcw/remind/send"
-
         payload = {
             "targetId": target_id,
             "type": type_,
@@ -252,7 +353,13 @@ class PublicAPI(BaseAPI):
             "ids": ids
         }
 
-        response = self.post(url, eteamsid=eteamsid, json=payload, NOTJSON=True)
+        path_override = "/api/app/bcw/remind/send" if is_h5 else None
+        response = self._call_operation(
+            "send_remind",
+            eteamsid=eteamsid,
+            payload=payload,
+            path_override=path_override,
+        )
 
         return response.status_code
 
@@ -275,8 +382,6 @@ class PublicAPI(BaseAPI):
         Returns:
             保存结果
         """
-        url = "/api/bcw/base/configuration/saveNormalConfig"
-
         payload = {
             "config": {
                 "configKey": config_key,
@@ -284,7 +389,7 @@ class PublicAPI(BaseAPI):
             }
         }
 
-        return self.post(url, eteamsid=eteamsid, json=payload)
+        return self._call_operation("save_normal_config", eteamsid=eteamsid, payload=payload)
 
     # ==================== 数据工具 ====================
 

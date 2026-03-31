@@ -8,40 +8,39 @@ import sys
 import subprocess
 
 
-def run_pytest(args):
-    """运行pytest测试"""
+def build_pytest_command(args):
+    """根据参数构建 pytest 命令。"""
+    cmd = ['pytest', '-vv' if args.verbose else '-v']
+    marker_expression = args.mark
 
-    # 构建pytest命令
-    cmd = ['pytest', '-v']
+    if args.public_baseline:
+        public_expression = 'not private_env'
+        marker_expression = f"({marker_expression}) and {public_expression}" if marker_expression else public_expression
 
-    # 添加标记
-    if args.mark:
-        cmd.extend(['-m', args.mark])
+    if marker_expression:
+        cmd.extend(['-m', marker_expression])
 
-    # 添加文件
     if args.file:
         cmd.append(args.file)
 
-    # 添加HTML报告
     if args.html:
         report_dir = 'report'
         if not os.path.exists(report_dir):
             os.makedirs(report_dir)
         cmd.extend(['--html', f'{report_dir}/report.html', '--self-contained-html'])
 
-    # 添加重跑
     if args.reruns:
         cmd.extend(['--reruns', str(args.reruns)])
 
-    # 添加详细输出
-    if args.verbose:
-        cmd.append('-vv')
-    else:
-        cmd.append('-v')
+    return cmd
+
+
+def run_pytest(args):
+    """运行pytest测试"""
+    cmd = build_pytest_command(args)
 
     print(f"执行命令: {' '.join(cmd)}")
 
-    # 执行测试
     result = subprocess.run(cmd)
     return result.returncode
 
@@ -73,6 +72,11 @@ def main():
         '-v', '--verbose',
         action='store_true',
         help='更详细的输出'
+    )
+    parser.add_argument(
+        '--public-baseline',
+        action='store_true',
+        help='排除 private_env 标记，用于本地公开回归基线'
     )
 
     args = parser.parse_args()

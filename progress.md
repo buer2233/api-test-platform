@@ -9,19 +9,25 @@
 - 新增/扩展测试：
   - `api_test/tests/test_base_api_governance.py`
   - `api_test/tests/test_jsonplaceholder_resources.py`
+- 为 `PublicAPI` 补充最小旧接口操作目录，并新增 `api_test/core/legacy_assets.py`。
+- 为 `api_test/run_test.py` 新增 `--public-baseline` 模式，并补充命令构建测试。
+- 为 `platform_core` 的工作区检查结果补充资产摘要输出，CLI `inspect` 同步输出完整结构化结果。
+- 为根目录和 `api_test` 的 pytest 配置显式补齐 `asyncio_default_fixture_loop_scope=function`，并修复 `api_test/conftest.py` 的旧式 optionalhook 写法。
 - 已同步更新 README 与 V1 阶段/测试文档。
 
 ### 已验证
 - `cd api_test && python -m pytest tests/test_base_api_governance.py tests/test_jsonplaceholder_resources.py -v`
   - 结果：`13 passed`
+- `python -m pytest api_test/tests/test_public_api_governance.py api_test/tests/test_run_test.py -v`
+  - 结果：`5 passed`
+- `python -m pytest tests/platform_core/test_services_and_assets.py -k "inspect" -v`
+  - 结果：`2 passed`
 - `cd api_test && python -m pytest -v`
-  - 结果：`25 passed, 4 skipped`
+  - 结果：`30 passed, 4 skipped`
 - `python -m pytest tests/platform_core -v`
   - 结果：`32 passed`
-- `cd api_test && python -m pytest -v`（最终复核）
-  - 结果：`25 passed, 4 skipped`
+- `cd api_test && python run_test.py --public-baseline`
+  - 结果：`30 passed, 4 deselected`
 
 ### 待完成
-- 再做一次文档基线一致性检查。
-- 完成本轮 git commit / push。
 - 输出当前实现功能与测试覆盖说明。

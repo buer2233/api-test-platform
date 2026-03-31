@@ -145,7 +145,7 @@ def pytest_configure(config):
     pass
 
 
-@pytest.mark.optionalhook
+@pytest.hookimpl(optionalhook=True)
 def pytest_html_results_summary(prefix, summary, postfix):
     """自定义HTML测试报告摘要"""
     protocol = 'https://' if RunConfig.IS_HTTPS else 'http://'
@@ -179,7 +179,7 @@ def pytest_html_results_summary(prefix, summary, postfix):
         prefix.extend([html.h2(f"测试通过率: {pass_rate:.2f}%")])
 
 
-@pytest.mark.optionalhook
+@pytest.hookimpl(optionalhook=True)
 def pytest_html_results_table_header(cells):
     """自定义HTML测试报告表头"""
     cells.insert(1, html.th('描述'))
@@ -187,7 +187,7 @@ def pytest_html_results_table_header(cells):
     cells.insert(3, html.th('状态'))
 
 
-@pytest.mark.optionalhook
+@pytest.hookimpl(optionalhook=True)
 def pytest_html_results_table_row(report, cells):
     """自定义HTML测试报告表格行"""
     # 添加用例描述
@@ -228,7 +228,7 @@ def pytest_runtest_makereport(item, call):
         pass
 
 
-@pytest.mark.optionalhook
+@pytest.hookimpl(optionalhook=True)
 def pytest_html_results_table_html(report, data):
     """删除通过用例的详细日志"""
     if report.passed:

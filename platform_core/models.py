@@ -141,6 +141,17 @@ class AssetRecord(PlatformBaseModel):
     review_status: Literal["pending", "approved", "rejected", "revised"] = "pending"
 
 
+class AssetInspectionEntry(PlatformBaseModel):
+    asset_id: str
+    asset_type: Literal["api_module", "test_case"]
+    asset_path: str
+    generation_id: str
+    module_code: str | None = None
+    operation_code: str | None = None
+    source_ids: list[str] = Field(default_factory=list)
+    review_status: Literal["pending", "approved", "rejected", "revised"] = "pending"
+
+
 class AssetManifest(PlatformBaseModel):
     manifest_id: str
     source_id: str
@@ -160,6 +171,7 @@ class AssetInspectionResult(PlatformBaseModel):
     source_id: str
     asset_count: int
     generation_count: int
+    assets: list[AssetInspectionEntry] = Field(default_factory=list)
     execution_id: str | None = None
     report_path: str | None = None
     report_exists: bool = False

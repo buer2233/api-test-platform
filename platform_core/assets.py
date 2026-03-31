@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from platform_core.models import (
+    AssetInspectionEntry,
     AssetInspectionResult,
     AssetManifest,
     AssetRecord,
@@ -127,6 +128,19 @@ class AssetWorkspace:
             source_id=manifest.source_id,
             asset_count=len(manifest.assets),
             generation_count=len(manifest.generation_ids),
+            assets=[
+                AssetInspectionEntry(
+                    asset_id=asset.asset_id,
+                    asset_type=asset.asset_type,
+                    asset_path=asset.asset_path,
+                    generation_id=asset.generation_id,
+                    module_code=asset.module_code,
+                    operation_code=asset.operation_code,
+                    source_ids=asset.source_ids,
+                    review_status=asset.review_status,
+                )
+                for asset in manifest.assets
+            ],
             execution_id=manifest.execution_id,
             report_path=manifest.report_path,
             report_exists=report_exists,

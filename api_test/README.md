@@ -50,6 +50,7 @@ python -m pip install -r requirements.txt
 - 写操作为伪写入，断言应验证返回契约，不得假设服务端真实持久化。
 - `api_test/config.py` 默认 `BASE_URL` 已切换为 `jsonplaceholder.typicode.com`，默认 `HTTPS` 打开；私有环境回归需通过环境变量覆盖。
 - 当前已提供 `jsonplaceholder_api` 公共 fixture，以及 `posts/users/todos` 资源级 API 封装，便于多文件复用。
+- `PublicAPI` 已补充最小旧接口操作目录，可通过 `PublicAPI.describe_operations()` 暴露治理后的旧接口元信息，便于后续平台迁移。
 
 ### 默认本地回归
 
@@ -60,7 +61,18 @@ python -m pytest -v
 
 截至 2026-03-31，默认本地结果为：
 
-- `25 passed, 4 skipped`
+- `30 passed, 4 skipped`
+
+### 公开回归基线
+
+```bash
+cd api_test
+python run_test.py --public-baseline
+```
+
+当前公开基线结果：
+
+- `30 passed, 4 deselected`
 
 ### 公开示例用例
 
@@ -100,6 +112,7 @@ python -m pytest tests/test_demo.py -v -m private_env
 
 - 这类用例依赖私有环境、真实账号和有效 RSA 公钥。
 - 当前必须通过环境变量 `API_TEST_RSA_PUBLIC_KEY` 显式提供有效公钥，缺失时 `BaseAPI.password_rsa()` 会直接报错，避免继续使用占位配置。
+- 当前可通过 `python run_test.py --public-baseline` 稳定排除 `private_env` 用例，形成不依赖 skip 计数的公开本地回归基线。
 - 回归结束后，如需恢复当前会话环境变量，可执行 `Remove-Item Env:ENABLE_PRIVATE_API_TESTS`。
 
 ---
@@ -138,7 +151,7 @@ python -m pytest tests/test_demo.py -v -m private_env
 2. 公开接口验证统一基于 JSONPlaceholder，不能再继续扩散到其他临时公开站点；
 3. 依赖私有环境的示例必须被显式隔离，不能污染默认回归；
 4. 会话、配置和私有环境依赖需要逐步拆分，不能继续堆积在单一 `BaseAPI` 中；
-5. 与新平台方向冲突的能力需要逐步治理，而不是继续无规则扩展。
+5. 旧 `PublicAPI` 私有业务接口需要继续从历史散装方法收口到统一操作目录和资产边界，而不是继续无规则扩展。
 
 ---
 
@@ -185,4 +198,11 @@ python -m pytest tests/platform_core -v
 ```bash
 cd api_test
 python -m pytest -v
+```
+
+如果你要执行不依赖私有环境的稳定公开回归，请运行：
+
+```bash
+cd api_test
+python run_test.py --public-baseline
 ```

@@ -5,6 +5,7 @@ from .executors import PytestExecutor
 from .models import (
     ApiModule,
     ApiOperation,
+    AssetInspectionEntry,
     AssetInspectionResult,
     ApiParam,
     AssetManifest,
@@ -27,6 +28,7 @@ __all__ = [
     "ApiModule",
     "ApiOperation",
     "ApiParam",
+    "AssetInspectionEntry",
     "AssetInspectionResult",
     "AssetManifest",
     "AssetRecord",

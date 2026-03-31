@@ -205,6 +205,8 @@ def test_platform_application_service_can_inspect_generated_workspace(tmp_path):
     assert inspection.validation_status == "valid"
     assert inspection.asset_count == 2
     assert inspection.generation_count == 2
+    assert len(inspection.assets) == 2
+    assert any(asset.operation_code == "get_user_profile" for asset in inspection.assets)
     assert inspection.missing_assets == []
     assert inspection.digest_mismatches == []
     assert inspection.report_exists is True
@@ -254,6 +256,8 @@ def test_platform_core_cli_can_inspect_workspace_manifest(tmp_path):
     assert payload["validation_status"] == "valid"
     assert payload["asset_count"] == 2
     assert payload["generation_count"] == 2
+    assert len(payload["assets"]) == 2
+    assert any(asset["operation_code"] == "get_user_profile" for asset in payload["assets"])
     assert payload["report_exists"] is True
 
 
