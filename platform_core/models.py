@@ -189,6 +189,8 @@ class LegacyApiInventoryResult(PlatformBaseModel):
     private_env_operation_count: int
     modules: list[ApiModule] = Field(default_factory=list)
     operations: list[ApiOperation] = Field(default_factory=list)
+    validation_errors: list[str] = Field(default_factory=list)
+    validation_status: Literal["valid", "invalid"]
 
 
 class ExecutionRecord(PlatformBaseModel):

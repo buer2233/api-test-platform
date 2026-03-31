@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from api_test.legacy_api_catalog import LegacyApiOperation
+from platform_core.legacy_assets import LegacyPublicApiCatalogAdapter
 from platform_core.models import ApiOperation, AssetManifest, AssertionCandidate, GenerationRecord
 from platform_core.parsers import OpenAPIDocumentParser
 from platform_core.pipeline import DocumentDrivenPipeline
@@ -71,6 +73,24 @@ def build_operation() -> ApiOperation:
         success_codes=[200],
         source_ids=["src-openapi-001"],
     )
+
+
+class InvalidLegacyPublicApiCatalogAdapter(LegacyPublicApiCatalogAdapter):
+    @staticmethod
+    def _load_catalog():
+        return {
+            "invalid_legacy_operation": LegacyApiOperation(
+                operation_name="非法旧接口",
+                operation_code="invalid_legacy_operation",
+                module_code="UserManagement",
+                path_template="/api/legacy/invalid",
+                http_method="POST",
+                payload_mode="json",
+                requires_private_env=True,
+                response_mode="binary",
+                description="故意构造的非法旧接口目录，用于校验规则层。",
+            )
+        }
 
 
 def test_parser_creates_json_field_equals_assertion_from_response_examples(tmp_path):
@@ -281,6 +301,8 @@ def test_platform_application_service_can_inspect_legacy_public_api_catalog():
     inventory = service.inspect_legacy_public_api_catalog()
 
     assert inventory.source_document.source_type == "existing_api_asset"
+    assert inventory.validation_status == "valid"
+    assert inventory.validation_errors == []
     assert inventory.module_count >= 4
     assert inventory.operation_count >= 8
     assert inventory.private_env_operation_count == inventory.operation_count
@@ -306,6 +328,8 @@ def test_platform_core_cli_can_inspect_legacy_public_api_catalog():
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
     assert payload["source_document"]["source_type"] == "existing_api_asset"
+    assert payload["validation_status"] == "valid"
+    assert payload["validation_errors"] == []
     assert payload["module_count"] >= 4
     assert payload["operation_count"] >= 8
     assert any(operation["operation_code"] == "invite_user" for operation in payload["operations"])
@@ -330,6 +354,9 @@ def test_platform_application_service_can_snapshot_legacy_public_api_catalog(tmp
     assert any(key.startswith("api::legacy::") for key in result.generated_paths)
     assert inspection.validation_status == "valid"
     assert inspection.asset_count == len(result.modules)
+    report_payload = json.loads(Path(result.execution_record.report_path).read_text(encoding="utf-8"))
+    assert report_payload["validation_status"] == "valid"
+    assert report_payload["validation_errors"] == []
 
 
 def test_platform_core_cli_can_snapshot_legacy_public_api_catalog(tmp_path):
@@ -356,3 +383,19 @@ def test_platform_core_cli_can_snapshot_legacy_public_api_catalog(tmp_path):
     assert payload["module_count"] >= 4
     assert payload["operation_count"] >= 8
     assert Path(payload["asset_manifest_path"]).exists()
+
+
+def test_platform_application_service_rejects_invalid_legacy_public_api_catalog_snapshot(tmp_path):
+    service = PlatformApplicationService(
+        project_root=Path.cwd(),
+        legacy_catalog_adapter=InvalidLegacyPublicApiCatalogAdapter(),
+    )
+
+    inventory = service.inspect_legacy_public_api_catalog()
+
+    assert inventory.validation_status == "invalid"
+    assert any("module_code" in violation for violation in inventory.validation_errors)
+    assert any("response_mode" in violation for violation in inventory.validation_errors)
+
+    with pytest.raises(ValueError, match="module_code|response_mode"):
+        service.snapshot_legacy_public_api_catalog(output_root=tmp_path / "invalid-legacy-workspace")

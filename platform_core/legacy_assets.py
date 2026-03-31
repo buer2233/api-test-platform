@@ -31,7 +31,7 @@ class LegacyPublicApiCatalogAdapter:
         module = import_module("api_test.legacy_api_catalog")
         return module.PUBLIC_API_OPERATION_CATALOG
 
-    def inspect(self) -> LegacyApiInventoryResult:
+    def inspect(self, validator: RuleValidator | None = None) -> LegacyApiInventoryResult:
         source_id = "src-existing-public-api"
         source_document = SourceDocument(
             source_id=source_id,
@@ -93,6 +93,9 @@ class LegacyPublicApiCatalogAdapter:
 
         modules = sorted(module_map.values(), key=lambda item: item.module_code)
         operations.sort(key=lambda item: item.operation_code)
+        rule_validator = validator or RuleValidator()
+        validation_errors = rule_validator.validate_existing_api_inventory(modules=modules, operations=operations)
+        validation_status = "invalid" if validation_errors else "valid"
 
         return LegacyApiInventoryResult(
             source_document=source_document,
@@ -101,6 +104,8 @@ class LegacyPublicApiCatalogAdapter:
             private_env_operation_count=private_env_operation_count,
             modules=modules,
             operations=operations,
+            validation_errors=validation_errors,
+            validation_status=validation_status,
         )
 
     def export(
@@ -108,8 +113,10 @@ class LegacyPublicApiCatalogAdapter:
         output_root: str | Path,
         validator: RuleValidator | None = None,
     ) -> PipelineResult:
-        inventory = self.inspect()
         rule_validator = validator or RuleValidator()
+        inventory = self.inspect(validator=rule_validator)
+        if inventory.validation_status != "valid":
+            raise ValueError("; ".join(inventory.validation_errors))
         workspace = AssetWorkspace(output_root)
         workspace.prepare()
 
@@ -119,12 +126,6 @@ class LegacyPublicApiCatalogAdapter:
 
         for module in inventory.modules:
             module_operations = [operation for operation in inventory.operations if operation.module_id == module.module_id]
-            violations: list[str] = []
-            for operation in module_operations:
-                violations.extend(rule_validator.validate_operation(operation))
-            if violations:
-                raise ValueError("; ".join(violations))
-
             module_path = workspace.apis_dir / f"legacy_{module.module_code}_inventory.json"
             module_path.write_text(
                 json.dumps(
@@ -223,7 +224,8 @@ class LegacyPublicApiCatalogAdapter:
                     "module_count": inventory.module_count,
                     "operation_count": inventory.operation_count,
                     "private_env_operation_count": inventory.private_env_operation_count,
-                    "validation_status": "valid",
+                    "validation_status": inventory.validation_status,
+                    "validation_errors": inventory.validation_errors,
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -238,8 +240,8 @@ class LegacyPublicApiCatalogAdapter:
             execution_level="structure_check",
             started_at=started_at,
             ended_at=ended_at,
-            result_status="passed",
+            result_status="passed" if inventory.validation_status == "valid" else "failed",
             report_path=str(report_path),
-            error_summary="",
+            error_summary="; ".join(inventory.validation_errors),
             environment="local",
         )

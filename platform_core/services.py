@@ -39,7 +39,7 @@ class PlatformApplicationService:
         return workspace.inspect_manifest(validator=self.validator)
 
     def inspect_legacy_public_api_catalog(self):
-        return self.legacy_catalog_adapter.inspect()
+        return self.legacy_catalog_adapter.inspect(validator=self.validator)
 
     def snapshot_legacy_public_api_catalog(self, output_root: str | Path):
         return self.legacy_catalog_adapter.export(output_root=output_root, validator=self.validator)

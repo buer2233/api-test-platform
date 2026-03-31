@@ -52,6 +52,7 @@ python -m pip install -r requirements.txt
 - 当前已提供 `jsonplaceholder_api` 公共 fixture，以及 `posts/users/todos` 资源级 API 封装，便于多文件复用。
 - `PublicAPI` 已补充最小旧接口操作目录，可通过 `PublicAPI.describe_operations()` 暴露治理后的旧接口元信息，便于后续平台迁移。
 - 目录定义已抽出到 `legacy_api_catalog.py`，供 `api_test` 与 `platform_core` 共同消费，避免旧接口目录继续停留在不可复用状态。
+- `platform_core` 当前会对这批旧接口目录执行 `existing_api_asset` 规则校验，显式检查模块命名、私有环境标记和响应模式元数据，避免历史目录继续无规则扩散。
 
 ### 默认本地回归
 
@@ -152,7 +153,7 @@ python -m pytest tests/test_demo.py -v -m private_env
 2. 公开接口验证统一基于 JSONPlaceholder，不能再继续扩散到其他临时公开站点；
 3. 依赖私有环境的示例必须被显式隔离，不能污染默认回归；
 4. 会话、配置和私有环境依赖需要逐步拆分，不能继续堆积在单一 `BaseAPI` 中；
-5. 旧 `PublicAPI` 私有业务接口需要继续从历史散装方法收口到统一操作目录和资产边界，而不是继续无规则扩展。
+5. 旧 `PublicAPI` 私有业务接口需要继续从历史散装方法收口到统一操作目录和资产边界；当前已补齐基础规则校验，但仍未完成完整平台化收口。
 
 ---
 

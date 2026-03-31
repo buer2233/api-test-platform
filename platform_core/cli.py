@@ -60,7 +60,7 @@ def main() -> int:
         service = PlatformApplicationService(project_root=Path.cwd())
         inventory = service.inspect_legacy_public_api_catalog()
         print(json.dumps(inventory.model_dump(mode="json"), ensure_ascii=False))
-        return 0
+        return 0 if inventory.validation_status == "valid" else 1
 
     if args.command == "snapshot-legacy-public-api":
         service = PlatformApplicationService(project_root=Path.cwd())
