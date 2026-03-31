@@ -49,6 +49,7 @@ python -m pip install -r requirements.txt
 - 支持 `GET/POST/PUT/PATCH/DELETE`、查询参数过滤和一层嵌套路由；
 - 写操作为伪写入，断言应验证返回契约，不得假设服务端真实持久化。
 - `api_test/config.py` 默认 `BASE_URL` 已切换为 `jsonplaceholder.typicode.com`，默认 `HTTPS` 打开；私有环境回归需通过环境变量覆盖。
+- 当前已提供 `jsonplaceholder_api` 公共 fixture，以及 `posts/users/todos` 资源级 API 封装，便于多文件复用。
 
 ### 默认本地回归
 
@@ -59,7 +60,7 @@ python -m pytest -v
 
 截至 2026-03-31，默认本地结果为：
 
-- `18 passed, 4 skipped`
+- `25 passed, 4 skipped`
 
 ### 公开示例用例
 
@@ -71,6 +72,17 @@ python -m pytest tests/test_jsonplaceholder_api.py -v
 当前定向验证结果：
 
 - `7 passed`
+
+### 资源级底座验证
+
+```bash
+cd api_test
+python -m pytest tests/test_base_api_governance.py tests/test_jsonplaceholder_resources.py -v
+```
+
+当前定向验证结果：
+
+- `13 passed`
 
 ### 私有环境登录链路用例
 

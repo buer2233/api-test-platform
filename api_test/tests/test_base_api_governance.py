@@ -89,3 +89,57 @@ def test_request_rejects_unexpected_status_from_allowed_set(monkeypatch):
         api.post("/posts", expected_status=(200, 201))
 
     api.session.close()
+
+
+def test_put_helper_delegates_to_request(monkeypatch):
+    api = BaseAPI()
+    captured = {}
+
+    def fake_request(**kwargs):
+        captured.update(kwargs)
+
+        class DummyResponse:
+            status_code = 200
+            text = '{"ok": true}'
+
+            @staticmethod
+            def json():
+                return {"ok": True}
+
+        return DummyResponse()
+
+    monkeypatch.setattr(api.session, "request", fake_request)
+
+    response = api.put("/posts/1", json={"title": "updated"})
+
+    assert captured["method"] == "PUT"
+    assert captured["json"] == {"title": "updated"}
+    assert response["ok"] is True
+    api.session.close()
+
+
+def test_patch_helper_delegates_to_request(monkeypatch):
+    api = BaseAPI()
+    captured = {}
+
+    def fake_request(**kwargs):
+        captured.update(kwargs)
+
+        class DummyResponse:
+            status_code = 200
+            text = '{"ok": true}'
+
+            @staticmethod
+            def json():
+                return {"ok": True}
+
+        return DummyResponse()
+
+    monkeypatch.setattr(api.session, "request", fake_request)
+
+    response = api.patch("/posts/1", json={"title": "patched"})
+
+    assert captured["method"] == "PATCH"
+    assert captured["json"] == {"title": "patched"}
+    assert response["ok"] is True
+    api.session.close()

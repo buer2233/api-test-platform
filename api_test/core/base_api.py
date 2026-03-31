@@ -135,6 +135,14 @@ class BaseAPI:
         """发送POST请求"""
         return self.request('POST', url, eteamsid=eteamsid, **kwargs)
 
+    def put(self, url: str, eteamsid: Optional[str] = None, **kwargs) -> Any:
+        """发送PUT请求"""
+        return self.request('PUT', url, eteamsid=eteamsid, **kwargs)
+
+    def patch(self, url: str, eteamsid: Optional[str] = None, **kwargs) -> Any:
+        """发送PATCH请求"""
+        return self.request('PATCH', url, eteamsid=eteamsid, **kwargs)
+
     def delete(self, url: str, eteamsid: Optional[str] = None, **kwargs) -> Any:
         """发送DELETE请求"""
         return self.request('DELETE', url, eteamsid=eteamsid, **kwargs)

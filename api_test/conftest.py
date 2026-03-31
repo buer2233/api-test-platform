@@ -14,6 +14,7 @@ from py.xml import html
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from config import RunConfig
+from core.jsonplaceholder_api import JsonPlaceholderAPI
 
 
 # ==================== 测试账号管理 ====================
@@ -107,6 +108,14 @@ def base_url():
     """获取测试环境URL"""
     protocol = 'https://' if RunConfig.IS_HTTPS else 'http://'
     return protocol + RunConfig.BASE_URL
+
+
+@pytest.fixture(scope="function")
+def jsonplaceholder_api():
+    """获取 JSONPlaceholder 公共测试 API。"""
+    api = JsonPlaceholderAPI()
+    yield api
+    api.session.close()
 
 
 # ==================== pytest钩子函数 ====================

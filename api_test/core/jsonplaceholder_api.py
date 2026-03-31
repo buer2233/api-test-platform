@@ -22,6 +22,18 @@ class JsonPlaceholderAPI(BaseAPI):
     def list_user_posts(self, user_id: int) -> list[dict[str, Any]]:
         return self.get("/posts", params={"userId": user_id})
 
+    def list_users(self) -> list[dict[str, Any]]:
+        return self.get("/users")
+
+    def get_user(self, user_id: int) -> dict[str, Any]:
+        return self.get(f"/users/{user_id}")
+
+    def list_todos(self, **params) -> list[dict[str, Any]]:
+        return self.get("/todos", params=params)
+
+    def list_user_todos(self, user_id: int) -> list[dict[str, Any]]:
+        return self.get(f"/users/{user_id}/todos")
+
     def create_post(self, title: str, body: str, user_id: int) -> dict[str, Any]:
         return self.post(
             "/posts",
@@ -37,7 +49,7 @@ class JsonPlaceholderAPI(BaseAPI):
         )
 
     def patch_post(self, post_id: int, **fields: Any) -> dict[str, Any]:
-        return self.request("PATCH", f"/posts/{post_id}", json=fields)
+        return self.patch(f"/posts/{post_id}", json=fields)
 
     def delete_post(self, post_id: int) -> dict[str, Any]:
         return self.delete(f"/posts/{post_id}")
