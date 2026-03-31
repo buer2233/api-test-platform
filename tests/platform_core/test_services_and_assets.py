@@ -273,3 +273,39 @@ def test_platform_application_service_blocks_future_routes_in_v1(tmp_path):
 
     with pytest.raises(NotImplementedError, match="V1 仅支持文档驱动最小闭环"):
         service.run_traffic_capture_pipeline(source_path=tmp_path / "capture.har", output_root=tmp_path / "out")
+
+
+def test_platform_application_service_can_inspect_legacy_public_api_catalog():
+    service = PlatformApplicationService(project_root=Path.cwd())
+
+    inventory = service.inspect_legacy_public_api_catalog()
+
+    assert inventory.source_document.source_type == "existing_api_asset"
+    assert inventory.module_count >= 4
+    assert inventory.operation_count >= 8
+    assert inventory.private_env_operation_count == inventory.operation_count
+    assert any(module.module_code == "user_management" for module in inventory.modules)
+    invite_operation = next(operation for operation in inventory.operations if operation.operation_code == "invite_user")
+    assert invite_operation.http_method == "POST"
+    assert invite_operation.metadata["requires_private_env"] is True
+
+
+def test_platform_core_cli_can_inspect_legacy_public_api_catalog():
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "platform_core.cli",
+            "inspect-legacy-public-api",
+        ],
+        cwd=Path.cwd(),
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["source_document"]["source_type"] == "existing_api_asset"
+    assert payload["module_count"] >= 4
+    assert payload["operation_count"] >= 8
+    assert any(operation["operation_code"] == "invite_user" for operation in payload["operations"])

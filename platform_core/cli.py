@@ -17,6 +17,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     inspect_parser = subparsers.add_parser("inspect", help="检查已生成工作区的资产清单")
     inspect_parser.add_argument("--workspace", required=True, help="已生成工作区路径")
+
+    subparsers.add_parser("inspect-legacy-public-api", help="检查旧 PublicAPI 目录并输出结构化资产摘要")
     return parser
 
 
@@ -48,6 +50,12 @@ def main() -> int:
         inspection = service.inspect_workspace(output_root=args.workspace)
         print(json.dumps(inspection.model_dump(mode="json"), ensure_ascii=False))
         return 0 if inspection.validation_status == "valid" else 1
+
+    if args.command == "inspect-legacy-public-api":
+        service = PlatformApplicationService(project_root=Path.cwd())
+        inventory = service.inspect_legacy_public_api_catalog()
+        print(json.dumps(inventory.model_dump(mode="json"), ensure_ascii=False))
+        return 0
 
     parser.error("unsupported command")
     return 2

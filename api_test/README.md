@@ -51,6 +51,7 @@ python -m pip install -r requirements.txt
 - `api_test/config.py` 默认 `BASE_URL` 已切换为 `jsonplaceholder.typicode.com`，默认 `HTTPS` 打开；私有环境回归需通过环境变量覆盖。
 - 当前已提供 `jsonplaceholder_api` 公共 fixture，以及 `posts/users/todos` 资源级 API 封装，便于多文件复用。
 - `PublicAPI` 已补充最小旧接口操作目录，可通过 `PublicAPI.describe_operations()` 暴露治理后的旧接口元信息，便于后续平台迁移。
+- 目录定义已抽出到 `legacy_api_catalog.py`，供 `api_test` 与 `platform_core` 共同消费，避免旧接口目录继续停留在不可复用状态。
 
 ### 默认本地回归
 

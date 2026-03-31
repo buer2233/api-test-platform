@@ -17,6 +17,7 @@ class SourceDocument(PlatformBaseModel):
     source_type: Literal[
         "openapi",
         "swagger",
+        "existing_api_asset",
         "markdown_doc",
         "functional_case",
         "traffic_capture",
@@ -179,6 +180,15 @@ class AssetInspectionResult(PlatformBaseModel):
     digest_mismatches: list[str] = Field(default_factory=list)
     validation_errors: list[str] = Field(default_factory=list)
     validation_status: Literal["valid", "invalid"]
+
+
+class LegacyApiInventoryResult(PlatformBaseModel):
+    source_document: SourceDocument
+    module_count: int
+    operation_count: int
+    private_env_operation_count: int
+    modules: list[ApiModule] = Field(default_factory=list)
+    operations: list[ApiOperation] = Field(default_factory=list)
 
 
 class ExecutionRecord(PlatformBaseModel):

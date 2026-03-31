@@ -34,6 +34,25 @@ def test_source_document_records_openapi_origin():
     assert source.imported_at == imported_at
 
 
+def test_source_document_records_existing_api_asset_origin():
+    imported_at = datetime(2026, 3, 31, 20, 0, 0)
+
+    source = SourceDocument(
+        source_id="src-existing-public-api",
+        source_type="existing_api_asset",
+        source_name="api_test_public_api",
+        source_path="api_test/core/public_api.py",
+        source_version="v1-legacy-catalog",
+        source_summary="旧接口目录快照",
+        imported_at=imported_at,
+        imported_by="platform_core",
+        raw_reference="api_test.legacy_api_catalog:PUBLIC_API_OPERATION_CATALOG",
+    )
+
+    assert source.source_type == "existing_api_asset"
+    assert source.source_path.endswith("public_api.py")
+
+
 def test_api_module_captures_module_ownership():
     """TC-V1-MODEL-002 ApiModule 应表达模块归属。"""
     module = ApiModule(
