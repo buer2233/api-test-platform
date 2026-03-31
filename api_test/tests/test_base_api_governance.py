@@ -52,3 +52,40 @@ def test_request_returns_raw_response_when_notjson(monkeypatch):
     assert response.status_code == 200
     assert response.text == "ok"
     api.session.close()
+
+
+def test_request_accepts_non_200_expected_status(monkeypatch):
+    class DummyResponse:
+        status_code = 201
+
+        @staticmethod
+        def json():
+            return {"id": 101}
+
+        text = '{"id": 101}'
+
+    api = BaseAPI()
+    monkeypatch.setattr(api.session, "request", lambda **kwargs: DummyResponse())
+
+    response = api.post("/posts", expected_status=201)
+
+    assert response["id"] == 101
+    api.session.close()
+
+
+def test_request_rejects_unexpected_status_from_allowed_set(monkeypatch):
+    class DummyResponse:
+        status_code = 202
+        text = "accepted"
+
+        @staticmethod
+        def json():
+            return {"status": "accepted"}
+
+    api = BaseAPI()
+    monkeypatch.setattr(api.session, "request", lambda **kwargs: DummyResponse())
+
+    with pytest.raises(AssertionError, match="状态码"):
+        api.post("/posts", expected_status=(200, 201))
+
+    api.session.close()

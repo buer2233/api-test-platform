@@ -4,7 +4,7 @@
 
 它当前承担两类职责：
 
-1. 提供原有 `BaseAPI` / `PublicAPI` 能力与公开示例；
+1. 提供原有 `BaseAPI` / `PublicAPI` 能力，以及基于 JSONPlaceholder 的公开接口测试示例；
 2. 作为新平台能力落地前的过渡验证对象，帮助识别旧框架中与平台化方向不兼容的部分。
 
 ---
@@ -38,6 +38,18 @@ python -m pip install -r requirements.txt
 
 ## 3. 运行测试
 
+### 当前公开测试站点规则
+
+`api_test/` 当前默认使用 `https://jsonplaceholder.typicode.com/` 作为公开接口自动化测试站点。
+
+测试设计约束：
+
+- 公开基线用例统一基于该站点编写；
+- 资源范围以 `posts/comments/albums/photos/todos/users` 为主；
+- 支持 `GET/POST/PUT/PATCH/DELETE`、查询参数过滤和一层嵌套路由；
+- 写操作为伪写入，断言应验证返回契约，不得假设服务端真实持久化。
+- `api_test/config.py` 默认 `BASE_URL` 已切换为 `jsonplaceholder.typicode.com`，默认 `HTTPS` 打开；私有环境回归需通过环境变量覆盖。
+
 ### 默认本地回归
 
 ```bash
@@ -47,14 +59,18 @@ python -m pytest -v
 
 截至 2026-03-31，默认本地结果为：
 
-- `15 passed, 4 skipped`
+- `18 passed, 4 skipped`
 
 ### 公开示例用例
 
 ```bash
 cd api_test
-python -m pytest tests/test_baidu_sug.py -v
+python -m pytest tests/test_jsonplaceholder_api.py -v
 ```
+
+当前定向验证结果：
+
+- `7 passed`
 
 ### 私有环境登录链路用例
 
@@ -98,6 +114,7 @@ python -m pytest tests/test_demo.py -v -m private_env
 - `unit`
 - `regression`
 - `private_env`
+- `jsonplaceholder`
 
 ---
 
@@ -106,9 +123,10 @@ python -m pytest tests/test_demo.py -v -m private_env
 `api_test/` 仍然是旧框架，不代表未来平台最终形态。当前阶段对它的要求是：
 
 1. 公开示例和纯本地工具类测试可稳定执行；
-2. 依赖私有环境的示例必须被显式隔离，不能污染默认回归；
-3. 会话、配置和私有环境依赖需要逐步拆分，不能继续堆积在单一 `BaseAPI` 中；
-4. 与新平台方向冲突的能力需要逐步治理，而不是继续无规则扩展。
+2. 公开接口验证统一基于 JSONPlaceholder，不能再继续扩散到其他临时公开站点；
+3. 依赖私有环境的示例必须被显式隔离，不能污染默认回归；
+4. 会话、配置和私有环境依赖需要逐步拆分，不能继续堆积在单一 `BaseAPI` 中；
+5. 与新平台方向冲突的能力需要逐步治理，而不是继续无规则扩展。
 
 ---
 

@@ -11,11 +11,14 @@ class RunConfig:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
     # ==================== 环境配置 ====================
+    # 当前公开基线默认站点，私有环境用例需要通过环境变量覆盖
+    DEFAULT_PUBLIC_BASE_URL = "jsonplaceholder.typicode.com"
+
     # 测试环境地址 (可根据需要修改)
-    BASE_URL = os.getenv("API_TEST_BASE_URL", "10.12.105.158:10600/oa/second")
+    BASE_URL = os.getenv("API_TEST_BASE_URL", DEFAULT_PUBLIC_BASE_URL)
 
     # HTTPS开关
-    IS_HTTPS = os.getenv("API_TEST_IS_HTTPS", "0") == "1"
+    IS_HTTPS = os.getenv("API_TEST_IS_HTTPS", "1") == "1"
 
     # 超时时间 (秒)
     TIMEOUT = int(os.getenv("API_TEST_TIMEOUT", "30"))

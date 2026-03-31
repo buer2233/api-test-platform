@@ -8,6 +8,7 @@ import os
 import random
 import string
 import time
+from collections.abc import Iterable
 from datetime import date, datetime, timedelta
 from typing import Optional, Tuple, Dict, Any, List
 
@@ -67,8 +68,9 @@ class BaseAPI:
         method: str,
         url: str,
         eteamsid: Optional[str] = None,
+        expected_status: int | Iterable[int] = 200,
         **kwargs
-    ) -> dict:
+    ) -> Any:
         """
         发送HTTP请求的通用方法
 
@@ -79,9 +81,10 @@ class BaseAPI:
             **kwargs: 其他requests参数
 
         Returns:
-            响应JSON数据
+            响应JSON数据或原始响应对象
         """
         not_json = bool(kwargs.pop("NOTJSON", False))
+        allowed_statuses = self._normalize_expected_status(expected_status)
 
         # 构建完整URL
         if not url.startswith(('http://', 'https://')):
@@ -106,9 +109,9 @@ class BaseAPI:
         )
 
         # 检查响应状态
-        assert response.status_code == 200, (
+        assert response.status_code in allowed_statuses, (
             f"请求失败: {method} {url}\n"
-            f"状态码: {response.status_code}\n"
+            f"状态码: {response.status_code}, 期望: {allowed_statuses}\n"
             f"响应: {response.text}"
         )
 
@@ -116,15 +119,23 @@ class BaseAPI:
             return response
         return response.json()
 
-    def get(self, url: str, eteamsid: Optional[str] = None, **kwargs) -> dict:
+    @staticmethod
+    def _normalize_expected_status(expected_status: int | Iterable[int]) -> tuple[int, ...]:
+        if isinstance(expected_status, int):
+            return (expected_status,)
+        normalized = tuple(expected_status)
+        assert normalized, "expected_status 不能为空"
+        return normalized
+
+    def get(self, url: str, eteamsid: Optional[str] = None, **kwargs) -> Any:
         """发送GET请求"""
         return self.request('GET', url, eteamsid=eteamsid, **kwargs)
 
-    def post(self, url: str, eteamsid: Optional[str] = None, **kwargs) -> dict:
+    def post(self, url: str, eteamsid: Optional[str] = None, **kwargs) -> Any:
         """发送POST请求"""
         return self.request('POST', url, eteamsid=eteamsid, **kwargs)
 
-    def delete(self, url: str, eteamsid: Optional[str] = None, **kwargs) -> dict:
+    def delete(self, url: str, eteamsid: Optional[str] = None, **kwargs) -> Any:
         """发送DELETE请求"""
         return self.request('DELETE', url, eteamsid=eteamsid, **kwargs)
 

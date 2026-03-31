@@ -24,6 +24,7 @@
 
 - **本地单机模式优先设计核心能力**
 - **V1 先做底座、文档驱动最小闭环与架构奠基**
+- **公开接口测试与底座验证统一以 JSONPlaceholder 作为专用测试网站**
 
 ---
 
@@ -137,7 +138,8 @@ api-test-platform/
 - 规则与模板已增强：`source_ids` 必填、`ai_assisted` 生成记录必须带 `prompt_reference`、可执行接口必须包含 `status_code` 断言，并已支持 `json_field_equals` 断言模板。
 - 旧 `api_test` 底座已新增会话构建与私有环境依赖治理模块，`BaseAPI` 默认使用重试 Session，私有环境 RSA 公钥改为显式环境变量配置，不再依赖占位内容。
 - 根目录 `pytest.ini` 与 `platform_core` 执行器已固定工作区本地 `basetemp`，Windows 默认 pytest 临时目录权限风险已纳入代码约束。
-- 新增 `tests/platform_core/` 与 `api_test/tests/` 对应测试，当前本地基线为 `32 passed` 与 `15 passed, 4 skipped`。
+- 新增 `tests/platform_core/` 与 `api_test/tests/` 对应测试，当前本地基线为 `32 passed` 与 `18 passed, 4 skipped`。
+- `api_test` 公开回归基线已切换到 JSONPlaceholder，并补齐过滤、嵌套路由、伪写入契约和 REST 状态码兼容验证，当前 `api_test` 本地基线为 `18 passed, 4 skipped`。
 
 ---
 
@@ -174,11 +176,17 @@ python -m platform_core.cli run --source <spec-file> --output <workspace-dir>
 python -m platform_core.cli inspect --workspace <workspace-dir>
 ```
 
+### 当前公开接口测试站点
+
+- 当前仓库公开接口测试、底座验证和接口能力示例统一使用 `https://jsonplaceholder.typicode.com/`
+- 测试设计需遵循其公开 Guide：资源范围固定、支持 `GET/POST/PUT/PATCH/DELETE`、支持查询参数过滤和一层嵌套路由、写操作为伪写入不持久化
+- `api_test` 默认公开基线地址已切换到该站点，并同步调整底座以支持 `201` 等标准 REST 状态码
+
 ### 说明
 
 - 2026-03-31 的本地验证结果：
   - `python -m pytest tests/platform_core -v` -> `32 passed`
-  - `cd api_test && python -m pytest -v` -> `15 passed, 4 skipped`
+  - `cd api_test && python -m pytest -v` -> `18 passed, 4 skipped`
 - 根目录 `pytest.ini` 已统一配置 `--basetemp=.pytest_tmp`，`platform_core` 执行器也会为生成工作区显式下发本地临时目录，因此当前无需再手工补 `--basetemp`。
 - `api_test/tests/test_demo.py` 中带 `private_env` 标记的登录链路用例默认跳过；如需显式执行，请先设置 `ENABLE_PRIVATE_API_TESTS=1`，并提供有效 `API_TEST_RSA_PUBLIC_KEY`。
 - 私有环境链路已移除 RSA 占位公钥依赖，但这类用例仍依赖真实账号和私有环境，因此不纳入 V1 当前公开回归验收基线。
