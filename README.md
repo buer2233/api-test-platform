@@ -138,9 +138,10 @@ api-test-platform/
 - 规则与模板已增强：`source_ids` 必填、`ai_assisted` 生成记录必须带 `prompt_reference`、可执行接口必须包含 `status_code` 断言，并已支持 `json_field_equals` 断言模板。
 - 旧 `api_test` 底座已新增会话构建与私有环境依赖治理模块，`BaseAPI` 默认使用重试 Session，私有环境 RSA 公钥改为显式环境变量配置，不再依赖占位内容；`PublicAPI` 也已补齐最小旧接口操作目录，开始向统一接口资产边界收口。
 - `platform_core` 已新增旧 `PublicAPI` 结构化适配层，可把历史接口目录转换为 `SourceDocument + ApiModule + ApiOperation` 快照，作为“既有接口资产”进入统一模型边界的最小桥接。
+- 旧 `PublicAPI` 结构化快照现在还可以导出到工作区并生成 `asset_manifest`，开始进入现有资产清单和工作区检查链路。
 - `api_test/run_test.py` 已新增 `--public-baseline` 模式，可稳定排除 `private_env` 用例，形成不依赖 skip 的本地公开回归入口。
 - 根目录 `pytest.ini` 与 `api_test/pytest.ini` 已显式配置 `asyncio_default_fixture_loop_scope=function`，收敛此前两套测试中的 `pytest-asyncio` 弃用告警；`api_test` 的 pytest-html hook 也已更新为当前推荐写法。
-- 新增 `tests/platform_core/` 与 `api_test/tests/` 对应测试，当前本地基线为 `35 passed` 与 `30 passed, 4 skipped`。
+- 新增 `tests/platform_core/` 与 `api_test/tests/` 对应测试，当前本地基线为 `37 passed` 与 `30 passed, 4 skipped`。
 - `api_test` 公开回归基线已切换到 JSONPlaceholder，并补齐过滤、嵌套路由、伪写入契约、REST 状态码兼容、公共 fixture、`users/todos` 资源封装、旧接口目录治理与公开基线执行入口；当前 `api_test` 全量基线为 `30 passed, 4 skipped`，公开基线为 `30 passed, 4 deselected`。
 
 ---
@@ -191,6 +192,12 @@ python -m platform_core.cli inspect --workspace <workspace-dir>
 python -m platform_core.cli inspect-legacy-public-api
 ```
 
+### 导出旧 PublicAPI 的结构化资产快照
+
+```bash
+python -m platform_core.cli snapshot-legacy-public-api --output <workspace-dir>
+```
+
 ### 当前公开接口测试站点
 
 - 当前仓库公开接口测试、底座验证和接口能力示例统一使用 `https://jsonplaceholder.typicode.com/`
@@ -200,7 +207,7 @@ python -m platform_core.cli inspect-legacy-public-api
 ### 说明
 
 - 2026-03-31 的本地验证结果：
-  - `python -m pytest tests/platform_core -v` -> `35 passed`
+  - `python -m pytest tests/platform_core -v` -> `37 passed`
   - `cd api_test && python -m pytest -v` -> `30 passed, 4 skipped`
   - `cd api_test && python run_test.py --public-baseline` -> `30 passed, 4 deselected`
 - 根目录 `pytest.ini` 已统一配置 `--basetemp=.pytest_tmp`，`platform_core` 执行器也会为生成工作区显式下发本地临时目录，因此当前无需再手工补 `--basetemp`。
@@ -209,6 +216,7 @@ python -m platform_core.cli inspect-legacy-public-api
 - `python -m platform_core.cli run ...` 的输出摘要中已包含 `asset_manifest_path`，可直接定位本轮生成资产清单。
 - `python -m platform_core.cli inspect ...` 可返回 `validation_status`、资产数量、生成记录数量、资产摘要、缺失资产和 digest 不一致信息，用于当前 V1 资产检查。
 - `python -m platform_core.cli inspect-legacy-public-api` 可返回旧 `PublicAPI` 的模块数、接口数、私有链路接口数以及结构化操作清单，用于当前 V1 既有接口资产治理。
+- `python -m platform_core.cli snapshot-legacy-public-api --output ...` 可把旧 `PublicAPI` 快照导出为工作区资产，并生成 `asset_manifest.json` 供后续 `inspect` 链路复用。
 
 ---
 

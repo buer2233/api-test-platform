@@ -309,3 +309,50 @@ def test_platform_core_cli_can_inspect_legacy_public_api_catalog():
     assert payload["module_count"] >= 4
     assert payload["operation_count"] >= 8
     assert any(operation["operation_code"] == "invite_user" for operation in payload["operations"])
+
+
+def test_platform_application_service_can_snapshot_legacy_public_api_catalog(tmp_path):
+    output_root = tmp_path / "legacy-workspace"
+    service = PlatformApplicationService(project_root=Path.cwd())
+
+    result = service.snapshot_legacy_public_api_catalog(output_root=output_root)
+    inspection = service.inspect_workspace(output_root)
+
+    assert result.source_document.source_type == "existing_api_asset"
+    assert result.execution_record.execution_level == "structure_check"
+    assert result.execution_record.result_status == "passed"
+    assert Path(result.execution_record.report_path).exists()
+    assert Path(result.asset_manifest_path).exists()
+    assert len(result.modules) >= 4
+    assert len(result.operations) >= 8
+    assert len(result.asset_manifest.assets) == len(result.modules)
+    assert all(asset.asset_type == "api_module" for asset in result.asset_manifest.assets)
+    assert any(key.startswith("api::legacy::") for key in result.generated_paths)
+    assert inspection.validation_status == "valid"
+    assert inspection.asset_count == len(result.modules)
+
+
+def test_platform_core_cli_can_snapshot_legacy_public_api_catalog(tmp_path):
+    output_root = tmp_path / "legacy-cli-workspace"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "platform_core.cli",
+            "snapshot-legacy-public-api",
+            "--output",
+            str(output_root),
+        ],
+        cwd=Path.cwd(),
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["source_type"] == "existing_api_asset"
+    assert payload["execution_status"] == "passed"
+    assert payload["module_count"] >= 4
+    assert payload["operation_count"] >= 8
+    assert Path(payload["asset_manifest_path"]).exists()

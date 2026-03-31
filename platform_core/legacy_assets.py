@@ -1,9 +1,23 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from importlib import import_module
+from pathlib import Path
+from uuid import uuid4
 
-from platform_core.models import ApiModule, ApiOperation, LegacyApiInventoryResult, SourceDocument
+from platform_core.assets import AssetWorkspace
+from platform_core.models import (
+    ApiModule,
+    ApiOperation,
+    AssertionCandidate,
+    ExecutionRecord,
+    GenerationRecord,
+    LegacyApiInventoryResult,
+    PipelineResult,
+    SourceDocument,
+)
+from platform_core.rules import RuleValidator
 
 
 class LegacyPublicApiCatalogAdapter:
@@ -87,4 +101,145 @@ class LegacyPublicApiCatalogAdapter:
             private_env_operation_count=private_env_operation_count,
             modules=modules,
             operations=operations,
+        )
+
+    def export(
+        self,
+        output_root: str | Path,
+        validator: RuleValidator | None = None,
+    ) -> PipelineResult:
+        inventory = self.inspect()
+        rule_validator = validator or RuleValidator()
+        workspace = AssetWorkspace(output_root)
+        workspace.prepare()
+
+        generated_paths: dict[str, str] = {}
+        generation_records: list[GenerationRecord] = []
+        generated_assets = []
+
+        for module in inventory.modules:
+            module_operations = [operation for operation in inventory.operations if operation.module_id == module.module_id]
+            violations: list[str] = []
+            for operation in module_operations:
+                violations.extend(rule_validator.validate_operation(operation))
+            if violations:
+                raise ValueError("; ".join(violations))
+
+            module_path = workspace.apis_dir / f"legacy_{module.module_code}_inventory.json"
+            module_path.write_text(
+                json.dumps(
+                    {
+                        "source_document": inventory.source_document.model_dump(mode="json"),
+                        "module": module.model_dump(mode="json"),
+                        "operations": [operation.model_dump(mode="json") for operation in module_operations],
+                        "operation_count": len(module_operations),
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            generated_paths[f"api::legacy::{module.module_code}"] = str(module_path)
+
+            generation_record = self._write_generation_record(
+                records_dir=workspace.records_dir,
+                source_id=inventory.source_document.source_id,
+                asset_path=module_path,
+            )
+            generation_records.append(generation_record)
+            generated_assets.append(
+                workspace.build_asset_record(
+                    asset_type="api_module",
+                    asset_path=module_path,
+                    generation_record=generation_record,
+                    module_code=module.module_code,
+                )
+            )
+
+        execution_record = self._write_execution_report(
+            workspace=workspace,
+            inventory=inventory,
+            target_id="legacy-public-api-catalog",
+        )
+        execution_record_path = workspace.records_dir / "execution_record.json"
+        execution_record_path.write_text(
+            json.dumps(execution_record.model_dump(mode="json"), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        asset_manifest, asset_manifest_path = workspace.write_manifest(
+            source_document=inventory.source_document,
+            assets=generated_assets,
+            generation_records=generation_records,
+            execution_record=execution_record,
+        )
+
+        return PipelineResult(
+            source_document=inventory.source_document,
+            modules=inventory.modules,
+            operations=inventory.operations,
+            assertions=[],
+            generation_records=generation_records,
+            execution_record=execution_record,
+            asset_manifest=asset_manifest,
+            asset_manifest_path=str(asset_manifest_path),
+            generated_paths=generated_paths,
+        )
+
+    @staticmethod
+    def _write_generation_record(records_dir: Path, source_id: str, asset_path: Path) -> GenerationRecord:
+        record = GenerationRecord(
+            generation_id=f"gen-{uuid4().hex[:8]}",
+            generation_type="api_method",
+            source_ids=[source_id],
+            target_asset_type="api_module",
+            target_asset_path=str(asset_path),
+            generator_type="rule_based",
+            generated_at=datetime.now(UTC),
+            generated_by="codex",
+            generation_version="v1-legacy-catalog",
+            template_reference="legacy_api_catalog_exporter",
+            review_status="pending",
+            execution_status="passed",
+        )
+        violations = RuleValidator.validate_generation_record(record)
+        if violations:
+            raise ValueError("; ".join(violations))
+        record_path = records_dir / f"{record.generation_id}.json"
+        record_path.write_text(json.dumps(record.model_dump(mode="json"), ensure_ascii=False, indent=2), encoding="utf-8")
+        return record
+
+    @staticmethod
+    def _write_execution_report(
+        workspace: AssetWorkspace,
+        inventory: LegacyApiInventoryResult,
+        target_id: str,
+    ) -> ExecutionRecord:
+        report_path = workspace.reports_dir / "legacy_public_api_inventory.json"
+        started_at = datetime.now(UTC)
+        report_path.write_text(
+            json.dumps(
+                {
+                    "source_document": inventory.source_document.model_dump(mode="json"),
+                    "module_count": inventory.module_count,
+                    "operation_count": inventory.operation_count,
+                    "private_env_operation_count": inventory.private_env_operation_count,
+                    "validation_status": "valid",
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        ended_at = datetime.now(UTC)
+        return ExecutionRecord(
+            execution_id=f"exec-{target_id}",
+            target_type="api_module",
+            target_id=target_id,
+            execution_level="structure_check",
+            started_at=started_at,
+            ended_at=ended_at,
+            result_status="passed",
+            report_path=str(report_path),
+            error_summary="",
+            environment="local",
         )

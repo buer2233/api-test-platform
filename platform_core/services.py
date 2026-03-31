@@ -41,6 +41,9 @@ class PlatformApplicationService:
     def inspect_legacy_public_api_catalog(self):
         return self.legacy_catalog_adapter.inspect()
 
+    def snapshot_legacy_public_api_catalog(self, output_root: str | Path):
+        return self.legacy_catalog_adapter.export(output_root=output_root, validator=self.validator)
+
     @staticmethod
     def run_functional_case_pipeline(source_path: str | Path, output_root: str | Path):
         raise NotImplementedError(
