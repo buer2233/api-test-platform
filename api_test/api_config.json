@@ -1,0 +1,49 @@
+{
+  "runtime": {
+    "base_url": "https://jsonplaceholder.typicode.com",
+    "timeout": 30,
+    "verify_ssl": true,
+    "default_headers": {
+      "Content-Type": "application/json"
+    }
+  },
+  "session": {
+    "pool_connections": 100,
+    "pool_maxsize": 100,
+    "max_retries": 3
+  },
+  "execution": {
+    "tests_root": "tests",
+    "report_dir": "report",
+    "default_pytest_args": [
+      "-v",
+      "--strict-markers",
+      "--tb=short",
+      "--disable-warnings"
+    ],
+    "public_baseline_marker": "public_baseline"
+  },
+  "logging": {
+    "enabled": false,
+    "stack": false,
+    "headers": false,
+    "body": false,
+    "response": false,
+    "trace_id": true,
+    "http_log_info": "logs/http_info.log",
+    "http_log_conn": "logs/http_conn.log"
+  },
+  "site_profiles": {
+    "jsonplaceholder": {
+      "enabled": true,
+      "supported_resources": [
+        "posts",
+        "comments",
+        "albums",
+        "photos",
+        "todos",
+        "users"
+      ]
+    }
+  }
+}
