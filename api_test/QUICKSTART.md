@@ -31,11 +31,13 @@ python -m pip install -r requirements.txt
 
 ```bash
 python -m pytest api_test/tests/test_config_loader.py -v --noconftest --basetemp .pytest_tmp/config_loader
+python -m pytest api_test/tests/test_base_api_governance.py -v --noconftest --basetemp .pytest_tmp/base_api
 ```
 
 当前结果：
 
 - `5 passed`
+- `8 passed`
 
 ## 4. 当前不应作为完成态使用的入口
 

@@ -1,38 +1,33 @@
-import base64
-
 import pytest
 import requests
-import rsa
 
 from core.base_api import BaseAPI
+from core.config_loader import clear_api_config_cache, get_api_config
 from core.session import build_retry_session
 
 
-def test_build_retry_session_mounts_http_and_https_adapters():
-    session = build_retry_session(pool_connections=12, pool_maxsize=34, max_retries=5)
+def test_build_retry_session_uses_config_values():
+    config = get_api_config()
+
+    session = build_retry_session()
 
     assert isinstance(session.adapters["http://"], requests.adapters.HTTPAdapter)
     assert isinstance(session.adapters["https://"], requests.adapters.HTTPAdapter)
-    assert session.adapters["http://"]._pool_connections == 12
-    assert session.adapters["https://"]._pool_maxsize == 34
+    assert session.adapters["http://"]._pool_connections == config.session.pool_connections
+    assert session.adapters["https://"]._pool_maxsize == config.session.pool_maxsize
     session.close()
 
 
-def test_password_rsa_requires_configured_public_key(monkeypatch):
-    monkeypatch.delenv("API_TEST_RSA_PUBLIC_KEY", raising=False)
+def test_base_api_uses_json_runtime_config():
+    clear_api_config_cache()
 
-    with pytest.raises(RuntimeError, match="API_TEST_RSA_PUBLIC_KEY"):
-        BaseAPI.password_rsa("Secret123")
+    api = BaseAPI()
 
-
-def test_password_rsa_uses_configured_public_key(monkeypatch):
-    public_key, private_key = rsa.newkeys(512)
-    monkeypatch.setenv("API_TEST_RSA_PUBLIC_KEY", public_key.save_pkcs1(format="PEM").decode("utf-8"))
-
-    encrypted = BaseAPI.password_rsa("Secret123")
-    decrypted = rsa.decrypt(base64.b64decode(encrypted), private_key).decode("utf-8")
-
-    assert decrypted == "Secret123"
+    assert api.base_url == "https://jsonplaceholder.typicode.com"
+    assert api.timeout == 30
+    assert api.verify_ssl is True
+    assert api.default_headers["Content-Type"] == "application/json"
+    api.session.close()
 
 
 def test_request_returns_raw_response_when_notjson(monkeypatch):
@@ -54,15 +49,14 @@ def test_request_returns_raw_response_when_notjson(monkeypatch):
     api.session.close()
 
 
-def test_request_accepts_non_200_expected_status(monkeypatch):
+def test_request_accepts_expected_status_override(monkeypatch):
     class DummyResponse:
         status_code = 201
+        text = '{"id": 101}'
 
         @staticmethod
         def json():
             return {"id": 101}
-
-        text = '{"id": 101}'
 
     api = BaseAPI()
     monkeypatch.setattr(api.session, "request", lambda **kwargs: DummyResponse())
@@ -73,7 +67,7 @@ def test_request_accepts_non_200_expected_status(monkeypatch):
     api.session.close()
 
 
-def test_request_rejects_unexpected_status_from_allowed_set(monkeypatch):
+def test_request_rejects_unexpected_status(monkeypatch):
     class DummyResponse:
         status_code = 202
         text = "accepted"
@@ -143,3 +137,9 @@ def test_patch_helper_delegates_to_request(monkeypatch):
     assert captured["json"] == {"title": "patched"}
     assert response["ok"] is True
     api.session.close()
+
+
+def test_base_api_no_longer_exposes_private_login_helpers():
+    assert not hasattr(BaseAPI, "password_rsa")
+    assert not hasattr(BaseAPI, "login")
+    assert not hasattr(BaseAPI, "get_admin_session")

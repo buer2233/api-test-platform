@@ -18,11 +18,17 @@
   - 新增 `api_test/api_config.json`
   - 新增 `api_test/core/config_loader.py`
   - 新增 `api_test/tests/test_config_loader.py`
+- `api_test/` 运行时治理的第二个 TDD 循环：
+  - 已将 `api_test/core/session.py` 改为读取 JSON 配置
+  - 已将 `api_test/core/base_api.py` 收口为通用 HTTP 客户端
+  - 已将 `api_test/core/__init__.py` 去除旧私有站点导出
 
 当前分支最新已验证结果：
 
 - `python -m pytest api_test/tests/test_config_loader.py -v --noconftest --basetemp .pytest_tmp/config_loader`
   - `5 passed`
+- `python -m pytest api_test/tests/test_base_api_governance.py -v --noconftest --basetemp .pytest_tmp/base_api`
+  - `8 passed`
 
 说明：
 
@@ -84,6 +90,7 @@ python -m pytest tests/platform_core -v
 
 ```bash
 python -m pytest api_test/tests/test_config_loader.py -v --noconftest --basetemp .pytest_tmp/config_loader
+python -m pytest api_test/tests/test_base_api_governance.py -v --noconftest --basetemp .pytest_tmp/base_api
 ```
 
 ## 备注
