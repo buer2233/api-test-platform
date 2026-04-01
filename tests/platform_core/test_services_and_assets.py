@@ -1,3 +1,5 @@
+"""资产清单、旧接口快照与应用服务测试。"""
+
 import json
 import subprocess
 import sys
@@ -17,6 +19,7 @@ from platform_core.services import PlatformApplicationService
 
 
 def build_openapi_spec() -> dict:
+    """构造资产与服务测试使用的 OpenAPI 样例。"""
     return {
         "openapi": "3.0.0",
         "info": {"title": "User API", "version": "1.0.0"},
@@ -63,6 +66,7 @@ def build_openapi_spec() -> dict:
 
 
 def build_operation() -> ApiOperation:
+    """构造规则测试使用的最小接口对象。"""
     return ApiOperation(
         operation_id="op-get-user",
         module_id="mod-user",
@@ -76,8 +80,11 @@ def build_operation() -> ApiOperation:
 
 
 class InvalidLegacyPublicApiCatalogAdapter(LegacyPublicApiCatalogAdapter):
+    """故意返回非法旧接口目录的测试替身。"""
+
     @staticmethod
     def _load_catalog():
+        """返回带非法字段的旧接口目录，用于触发规则错误。"""
         return {
             "invalid_legacy_operation": LegacyApiOperation(
                 operation_name="非法旧接口",
@@ -94,6 +101,7 @@ class InvalidLegacyPublicApiCatalogAdapter(LegacyPublicApiCatalogAdapter):
 
 
 def test_parser_creates_json_field_equals_assertion_from_response_examples(tmp_path):
+    """解析器应从响应示例中生成 json_field_equals 断言。"""
     source_path = tmp_path / "user_openapi.json"
     source_path.write_text(json.dumps(build_openapi_spec(), ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -106,6 +114,7 @@ def test_parser_creates_json_field_equals_assertion_from_response_examples(tmp_p
 
 
 def test_assertion_template_renders_json_field_equals():
+    """断言模板应正确渲染 json_field_equals 断言。"""
     renderer = TemplateRenderer()
     assertions = [
         AssertionCandidate(
@@ -127,6 +136,7 @@ def test_assertion_template_renders_json_field_equals():
 
 
 def test_rule_validator_rejects_ai_generation_without_prompt_reference():
+    """AI 辅助生成记录缺少 prompt_reference 时应被拦截。"""
     validator = RuleValidator()
     record = GenerationRecord(
         generation_id="gen-ai-001",
@@ -149,6 +159,7 @@ def test_rule_validator_rejects_ai_generation_without_prompt_reference():
 
 
 def test_rule_validator_requires_status_code_assertion_for_executable_operation():
+    """可执行接口缺少状态码断言时应被拦截。"""
     validator = RuleValidator()
     assertions = [
         AssertionCandidate(
@@ -170,6 +181,7 @@ def test_rule_validator_requires_status_code_assertion_for_executable_operation(
 
 
 def test_rule_validator_rejects_asset_manifest_without_assets_and_generation_links():
+    """资产清单缺少关键字段时应被拦截。"""
     validator = RuleValidator()
     manifest = AssetManifest(
         manifest_id="manifest-001",
@@ -192,6 +204,7 @@ def test_rule_validator_rejects_asset_manifest_without_assets_and_generation_lin
 
 
 def test_document_pipeline_persists_asset_manifest_with_hashes(tmp_path):
+    """流水线应落盘带摘要的资产清单。"""
     source_path = tmp_path / "user_openapi.json"
     source_path.write_text(json.dumps(build_openapi_spec(), ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -212,6 +225,7 @@ def test_document_pipeline_persists_asset_manifest_with_hashes(tmp_path):
 
 
 def test_platform_application_service_can_inspect_generated_workspace(tmp_path):
+    """应用服务应能检查已生成工作区。"""
     source_path = tmp_path / "user_openapi.json"
     source_path.write_text(json.dumps(build_openapi_spec(), ensure_ascii=False, indent=2), encoding="utf-8")
     output_root = tmp_path / "workspace"
@@ -233,6 +247,7 @@ def test_platform_application_service_can_inspect_generated_workspace(tmp_path):
 
 
 def test_platform_application_service_reports_missing_assets_in_workspace(tmp_path):
+    """应用服务应能识别工作区中缺失的生成文件。"""
     source_path = tmp_path / "user_openapi.json"
     source_path.write_text(json.dumps(build_openapi_spec(), ensure_ascii=False, indent=2), encoding="utf-8")
     output_root = tmp_path / "workspace"
@@ -250,6 +265,7 @@ def test_platform_application_service_reports_missing_assets_in_workspace(tmp_pa
 
 
 def test_platform_core_cli_can_inspect_workspace_manifest(tmp_path):
+    """CLI 应支持检查工作区资产清单。"""
     source_path = tmp_path / "user_openapi.json"
     source_path.write_text(json.dumps(build_openapi_spec(), ensure_ascii=False, indent=2), encoding="utf-8")
     output_root = tmp_path / "workspace"
@@ -282,6 +298,7 @@ def test_platform_core_cli_can_inspect_workspace_manifest(tmp_path):
 
 
 def test_platform_application_service_blocks_future_routes_in_v1(tmp_path):
+    """应用服务应显式阻断 V1 尚未开放的路线。"""
     service = PlatformApplicationService(project_root=Path.cwd())
 
     assert service.supported_routes()["document"] is True
@@ -296,6 +313,7 @@ def test_platform_application_service_blocks_future_routes_in_v1(tmp_path):
 
 
 def test_platform_application_service_can_inspect_legacy_public_api_catalog():
+    """应用服务应能输出旧接口目录库存摘要。"""
     service = PlatformApplicationService(project_root=Path.cwd())
 
     inventory = service.inspect_legacy_public_api_catalog()
@@ -313,6 +331,7 @@ def test_platform_application_service_can_inspect_legacy_public_api_catalog():
 
 
 def test_platform_core_cli_can_inspect_legacy_public_api_catalog():
+    """CLI 应支持检查旧接口目录库存。"""
     result = subprocess.run(
         [
             sys.executable,
@@ -336,6 +355,7 @@ def test_platform_core_cli_can_inspect_legacy_public_api_catalog():
 
 
 def test_platform_application_service_can_snapshot_legacy_public_api_catalog(tmp_path):
+    """应用服务应能把旧接口目录导出为工作区快照。"""
     output_root = tmp_path / "legacy-workspace"
     service = PlatformApplicationService(project_root=Path.cwd())
 
@@ -360,6 +380,7 @@ def test_platform_application_service_can_snapshot_legacy_public_api_catalog(tmp
 
 
 def test_platform_core_cli_can_snapshot_legacy_public_api_catalog(tmp_path):
+    """CLI 应支持导出旧接口目录快照。"""
     output_root = tmp_path / "legacy-cli-workspace"
 
     result = subprocess.run(
@@ -386,6 +407,7 @@ def test_platform_core_cli_can_snapshot_legacy_public_api_catalog(tmp_path):
 
 
 def test_platform_application_service_rejects_invalid_legacy_public_api_catalog_snapshot(tmp_path):
+    """非法旧接口目录快照应在导出前被阻断。"""
     service = PlatformApplicationService(
         project_root=Path.cwd(),
         legacy_catalog_adapter=InvalidLegacyPublicApiCatalogAdapter(),

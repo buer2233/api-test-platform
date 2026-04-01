@@ -1,3 +1,5 @@
+"""旧接口目录桥接到平台资产模型的适配层。"""
+
 from __future__ import annotations
 
 import json
@@ -24,14 +26,17 @@ class LegacyPublicApiCatalogAdapter:
     """把旧 PublicAPI 操作目录转换为 platform_core 可消费的结构化快照。"""
 
     def __init__(self, imported_by: str = "platform_core") -> None:
+        """记录当前导入动作的执行来源。"""
         self.imported_by = imported_by
 
     @staticmethod
     def _load_catalog():
+        """加载旧 PublicAPI 的最小标准化目录。"""
         module = import_module("api_test.legacy_api_catalog")
         return module.PUBLIC_API_OPERATION_CATALOG
 
     def inspect(self, validator: RuleValidator | None = None) -> LegacyApiInventoryResult:
+        """把旧接口目录转换为结构化库存摘要，并执行规则校验。"""
         source_id = "src-existing-public-api"
         source_document = SourceDocument(
             source_id=source_id,
@@ -113,6 +118,7 @@ class LegacyPublicApiCatalogAdapter:
         output_root: str | Path,
         validator: RuleValidator | None = None,
     ) -> PipelineResult:
+        """把旧接口目录导出为工作区快照和资产清单。"""
         rule_validator = validator or RuleValidator()
         inventory = self.inspect(validator=rule_validator)
         if inventory.validation_status != "valid":
@@ -188,6 +194,7 @@ class LegacyPublicApiCatalogAdapter:
 
     @staticmethod
     def _write_generation_record(records_dir: Path, source_id: str, asset_path: Path) -> GenerationRecord:
+        """为旧接口导出的模块快照写出生成记录。"""
         record = GenerationRecord(
             generation_id=f"gen-{uuid4().hex[:8]}",
             generation_type="api_method",
@@ -215,6 +222,7 @@ class LegacyPublicApiCatalogAdapter:
         inventory: LegacyApiInventoryResult,
         target_id: str,
     ) -> ExecutionRecord:
+        """写出旧接口目录检查报告，并返回执行记录。"""
         report_path = workspace.reports_dir / "legacy_public_api_inventory.json"
         started_at = datetime.now(UTC)
         report_path.write_text(

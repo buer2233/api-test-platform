@@ -1,3 +1,5 @@
+"""`run_test.py` 执行命令构建测试。"""
+
 from argparse import Namespace
 from pathlib import Path
 
@@ -5,6 +7,7 @@ import run_test
 
 
 def test_build_pytest_command_supports_public_baseline_filter():
+    """校验公开基线开关会生成对应 marker 过滤条件。"""
     args = Namespace(mark=None, file=None, html=False, reruns=0, verbose=False, public_baseline=True)
 
     command = run_test.build_pytest_command(args)
@@ -20,6 +23,7 @@ def test_build_pytest_command_supports_public_baseline_filter():
 
 
 def test_build_pytest_command_combines_marker_with_public_baseline():
+    """校验自定义 marker 与公开基线 marker 会被正确组合。"""
     args = Namespace(
         mark="jsonplaceholder",
         file="tests/test_jsonplaceholder_api.py",

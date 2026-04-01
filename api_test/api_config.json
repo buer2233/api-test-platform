@@ -1,43 +1,72 @@
 {
+  "_comment": "api_test 唯一配置源。后续客户端、执行入口和运行时都必须读取本文件；带 _comment 的字段用于提供中文说明，加载器需兼容忽略。",
   "runtime": {
+    "_comment": "运行时基础配置，控制默认请求地址、超时时间、证书校验和通用请求头。",
+    "base_url_comment": "公开基线默认请求地址，当前统一使用 JSONPlaceholder 公开测试站点。",
     "base_url": "https://jsonplaceholder.typicode.com",
+    "timeout_comment": "所有 requests 请求默认超时时间，单位为秒；外网慢时可适当调大。",
     "timeout": 30,
+    "verify_ssl_comment": "是否校验 HTTPS 证书。公开站点默认保持 true，除非调试自签名环境，否则不要关闭。",
     "verify_ssl": true,
+    "default_headers_comment": "默认附加到每次请求的公共请求头；后续客户端修改时应保持键值结构稳定。",
     "default_headers": {
       "Content-Type": "application/json"
     }
   },
   "session": {
+    "_comment": "requests Session 连接池与重试配置，用于控制并发连接数和失败重试策略。",
+    "pool_connections_comment": "HTTPAdapter 底层连接池数量，影响可复用连接数。",
     "pool_connections": 100,
+    "pool_maxsize_comment": "单个连接池的最大连接数，上调后可减少高并发时的阻塞。",
     "pool_maxsize": 100,
+    "max_retries_comment": "连接、读取和状态码失败时的最大重试次数。",
     "max_retries": 3
   },
   "proxy": {
+    "_comment": "外网请求代理配置。当前公开站点回归建议优先通过代理访问，以降低直连超时波动。",
+    "enabled_comment": "是否开启代理。仓库默认必须为 false，按需在运行验证或客户端中切换。",
     "enabled": false,
+    "url_comment": "代理地址，默认指向本机代理端口；开启后同时作用于 http 和 https。",
     "url": "http://127.0.0.1:7890"
   },
   "execution": {
+    "_comment": "测试执行入口相关配置，控制默认测试目录、报告目录和公开基线标记。",
+    "tests_root_comment": "run_test.py 默认收集的测试目录，相对 api_test 根目录解析。",
     "tests_root": "tests",
+    "report_dir_comment": "HTML 报告输出目录，相对 api_test 根目录解析。",
     "report_dir": "report",
+    "default_pytest_args_comment": "默认 pytest 参数预留位，当前主要供后续执行入口和客户端统一消费。",
     "default_pytest_args": [
       "-v",
       "--strict-markers",
       "--tb=short",
       "--disable-warnings"
     ],
+    "public_baseline_marker_comment": "公开基线用例统一 marker，run_test.py 会用它收敛公开回归范围。",
     "public_baseline_marker": "public_baseline"
   },
   "logging": {
+    "_comment": "HTTP 日志配置。当前默认关闭，后续客户端可通过同一配置源统一控制。",
+    "enabled_comment": "总日志开关，关闭时不输出详细 HTTP 日志。",
     "enabled": false,
+    "stack_comment": "是否记录调用栈信息，通常仅在定位复杂问题时开启。",
     "stack": false,
+    "headers_comment": "是否记录请求头和响应头。",
     "headers": false,
+    "body_comment": "是否记录请求体。",
     "body": false,
+    "response_comment": "是否记录响应体。",
     "response": false,
+    "trace_id_comment": "是否在日志中输出 trace_id 相关信息。",
     "trace_id": true,
+    "http_log_info_comment": "普通 HTTP 日志文件路径。",
     "http_log_info": "logs/http_info.log",
+    "http_log_conn_comment": "连接层日志文件路径。",
     "http_log_conn": "logs/http_conn.log"
   },
   "site_profiles": {
+    "_comment": "公开测试站点能力清单。当前只维护 JSONPlaceholder 基线信息。",
+    "jsonplaceholder_comment": "JSONPlaceholder 站点配置，定义当前框架允许验证的公开资源范围。",
     "jsonplaceholder": {
       "enabled": true,
       "supported_resources": [

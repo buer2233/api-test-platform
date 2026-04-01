@@ -27,6 +27,10 @@
   - `build_retry_session()` 在代理开关开启时自动为 `http/https` 请求挂载代理
   - 后续客户端应直接控制这两个配置项，而不是新增平行配置源
   - 本轮验证曾临时启用 `proxy.enabled=true` 并使用 `http://127.0.0.1:7890` 完成代理连通性验证，仓库默认值已恢复为关闭
+- 已完成中文注释治理首轮落地：
+  - 新增 `tests/test_comment_governance.py`，对仓库内 Python 模块/类/方法中文 docstring 与 `api_config.json` 中文说明字段做自动校验
+  - 已为 `run_test.py`、`config_loader.py`、`base_api.py`、`platform_core` 核心层和现有测试文件补齐中文注释
+  - `config_loader.py` 已兼容忽略 `_comment` / `*_comment` 配置说明字段，保证 `api_config.json` 可同时承载配置和中文说明
 - 已移除 `api_test/tests` 中两个旧私有站点测试入口：
   - `test_demo.py`
   - `test_public_api_governance.py`
@@ -56,6 +60,13 @@
     - 根因：访问 `jsonplaceholder.typicode.com` 时出现 `SSL handshake/read timeout`，属于外网站点时延波动，不是框架断言逻辑错误
 - `python api_test/run_test.py --public-baseline`
   - `12 passed, 17 deselected`
+- 中文注释治理与兼容性回归：
+  - `python -m pytest tests -v --basetemp .pytest_tmp/root_full_comment_update`
+    - `42 passed`
+  - `python -m pytest api_test/tests/test_config_loader.py api_test/tests/test_base_api_governance.py api_test/tests/test_run_test.py -v --noconftest --basetemp .pytest_tmp/api_test_local_comment_update_fix`
+    - `18 passed`
+  - `python api_test/run_test.py --public-baseline`
+    - `12 passed, 18 deselected`
 - `cd api_test && python run_test.py --public-baseline`
   - `12 passed, 17 deselected`
 - `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_full`

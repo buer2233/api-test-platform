@@ -17,6 +17,10 @@
   - `api_config.json` 新增 `proxy.enabled` 与 `proxy.url`
   - `session.py` 会在代理开关开启时同时为 `http/https` 配置代理
   - 未来客户端应直接控制同一组配置字段
+- 已完成中文注释治理首轮：
+  - `api_config.json` 已为关键配置段补充中文说明字段
+  - `run_test.py`、`config_loader.py`、`base_api.py`、`session.py`、`jsonplaceholder_api.py` 和现有测试文件已补齐中文注释
+  - `config_loader.py` 会在加载配置时忽略 `_comment` / `*_comment` 字段
 
 已验证结果：
 
@@ -28,6 +32,7 @@ python api_test/run_test.py --public-baseline
 cd api_test && python run_test.py --public-baseline
 python -m pytest api_test/tests/test_base_api_governance.py -v --noconftest --basetemp .pytest_tmp/base_api_proxy_recheck
 python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_full_default_off_serial
+python -m pytest api_test/tests/test_config_loader.py api_test/tests/test_base_api_governance.py api_test/tests/test_run_test.py -v --noconftest --basetemp .pytest_tmp/api_test_local_comment_update_fix
 ```
 
 结果：
@@ -39,11 +44,13 @@ python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_full_default_
 - `12 passed, 17 deselected`
 - `10 passed`
 - `1 failed, 28 passed`
+- `18 passed`
 
 补充说明：
 
 - 2026-04-01 已完成代理端口探测和真实代理请求验证，代理开启时公开基线双入口均通过；
 - 同日默认关闭代理的 `api_test` 全量直连复验出现 `test_patch_updates_partial_fields` 超时失败，根因为访问公开站点时的 `SSL handshake/read timeout`，不是框架功能断言失败。
+- 2026-04-01 已新增中文注释治理测试，并完成本地 `api_test` 注释兼容性回归 `18 passed`。
 
 ## 当前目录结构
 

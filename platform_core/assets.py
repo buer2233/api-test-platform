@@ -1,3 +1,5 @@
+"""资产工作区与资产清单管理能力。"""
+
 from __future__ import annotations
 
 import hashlib
@@ -25,6 +27,7 @@ class AssetWorkspace:
     """V1 资产工作区，统一管理目录、资产清单和清单落盘。"""
 
     def __init__(self, output_root: str | Path) -> None:
+        """初始化工作区目录结构对象。"""
         self.workspace_root = Path(output_root)
         self.generated_root = self.workspace_root / "generated"
         self.apis_dir = self.generated_root / "apis"
@@ -33,6 +36,7 @@ class AssetWorkspace:
         self.reports_dir = self.generated_root / "reports"
 
     def prepare(self) -> None:
+        """创建生成目录及必要的 `__init__.py` 文件。"""
         for directory in (
             self.generated_root,
             self.apis_dir,
@@ -57,6 +61,7 @@ class AssetWorkspace:
         module_code: str | None = None,
         operation_code: str | None = None,
     ) -> AssetRecord:
+        """根据已生成文件构建资产清单记录。"""
         return AssetRecord(
             asset_id=f"asset-{uuid4().hex[:8]}",
             asset_type=asset_type,
@@ -76,6 +81,7 @@ class AssetWorkspace:
         generation_records: list[GenerationRecord],
         execution_record: ExecutionRecord,
     ) -> tuple[AssetManifest, Path]:
+        """写出资产清单文件，并返回模型对象和落盘路径。"""
         manifest = AssetManifest(
             manifest_id=f"manifest-{uuid4().hex[:8]}",
             source_id=source_document.source_id,
@@ -96,12 +102,14 @@ class AssetWorkspace:
         return manifest, manifest_path
 
     def load_manifest(self) -> AssetManifest:
+        """读取工作区中的资产清单。"""
         manifest_path = self.records_dir / "asset_manifest.json"
         if not manifest_path.exists():
             raise FileNotFoundError(f"未找到资产清单: {manifest_path}")
         return AssetManifest.model_validate_json(manifest_path.read_text(encoding="utf-8"))
 
     def inspect_manifest(self, validator: RuleValidator | None = None) -> AssetInspectionResult:
+        """检查资产清单、生成文件和报告文件是否一致。"""
         manifest_path = self.records_dir / "asset_manifest.json"
         manifest = self.load_manifest()
         validation_errors = validator.validate_asset_manifest(manifest) if validator else []
@@ -152,9 +160,11 @@ class AssetWorkspace:
 
     @staticmethod
     def _digest_bytes(content: bytes) -> str:
+        """计算字节内容的 SHA256 摘要。"""
         return hashlib.sha256(content).hexdigest()
 
     def _build_source_digest(self, source_document: SourceDocument) -> str:
+        """为源文档构建摘要，优先使用真实文件内容。"""
         candidate_path = source_document.source_path or source_document.raw_reference
         if candidate_path:
             source_path = Path(candidate_path)
@@ -164,6 +174,7 @@ class AssetWorkspace:
         return self._digest_bytes(fallback)
 
     def _resolve_path(self, candidate_path: str | None) -> Path | None:
+        """把相对路径解析为工作区内的绝对路径。"""
         if not candidate_path:
             return None
         path = Path(candidate_path)

@@ -1,3 +1,5 @@
+"""`platform_core` 命令行入口。"""
+
 from __future__ import annotations
 
 import argparse
@@ -8,6 +10,7 @@ from platform_core.services import PlatformApplicationService
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """构建平台核心 CLI 参数解析器。"""
     parser = argparse.ArgumentParser(description="platform_core CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -28,6 +31,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    """解析命令并分发到对应的应用服务入口。"""
     parser = build_parser()
     args = parser.parse_args()
 

@@ -1,4 +1,6 @@
-﻿from __future__ import annotations
+"""文档驱动最小闭环流水线。"""
+
+from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
@@ -24,6 +26,7 @@ class DocumentDrivenPipeline:
         validator: RuleValidator | None = None,
         executor: PytestExecutor | None = None,
     ) -> None:
+        """初始化解析、渲染、规则校验和执行依赖。"""
         self.project_root = Path(project_root or Path(__file__).resolve().parent.parent)
         self.parser = parser or OpenAPIDocumentParser()
         self.renderer = renderer or TemplateRenderer()
@@ -31,6 +34,7 @@ class DocumentDrivenPipeline:
         self.executor = executor or PytestExecutor(project_root=self.project_root)
 
     def run(self, source_path: str | Path, output_root: str | Path) -> PipelineResult:
+        """执行完整的文档驱动闭环并返回流水线结果。"""
         parsed = self.parser.parse(source_path)
         asset_workspace = AssetWorkspace(output_root)
         asset_workspace.prepare()
@@ -135,6 +139,7 @@ class DocumentDrivenPipeline:
         asset_path: Path,
         template_reference: str,
     ) -> GenerationRecord:
+        """为生成出的 API 或测试文件写出生成记录。"""
         record = GenerationRecord(
             generation_id=f"gen-{uuid4().hex[:8]}",
             generation_type="api_method" if asset_type == "api_module" else "test_case",

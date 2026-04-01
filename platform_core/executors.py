@@ -1,4 +1,6 @@
-﻿from __future__ import annotations
+"""pytest 执行器实现。"""
+
+from __future__ import annotations
 
 import os
 import subprocess
@@ -13,10 +15,12 @@ class PytestExecutor:
     """最小 pytest 执行器。"""
 
     def __init__(self, project_root: str | Path | None = None, python_executable: str | None = None) -> None:
+        """初始化执行器，确定项目根目录和 Python 解释器。"""
         self.project_root = Path(project_root or Path(__file__).resolve().parent.parent)
         self.python_executable = python_executable or sys.executable
 
     def run(self, test_path: str | Path, output_root: str | Path, target_id: str | None = None) -> ExecutionRecord:
+        """执行指定测试文件或目录，并生成执行记录。"""
         test_target = Path(test_path)
         workspace = Path(output_root)
         report_dir = workspace / "generated" / "reports"

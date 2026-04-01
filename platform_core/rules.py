@@ -1,3 +1,5 @@
+"""平台规则校验器。"""
+
 from __future__ import annotations
 
 import re
@@ -17,6 +19,7 @@ class RuleValidator:
     _PRIVATE_ENV_TAG = "private_env"
 
     def validate_operation(self, operation: ApiOperation) -> list[str]:
+        """校验通用接口操作是否满足最小命名和字段约束。"""
         violations: list[str] = []
         if not operation.operation_code or not self._SNAKE_CASE_PATTERN.match(operation.operation_code):
             violations.append("operation_code 必须为 snake_case")
@@ -31,6 +34,7 @@ class RuleValidator:
         return violations
 
     def validate_existing_api_module(self, module: ApiModule) -> list[str]:
+        """校验旧接口模块目录是否满足既有资产规则。"""
         violations: list[str] = []
         if not module.module_code or not self._SNAKE_CASE_PATTERN.match(module.module_code):
             violations.append(f"existing_api_asset.module_code 必须为 snake_case: {module.module_code}")
@@ -41,6 +45,7 @@ class RuleValidator:
         return violations
 
     def validate_existing_api_operation(self, operation: ApiOperation) -> list[str]:
+        """校验旧接口操作是否满足既有资产规则。"""
         violations = self.validate_operation(operation)
         metadata = operation.metadata or {}
 
@@ -100,6 +105,7 @@ class RuleValidator:
         modules: list[ApiModule],
         operations: list[ApiOperation],
     ) -> list[str]:
+        """批量校验旧接口模块与操作组成的库存。"""
         violations: list[str] = []
         module_ids = {module.module_id for module in modules}
 
@@ -115,6 +121,7 @@ class RuleValidator:
 
     @staticmethod
     def validate_test_file_name(file_name: str) -> list[str]:
+        """校验测试文件名是否符合 `test_*.py` 规范。"""
         normalized = Path(file_name).name
         if not normalized.startswith("test_") or not normalized.endswith(".py"):
             return ["测试文件名必须符合 test_*.py 规范"]
@@ -122,6 +129,7 @@ class RuleValidator:
 
     @staticmethod
     def validate_generation_record(record: GenerationRecord) -> list[str]:
+        """校验生成记录是否具备最小追溯字段。"""
         violations: list[str] = []
         if not record.source_ids:
             violations.append("generation_record.source_ids 不能为空")
@@ -140,6 +148,7 @@ class RuleValidator:
         operation: ApiOperation,
         assertions: list[AssertionCandidate],
     ) -> list[str]:
+        """校验接口断言集合是否满足执行前置要求。"""
         violations: list[str] = []
         if operation.success_codes and not any(
             assertion.assertion_type == "status_code" for assertion in assertions
@@ -149,6 +158,7 @@ class RuleValidator:
 
     @staticmethod
     def validate_asset_manifest(manifest: AssetManifest) -> list[str]:
+        """校验资产清单是否包含执行闭环所需的关键字段。"""
         violations: list[str] = []
         if not manifest.assets:
             violations.append("asset_manifest.assets 不能为空")

@@ -25,6 +25,7 @@ class LegacyApiOperation:
     metadata: dict[str, Any] | None = None
 
     def render_path(self, **path_params: Any) -> str:
+        """使用路径参数渲染旧接口路径模板。"""
         return self.path_template.format(**path_params)
 
 

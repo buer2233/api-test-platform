@@ -1,3 +1,5 @@
+"""`BaseAPI`、Session 和代理配置治理测试。"""
+
 import json
 from pathlib import Path
 
@@ -11,6 +13,7 @@ from core.session import build_retry_session
 
 
 def test_build_retry_session_uses_config_values():
+    """校验 Session 构建器会读取连接池配置。"""
     config = get_api_config()
 
     session = build_retry_session()
@@ -23,6 +26,7 @@ def test_build_retry_session_uses_config_values():
 
 
 def test_build_retry_session_retries_transport_failures_for_all_methods():
+    """校验重试策略会覆盖所有 HTTP 方法。"""
     config = get_api_config()
 
     session = build_retry_session()
@@ -36,6 +40,7 @@ def test_build_retry_session_retries_transport_failures_for_all_methods():
 
 
 def test_build_retry_session_applies_proxy_when_enabled(tmp_path, monkeypatch):
+    """校验代理开关开启时会同时注入 http 和 https 代理。"""
     payload = json.loads((Path(__file__).resolve().parents[1] / "api_config.json").read_text(encoding="utf-8"))
     payload["proxy"] = {"enabled": True, "url": "http://127.0.0.1:7890"}
     config_path = tmp_path / "api_config.json"
@@ -51,6 +56,7 @@ def test_build_retry_session_applies_proxy_when_enabled(tmp_path, monkeypatch):
 
 
 def test_base_api_uses_json_runtime_config():
+    """校验 BaseAPI 会读取唯一配置源中的运行时配置。"""
     clear_api_config_cache()
 
     api = BaseAPI()
@@ -63,6 +69,7 @@ def test_base_api_uses_json_runtime_config():
 
 
 def test_request_returns_raw_response_when_notjson(monkeypatch):
+    """校验兼容参数 NOTJSON 会返回原始响应对象。"""
     class DummyResponse:
         status_code = 200
         text = "ok"
@@ -82,6 +89,7 @@ def test_request_returns_raw_response_when_notjson(monkeypatch):
 
 
 def test_request_accepts_expected_status_override(monkeypatch):
+    """校验 expected_status 支持单次覆盖默认状态码。"""
     class DummyResponse:
         status_code = 201
         text = '{"id": 101}'
@@ -100,6 +108,7 @@ def test_request_accepts_expected_status_override(monkeypatch):
 
 
 def test_request_rejects_unexpected_status(monkeypatch):
+    """校验状态码不匹配时会抛出断言错误。"""
     class DummyResponse:
         status_code = 202
         text = "accepted"
@@ -118,6 +127,7 @@ def test_request_rejects_unexpected_status(monkeypatch):
 
 
 def test_put_helper_delegates_to_request(monkeypatch):
+    """校验 PUT 快捷方法会把参数透传给 request。"""
     api = BaseAPI()
     captured = {}
 
@@ -145,6 +155,7 @@ def test_put_helper_delegates_to_request(monkeypatch):
 
 
 def test_patch_helper_delegates_to_request(monkeypatch):
+    """校验 PATCH 快捷方法会把参数透传给 request。"""
     api = BaseAPI()
     captured = {}
 
@@ -172,6 +183,7 @@ def test_patch_helper_delegates_to_request(monkeypatch):
 
 
 def test_base_api_no_longer_exposes_private_login_helpers():
+    """校验 BaseAPI 已移除旧私有站点登录辅助方法。"""
     assert not hasattr(BaseAPI, "password_rsa")
     assert not hasattr(BaseAPI, "login")
     assert not hasattr(BaseAPI, "get_admin_session")

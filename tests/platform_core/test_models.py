@@ -1,4 +1,6 @@
-﻿from datetime import datetime
+"""平台核心模型测试。"""
+
+from datetime import datetime
 
 from platform_core.models import (
     ApiModule,
@@ -35,6 +37,7 @@ def test_source_document_records_openapi_origin():
 
 
 def test_source_document_records_existing_api_asset_origin():
+    """TC-V1-MODEL-001A SourceDocument 应记录既有接口资产来源。"""
     imported_at = datetime(2026, 3, 31, 20, 0, 0)
 
     source = SourceDocument(

@@ -1,4 +1,6 @@
-﻿import json
+"""模板渲染与规则校验测试。"""
+
+import json
 
 from platform_core.models import (
     ApiModule,
@@ -12,6 +14,7 @@ from platform_core.rules import RuleValidator
 
 
 def build_module() -> ApiModule:
+    """构造标准模块样例。"""
     return ApiModule(
         module_id="mod-user",
         module_name="user",
@@ -25,6 +28,7 @@ def build_module() -> ApiModule:
 
 
 def build_operation() -> ApiOperation:
+    """构造标准接口操作样例。"""
     return ApiOperation(
         operation_id="op-get-user",
         module_id="mod-user",
@@ -65,6 +69,7 @@ def build_operation() -> ApiOperation:
 
 
 def build_legacy_module() -> ApiModule:
+    """构造旧接口模块样例。"""
     return ApiModule(
         module_id="mod-legacy-user-management",
         module_name="user_management",
@@ -78,6 +83,7 @@ def build_legacy_module() -> ApiModule:
 
 
 def build_legacy_operation() -> ApiOperation:
+    """构造旧接口操作样例。"""
     return ApiOperation(
         operation_id="op-legacy-invite-user",
         module_id="mod-legacy-user-management",
@@ -100,6 +106,7 @@ def build_legacy_operation() -> ApiOperation:
 
 
 def build_assertions() -> list[AssertionCandidate]:
+    """构造断言样例集合。"""
     return [
         AssertionCandidate(
             assertion_id="assert-status-001",

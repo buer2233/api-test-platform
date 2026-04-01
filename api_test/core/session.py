@@ -1,4 +1,4 @@
-"""HTTP session builder for the generic test runtime."""
+"""会话层构建器。"""
 
 from __future__ import annotations
 
@@ -13,7 +13,13 @@ def build_retry_session(
     pool_maxsize: int | None = None,
     max_retries: int | None = None,
 ) -> requests.Session:
-    """Build a requests session using JSON configuration defaults."""
+    """构建带连接池、重试和可选代理的 `requests.Session`。
+
+    参数说明：
+    - `pool_connections`：可选覆盖连接池数量。
+    - `pool_maxsize`：可选覆盖单池最大连接数。
+    - `max_retries`：可选覆盖重试次数。
+    """
     api_config = get_api_config()
     config = api_config.session
     retry_policy = Retry(

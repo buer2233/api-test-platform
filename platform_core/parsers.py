@@ -1,4 +1,6 @@
-﻿from __future__ import annotations
+"""OpenAPI / Swagger 文档解析器。"""
+
+from __future__ import annotations
 
 import json
 import re
@@ -26,6 +28,7 @@ class OpenAPIDocumentParser:
     YAML_SUFFIXES = {".yaml", ".yml"}
 
     def parse(self, source_path: str | Path) -> ParsedDocument:
+        """解析源文档并输出中间模型。"""
         source = Path(source_path)
         spec = self._load_spec(source)
         info = spec.get("info", {})
@@ -72,6 +75,7 @@ class OpenAPIDocumentParser:
         )
 
     def _load_spec(self, source: Path) -> dict[str, Any]:
+        """读取 JSON 或 YAML 格式的接口文档。"""
         raw = source.read_text(encoding="utf-8-sig")
         if source.suffix.lower() in self.YAML_SUFFIXES:
             return yaml.safe_load(raw)
@@ -83,6 +87,7 @@ class OpenAPIDocumentParser:
         operation_spec: dict[str, Any],
         source_document: SourceDocument,
     ) -> ApiModule:
+        """根据路径和标签生成模块模型。"""
         raw_module_name = (operation_spec.get("tags") or [self._module_name_from_path(path)])[0]
         module_code = self._normalize_identifier(raw_module_name)
         return ApiModule(
@@ -105,6 +110,7 @@ class OpenAPIDocumentParser:
         source_document: SourceDocument,
         is_openapi: bool,
     ) -> ApiOperation:
+        """根据单个路径方法定义生成接口操作模型。"""
         operation_code = self._normalize_identifier(
             operation_spec.get("operationId") or f"{method}_{path}"
         )
@@ -158,6 +164,7 @@ class OpenAPIDocumentParser:
         operation_code: str,
         index: int,
     ) -> ApiParam | None:
+        """把单个参数定义转换为统一参数模型。"""
         schema = parameter.get("schema") or {}
         param_in = parameter.get("in")
         if param_in not in {"header", "path", "query", "body", "cookie"}:
@@ -185,6 +192,7 @@ class OpenAPIDocumentParser:
         operation_code: str,
         index: int,
     ) -> ApiParam:
+        """为 Swagger body 参数生成根参数模型。"""
         schema = parameter.get("schema") or {}
         return ApiParam(
             param_id=f"{operation_code}-body-{index}",
@@ -200,6 +208,7 @@ class OpenAPIDocumentParser:
         )
 
     def _build_openapi_body_params(self, operation_code: str, operation_spec: dict[str, Any]) -> list[ApiParam]:
+        """解析 OpenAPI requestBody 中的 body 字段定义。"""
         request_body = operation_spec.get("requestBody") or {}
         content = request_body.get("content") or {}
         schema = (content.get("application/json") or {}).get("schema") or {}
@@ -227,19 +236,16 @@ class OpenAPIDocumentParser:
         operation_spec: dict[str, Any],
         is_openapi: bool,
     ) -> tuple[int | None, list[ResponseField]]:
+        """提取成功响应码及其响应字段。"""
         responses = operation_spec.get("responses") or {}
-        success_codes = sorted(
-            [int(code) for code in responses if code.isdigit() and code.startswith("2")]
-        )
+        success_codes = sorted([int(code) for code in responses if code.isdigit() and code.startswith("2")])
         if not success_codes:
             return None, []
 
         success_code = success_codes[0]
         response_payload = responses.get(str(success_code)) or {}
         if is_openapi:
-            schema = (
-                (((response_payload.get("content") or {}).get("application/json") or {}).get("schema")) or {}
-            )
+            schema = ((((response_payload.get("content") or {}).get("application/json") or {}).get("schema")) or {})
         else:
             schema = response_payload.get("schema") or {}
         fields = self._extract_response_fields(
@@ -256,6 +262,7 @@ class OpenAPIDocumentParser:
         schema: dict[str, Any],
         prefix: str = "",
     ) -> list[ResponseField]:
+        """递归展开响应 schema 中的字段定义。"""
         properties = schema.get("properties") or {}
         required_fields = schema.get("required") or []
         collected: list[ResponseField] = []
@@ -289,6 +296,7 @@ class OpenAPIDocumentParser:
         return collected
 
     def _build_assertions(self, operation: ApiOperation) -> list[AssertionCandidate]:
+        """根据操作定义自动生成最小断言集合。"""
         assertions = [
             AssertionCandidate(
                 assertion_id=f"{operation.operation_id}-status-code",
@@ -344,11 +352,13 @@ class OpenAPIDocumentParser:
 
     @staticmethod
     def _module_name_from_path(path: str) -> str:
+        """根据 URL 路径推导默认模块名。"""
         parts = [part for part in path.split("/") if part and not part.startswith("{")]
         return parts[1] if len(parts) > 1 else (parts[0] if parts else "default")
 
     @staticmethod
     def _normalize_identifier(value: str) -> str:
+        """把任意标识符规范化为 snake_case。"""
         spaced = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", value)
         spaced = re.sub(r"[^a-zA-Z0-9]+", " ", spaced)
         return "_".join(part.lower() for part in spaced.split() if part)

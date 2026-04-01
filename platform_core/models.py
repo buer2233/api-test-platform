@@ -1,4 +1,6 @@
-﻿from __future__ import annotations
+"""平台核心中间模型定义。"""
+
+from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Literal
@@ -13,6 +15,8 @@ class PlatformBaseModel(BaseModel):
 
 
 class SourceDocument(PlatformBaseModel):
+    """源文档或源资产的统一描述对象。"""
+
     source_id: str
     source_type: Literal[
         "openapi",
@@ -33,6 +37,8 @@ class SourceDocument(PlatformBaseModel):
 
 
 class ApiParam(PlatformBaseModel):
+    """接口参数模型。"""
+
     param_id: str
     operation_id: str
     param_name: str
@@ -48,6 +54,8 @@ class ApiParam(PlatformBaseModel):
 
 
 class ResponseField(PlatformBaseModel):
+    """响应字段模型。"""
+
     field_id: str
     operation_id: str
     status_code: int
@@ -62,6 +70,8 @@ class ResponseField(PlatformBaseModel):
 
 
 class ApiModule(PlatformBaseModel):
+    """接口模块模型。"""
+
     module_id: str
     module_name: str
     module_code: str
@@ -73,6 +83,8 @@ class ApiModule(PlatformBaseModel):
 
 
 class ApiOperation(PlatformBaseModel):
+    """接口操作模型。"""
+
     operation_id: str
     module_id: str
     operation_name: str
@@ -96,6 +108,8 @@ class ApiOperation(PlatformBaseModel):
 
 
 class AssertionCandidate(PlatformBaseModel):
+    """断言候选模型。"""
+
     assertion_id: str
     operation_id: str | None = None
     scenario_step_id: str | None = None
@@ -115,6 +129,8 @@ class AssertionCandidate(PlatformBaseModel):
 
 
 class GenerationRecord(PlatformBaseModel):
+    """生成记录模型。"""
+
     generation_id: str
     generation_type: Literal["api_method", "test_case", "assertion", "scenario"]
     source_ids: list[str] = Field(default_factory=list)
@@ -131,6 +147,8 @@ class GenerationRecord(PlatformBaseModel):
 
 
 class AssetRecord(PlatformBaseModel):
+    """资产清单中的单个资产记录。"""
+
     asset_id: str
     asset_type: Literal["api_module", "test_case"]
     asset_path: str
@@ -143,6 +161,8 @@ class AssetRecord(PlatformBaseModel):
 
 
 class AssetInspectionEntry(PlatformBaseModel):
+    """资产检查结果中的单条资产摘要。"""
+
     asset_id: str
     asset_type: Literal["api_module", "test_case"]
     asset_path: str
@@ -154,6 +174,8 @@ class AssetInspectionEntry(PlatformBaseModel):
 
 
 class AssetManifest(PlatformBaseModel):
+    """资产清单模型。"""
+
     manifest_id: str
     source_id: str
     source_type: str
@@ -167,6 +189,8 @@ class AssetManifest(PlatformBaseModel):
 
 
 class AssetInspectionResult(PlatformBaseModel):
+    """资产检查结果模型。"""
+
     manifest_path: str
     workspace_root: str
     source_id: str
@@ -183,6 +207,8 @@ class AssetInspectionResult(PlatformBaseModel):
 
 
 class LegacyApiInventoryResult(PlatformBaseModel):
+    """旧接口目录库存检查结果模型。"""
+
     source_document: SourceDocument
     module_count: int
     operation_count: int
@@ -194,6 +220,8 @@ class LegacyApiInventoryResult(PlatformBaseModel):
 
 
 class ExecutionRecord(PlatformBaseModel):
+    """执行记录模型。"""
+
     execution_id: str
     target_type: str
     target_id: str
@@ -207,6 +235,8 @@ class ExecutionRecord(PlatformBaseModel):
 
 
 class ParsedDocument(PlatformBaseModel):
+    """解析器输出模型。"""
+
     source_document: SourceDocument
     modules: list[ApiModule]
     operations: list[ApiOperation]
@@ -214,6 +244,8 @@ class ParsedDocument(PlatformBaseModel):
 
 
 class PipelineResult(PlatformBaseModel):
+    """文档驱动闭环的统一输出模型。"""
+
     source_document: SourceDocument
     modules: list[ApiModule]
     operations: list[ApiOperation]

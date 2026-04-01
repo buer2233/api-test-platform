@@ -57,6 +57,7 @@ python -m pytest api_test/tests/test_base_api_governance.py -v --noconftest --ba
 - `12 passed, 17 deselected`
 - `12 passed, 17 deselected`
 - `1 failed, 28 passed`
+- `18 passed`
 
 ## 4. 当前不应作为完成态使用的入口
 
@@ -72,6 +73,7 @@ python -m pytest api_test/tests/test_base_api_governance.py -v --noconftest --ba
 - `run_test.py --public-baseline` 已在仓库根目录和 `api_test/` 目录两种方式下通过；
 - 代理能力已通过端口探测、真实代理请求和公开基线双入口复验；
 - 默认关闭代理直连公开站点时，最新一次 `api_test` 全量复验出现 `SSL handshake/read timeout`，对外网回归建议优先开启代理。
+- 当前已新增中文注释治理测试，`api_config.json` 的中文说明字段不会影响配置加载。
 
 ## 5. 下一步参考
 

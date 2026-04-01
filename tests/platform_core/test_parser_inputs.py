@@ -1,4 +1,6 @@
-﻿from pathlib import Path
+"""解析器输入格式测试。"""
+
+from pathlib import Path
 
 from platform_core.parsers import OpenAPIDocumentParser
 

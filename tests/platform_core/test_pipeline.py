@@ -1,4 +1,6 @@
-﻿import json
+"""文档驱动闭环与执行器测试。"""
+
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -9,6 +11,7 @@ from platform_core.pipeline import DocumentDrivenPipeline
 
 
 def build_openapi_spec() -> dict:
+    """构造单接口 OpenAPI 文档样例。"""
     return {
         "openapi": "3.0.0",
         "info": {"title": "User API", "version": "1.0.0"},
@@ -61,6 +64,7 @@ def build_openapi_spec() -> dict:
 
 
 def build_multi_operation_openapi_spec() -> dict:
+    """构造多接口 OpenAPI 文档样例。"""
     return {
         "openapi": "3.0.0",
         "info": {"title": "User API", "version": "1.0.0"},
@@ -225,4 +229,3 @@ def test_platform_core_cli_runs_document_pipeline(tmp_path):
     assert result.returncode == 0, result.stderr
     assert "generated-suite" in result.stdout
     assert (output_root / "generated" / "apis" / "user_api.py").exists()
-
