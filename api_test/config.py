@@ -30,31 +30,6 @@ class RunConfig:
     # 测试账号文件名
     ACCOUNT_FILE = "account.txt"
 
-    # ==================== Nacos配置 ====================
-    # Nacos平台映射关系 (用于服务发现和配置管理)
-    NACOS_MAP = {
-        "weapp.devdm.cn": {
-            "nacosUrl": "http://10.12.107.56",
-            "nacosUser": "nacos",
-            "nacosPasswd": "nacos"
-        },
-        "10.12.107.50": {
-            "nacosUrl": "http://10.12.107.56",
-            "nacosUser": "nacos",
-            "nacosPasswd": "nacos"
-        }
-    }
-
-    # ==================== Zookeeper配置 ====================
-    # Zookeeper平台映射关系 (用于服务注册与发现)
-    ZOOKEEPER_MAP = {
-        "10.12.105.120": {
-            "url": "http://10.12.105.50:9090",
-            "user": "admin",
-            "passwd": "manager"
-        }
-    }
-
     # ==================== 日志配置 ====================
     # 是否启用日志
     IS_LOG = False
@@ -75,12 +50,3 @@ class RunConfig:
     IS_BUILD_STATUS = False
 
 
-# 获取环境变量配置
-def get_nacos_config(base_url: str) -> dict:
-    """根据base_url获取Nacos配置"""
-    return RunConfig.NACOS_MAP.get(base_url, {})
-
-
-def get_zookeeper_config(base_url: str) -> dict:
-    """根据base_url获取Zookeeper配置"""
-    return RunConfig.ZOOKEEPER_MAP.get(base_url, {})
