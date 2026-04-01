@@ -37,23 +37,23 @@ def test_source_document_records_openapi_origin():
 
 
 def test_source_document_records_existing_api_asset_origin():
-    """TC-V1-MODEL-001A SourceDocument 应记录既有接口资产来源。"""
+    """TC-V1-MODEL-001A SourceDocument 应记录通用既有资产来源。"""
     imported_at = datetime(2026, 3, 31, 20, 0, 0)
 
     source = SourceDocument(
-        source_id="src-existing-public-api",
+        source_id="src-existing-api-module",
         source_type="existing_api_asset",
-        source_name="api_test_public_api",
-        source_path="api_test/core/public_api.py",
-        source_version="v1-legacy-catalog",
-        source_summary="旧接口目录快照",
+        source_name="existing-user-api-module",
+        source_path="workspace/existing_assets/user_api_module.json",
+        source_version="v1-existing-asset",
+        source_summary="由既有接口资产导入的模块快照",
         imported_at=imported_at,
         imported_by="platform_core",
-        raw_reference="api_test.legacy_api_catalog:PUBLIC_API_OPERATION_CATALOG",
+        raw_reference="workspace://existing-assets/user_api_module.json",
     )
 
     assert source.source_type == "existing_api_asset"
-    assert source.source_path.endswith("public_api.py")
+    assert source.source_path.endswith("user_api_module.json")
 
 
 def test_api_module_captures_module_ownership():

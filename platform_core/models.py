@@ -206,19 +206,6 @@ class AssetInspectionResult(PlatformBaseModel):
     validation_status: Literal["valid", "invalid"]
 
 
-class LegacyApiInventoryResult(PlatformBaseModel):
-    """旧接口目录库存检查结果模型。"""
-
-    source_document: SourceDocument
-    module_count: int
-    operation_count: int
-    private_env_operation_count: int
-    modules: list[ApiModule] = Field(default_factory=list)
-    operations: list[ApiOperation] = Field(default_factory=list)
-    validation_errors: list[str] = Field(default_factory=list)
-    validation_status: Literal["valid", "invalid"]
-
-
 class ExecutionRecord(PlatformBaseModel):
     """执行记录模型。"""
 

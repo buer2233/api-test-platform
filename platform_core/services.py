@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from platform_core.assets import AssetWorkspace
-from platform_core.legacy_assets import LegacyPublicApiCatalogAdapter
 from platform_core.pipeline import DocumentDrivenPipeline
 from platform_core.rules import RuleValidator
 
@@ -17,13 +16,11 @@ class PlatformApplicationService:
         self,
         project_root: str | Path | None = None,
         document_pipeline: DocumentDrivenPipeline | None = None,
-        legacy_catalog_adapter: LegacyPublicApiCatalogAdapter | None = None,
         validator: RuleValidator | None = None,
     ) -> None:
         """装配平台当前阶段可用的流水线与治理能力。"""
         self.project_root = Path(project_root or Path(__file__).resolve().parent.parent)
         self.document_pipeline = document_pipeline or DocumentDrivenPipeline(project_root=self.project_root)
-        self.legacy_catalog_adapter = legacy_catalog_adapter or LegacyPublicApiCatalogAdapter()
         self.validator = validator or RuleValidator()
 
     @staticmethod
@@ -43,14 +40,6 @@ class PlatformApplicationService:
         """检查指定工作区的资产清单和生成结果。"""
         workspace = AssetWorkspace(output_root)
         return workspace.inspect_manifest(validator=self.validator)
-
-    def inspect_legacy_public_api_catalog(self):
-        """检查旧 PublicAPI 目录并输出库存摘要。"""
-        return self.legacy_catalog_adapter.inspect(validator=self.validator)
-
-    def snapshot_legacy_public_api_catalog(self, output_root: str | Path):
-        """把旧 PublicAPI 目录导出为工作区快照。"""
-        return self.legacy_catalog_adapter.export(output_root=output_root, validator=self.validator)
 
     @staticmethod
     def run_functional_case_pipeline(source_path: str | Path, output_root: str | Path):

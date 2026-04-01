@@ -4,7 +4,7 @@
 
 本指南对应 2026-04-01 开始的通用测试框架重构阶段。
 
-当前已完成并验证的能力只有配置收口第一步，运行时、执行入口和公开基线回归仍在继续迁移。
+当前已完成并验证配置收口、运行时治理、公开基线执行入口和代理控制能力。
 
 ## 1. 安装依赖
 
@@ -21,9 +21,9 @@ python -m pip install -r requirements.txt
 
 当前说明：
 
-- 该文件已经建立，并作为后续唯一配置源；
-- 旧 `config.py` 仍在迁移过程中，尚未完全删除；
-- 当前阶段不要再新增对 `config.py` 的新引用。
+- 该文件已经建立，并作为当前唯一配置源；
+- `config.py` 已删除；
+- 后续客户端也应直接读写该文件中的相关字段。
 
 如需开启代理，请在 `api_config.json` 中调整：
 
@@ -47,21 +47,23 @@ python -m pip install -r requirements.txt
 ```bash
 python -m pytest api_test/tests/test_config_loader.py -v --noconftest --basetemp .pytest_tmp/config_loader
 python -m pytest api_test/tests/test_base_api_governance.py -v --noconftest --basetemp .pytest_tmp/base_api
+python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_full_after_cleanup
+python api_test/run_test.py --public-baseline
 ```
 
 当前结果：
 
 - `5 passed`
 - `10 passed`
-- `29 passed`
-- `12 passed, 17 deselected`
-- `12 passed, 17 deselected`
+- `30 passed`
+- `12 passed, 18 deselected`
+- `12 passed, 18 deselected`
 - `1 failed, 28 passed`
 - `18 passed`
 
-## 4. 当前不应作为完成态使用的入口
+## 4. 当前建议优先使用的入口
 
-以下入口仍在更大范围重构中，但当前轮已经完成基础验证：
+以下入口已经完成当前轮基础验证：
 
 - `api_test/conftest.py`
 - `api_test/core/base_api.py`

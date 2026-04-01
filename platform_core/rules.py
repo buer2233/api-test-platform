@@ -12,11 +12,6 @@ class RuleValidator:
     """V1 最小规则校验器。"""
 
     _SNAKE_CASE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
-    _LEGACY_PAYLOAD_MODES = {"none", "json", "data"}
-    _LEGACY_RESPONSE_MODES = {"json", "raw"}
-    _LEGACY_SOURCE_LAYER = "api_test.core.public_api"
-    _LEGACY_TAG = "legacy_public_api"
-    _PRIVATE_ENV_TAG = "private_env"
 
     def validate_operation(self, operation: ApiOperation) -> list[str]:
         """校验通用接口操作是否满足最小命名和字段约束。"""
@@ -31,92 +26,6 @@ class RuleValidator:
             violations.append("path 不能为空")
         if not operation.source_ids:
             violations.append("source_ids 不能为空")
-        return violations
-
-    def validate_existing_api_module(self, module: ApiModule) -> list[str]:
-        """校验旧接口模块目录是否满足既有资产规则。"""
-        violations: list[str] = []
-        if not module.module_code or not self._SNAKE_CASE_PATTERN.match(module.module_code):
-            violations.append(f"existing_api_asset.module_code 必须为 snake_case: {module.module_code}")
-        if self._LEGACY_TAG not in module.tags:
-            violations.append(f"existing_api_asset.module.tags 必须包含 {self._LEGACY_TAG}: {module.module_code}")
-        if not module.source_ids:
-            violations.append(f"existing_api_asset.module.source_ids 不能为空: {module.module_code}")
-        return violations
-
-    def validate_existing_api_operation(self, operation: ApiOperation) -> list[str]:
-        """校验旧接口操作是否满足既有资产规则。"""
-        violations = self.validate_operation(operation)
-        metadata = operation.metadata or {}
-
-        if self._LEGACY_TAG not in operation.tags:
-            violations.append(
-                f"existing_api_asset.operation.tags 必须包含 {self._LEGACY_TAG}: {operation.operation_code}"
-            )
-
-        required_metadata_keys = {
-            "payload_mode",
-            "response_mode",
-            "requires_private_env",
-            "source_layer",
-        }
-        for key in required_metadata_keys:
-            if key not in metadata:
-                violations.append(
-                    f"existing_api_asset.operation.metadata.{key} 不能为空: {operation.operation_code}"
-                )
-
-        payload_mode = metadata.get("payload_mode")
-        if payload_mode is not None and payload_mode not in self._LEGACY_PAYLOAD_MODES:
-            violations.append(
-                f"existing_api_asset.operation.metadata.payload_mode 非法: {operation.operation_code}"
-            )
-
-        response_mode = metadata.get("response_mode")
-        if response_mode is not None and response_mode not in self._LEGACY_RESPONSE_MODES:
-            violations.append(
-                f"existing_api_asset.operation.metadata.response_mode 非法: {operation.operation_code}"
-            )
-
-        requires_private_env = metadata.get("requires_private_env")
-        if "requires_private_env" in metadata and not isinstance(requires_private_env, bool):
-            violations.append(
-                f"existing_api_asset.operation.metadata.requires_private_env 必须为 bool: {operation.operation_code}"
-            )
-        if requires_private_env is True and self._PRIVATE_ENV_TAG not in operation.tags:
-            violations.append(
-                f"existing_api_asset.operation.tags 必须包含 {self._PRIVATE_ENV_TAG}: {operation.operation_code}"
-            )
-        if requires_private_env is False and self._PRIVATE_ENV_TAG in operation.tags:
-            violations.append(
-                f"existing_api_asset.operation.tags 不应包含 {self._PRIVATE_ENV_TAG}: {operation.operation_code}"
-            )
-
-        source_layer = metadata.get("source_layer")
-        if source_layer is not None and source_layer != self._LEGACY_SOURCE_LAYER:
-            violations.append(
-                f"existing_api_asset.operation.metadata.source_layer 非法: {operation.operation_code}"
-            )
-
-        return violations
-
-    def validate_existing_api_inventory(
-        self,
-        modules: list[ApiModule],
-        operations: list[ApiOperation],
-    ) -> list[str]:
-        """批量校验旧接口模块与操作组成的库存。"""
-        violations: list[str] = []
-        module_ids = {module.module_id for module in modules}
-
-        for module in modules:
-            violations.extend(self.validate_existing_api_module(module))
-        for operation in operations:
-            violations.extend(self.validate_existing_api_operation(operation))
-            if operation.module_id not in module_ids:
-                violations.append(
-                    f"existing_api_asset.operation.module_id 未关联到合法模块: {operation.operation_code}"
-                )
         return violations
 
     @staticmethod

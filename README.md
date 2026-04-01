@@ -31,6 +31,12 @@
   - 新增 `tests/test_comment_governance.py`，对仓库内 Python 模块/类/方法中文 docstring 与 `api_config.json` 中文说明字段做自动校验
   - 已为 `run_test.py`、`config_loader.py`、`base_api.py`、`platform_core` 核心层和现有测试文件补齐中文注释
   - `config_loader.py` 已兼容忽略 `_comment` / `*_comment` 配置说明字段，保证 `api_config.json` 可同时承载配置和中文说明
+- 已完成历史专用残留清理：
+  - 已删除 `api_test/config.py`
+  - 已删除旧目录桥接清单文件
+  - 已删除 `api_test/core/legacy_assets.py`
+  - 已删除 `platform_core/legacy_assets.py`
+  - 已删除 `api_test/test_data/account.txt`
 - 已移除 `api_test/tests` 中两个旧私有站点测试入口：
   - `test_demo.py`
   - `test_public_api_governance.py`
@@ -48,50 +54,49 @@
   - `python -m pytest api_test/tests/test_base_api_governance.py -v --noconftest --basetemp .pytest_tmp/base_api_proxy_recheck`
     - `10 passed`
   - `python api_test/run_test.py --public-baseline`
-    - `12 passed, 17 deselected`
+    - `12 passed, 18 deselected`
   - `cd api_test && python run_test.py --public-baseline`
-    - `12 passed, 17 deselected`
+    - `12 passed, 18 deselected`
 - `python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_full_after_cleanup`
-  - `29 passed`
+  - `30 passed`
 - 2026-04-01 默认关闭代理直连复验：
   - `python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_full_default_off_serial`
     - `1 failed, 28 passed`
     - 失败项：`test_patch_updates_partial_fields`
     - 根因：访问 `jsonplaceholder.typicode.com` 时出现 `SSL handshake/read timeout`，属于外网站点时延波动，不是框架断言逻辑错误
 - `python api_test/run_test.py --public-baseline`
-  - `12 passed, 17 deselected`
+  - `12 passed, 18 deselected`
 - 中文注释治理与兼容性回归：
-  - `python -m pytest tests -v --basetemp .pytest_tmp/root_full_comment_update`
-    - `42 passed`
+  - `python -m pytest tests -v --basetemp .pytest_tmp/root_full_after_comment_fix`
+    - `41 passed`
   - `python -m pytest api_test/tests/test_config_loader.py api_test/tests/test_base_api_governance.py api_test/tests/test_run_test.py -v --noconftest --basetemp .pytest_tmp/api_test_local_comment_update_fix`
     - `18 passed`
   - `python api_test/run_test.py --public-baseline`
     - `12 passed, 18 deselected`
 - `cd api_test && python run_test.py --public-baseline`
-  - `12 passed, 17 deselected`
-- `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_full`
-  - `40 passed`
+  - `12 passed, 18 deselected`
+- `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_full_after_cleanup`
+  - `36 passed`
 
 说明：
 
 - 当前 `api_test` 的通用配置、通用运行时、公开基线入口和公开示例测试已经完成当前轮闭环验证；
 - 代理开启时，当前公开基线与运行入口复验稳定通过；
 - 仓库默认保持 `proxy.enabled=false`，但默认直连外网站点仍存在时延波动，当前公开站点回归建议优先开启代理；
-- `platform_core` 全量仍然保持通过；
-- 更深一层的 `platform_core` 去特化和旧资产桥接清理仍在后续改造范围内。
+- `platform_core`、根治理测试与执行入口回归当前轮均保持通过；
+- 更深一层的职责拆分、模板/规则覆盖扩展和服务接口产品化仍在后续改造范围内。
 
 ## 当前仓库结构
 
 ```text
 api-test-platform/
 ├─ api_test/
-│  ├─ api_config.json       # 新配置唯一来源（已建立，迁移中）
-│  ├─ config.py             # 旧配置入口（待删除）
+│  ├─ api_config.json       # 唯一配置源
 │  ├─ core/                 # 通用运行时与历史底座代码
 │  ├─ tests/                # api_test 自动化测试
-│  ├─ conftest.py           # pytest fixture / hook（待去特化）
+│  ├─ conftest.py           # 公开基线 fixture / 报告 hook
 │  ├─ pytest.ini            # api_test pytest 配置
-│  ├─ run_test.py           # 测试执行入口（待改为正向公开基线）
+│  ├─ run_test.py           # 公开基线执行入口
 │  ├─ README.md
 │  └─ QUICKSTART.md
 ├─ platform_core/           # V1 平台核心最小闭环
@@ -106,7 +111,7 @@ api-test-platform/
 
 - 公开接口测试基线统一使用 `https://jsonplaceholder.typicode.com/`
 - V1 当前只开放文档驱动最小闭环
-- `api_test/` 的目标是“通用 HTTP 测试底座 + 公开示例适配”，不再是某个私有站点的专用框架
+- `api_test/` 的目标是“通用 HTTP 测试底座 + JSON 配置驱动 + 公开示例适配”
 - 所有全局配置最终统一收口到 `api_test/api_config.json`
 
 ## 当前建议查看顺序
@@ -143,4 +148,4 @@ cd api_test && python run_test.py --public-baseline
 ## 备注
 
 - 当前 README 已切换为“重构进行中”视角，只记录本分支已验证事实。
-- `api_test` 和 `platform_core` 的更大范围回归，将在运行时去特化完成后再次统一复验并回填文档。
+- `api_test` 和 `platform_core` 的更大范围回归，将在本轮去特化和文档同步完成后再次统一复验并回填文档。

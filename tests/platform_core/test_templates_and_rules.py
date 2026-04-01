@@ -2,13 +2,7 @@
 
 import json
 
-from platform_core.models import (
-    ApiModule,
-    ApiOperation,
-    ApiParam,
-    AssertionCandidate,
-    GenerationRecord,
-)
+from platform_core.models import ApiModule, ApiOperation, ApiParam, AssertionCandidate, GenerationRecord
 from platform_core.renderers import TemplateRenderer
 from platform_core.rules import RuleValidator
 
@@ -65,43 +59,6 @@ def build_operation() -> ApiOperation:
         ],
         success_codes=[200],
         source_ids=["src-openapi-001"],
-    )
-
-
-def build_legacy_module() -> ApiModule:
-    """构造旧接口模块样例。"""
-    return ApiModule(
-        module_id="mod-legacy-user-management",
-        module_name="user_management",
-        module_code="user_management",
-        module_path_hint="api_test/core/public_api.py::user_management",
-        module_type="common",
-        module_desc="旧 PublicAPI 模块目录：user_management",
-        source_ids=["src-existing-public-api"],
-        tags=["legacy_public_api"],
-    )
-
-
-def build_legacy_operation() -> ApiOperation:
-    """构造旧接口操作样例。"""
-    return ApiOperation(
-        operation_id="op-legacy-invite-user",
-        module_id="mod-legacy-user-management",
-        operation_name="邀请用户",
-        operation_code="invite_user",
-        http_method="POST",
-        path="/api/basicserver/saves",
-        summary="邀请成员进入团队",
-        description="由旧 PublicAPI 目录治理转换的既有接口资产：邀请用户",
-        tags=["legacy_public_api", "private_env"],
-        success_codes=[200],
-        source_ids=["src-existing-public-api"],
-        metadata={
-            "payload_mode": "json",
-            "response_mode": "json",
-            "requires_private_env": True,
-            "source_layer": "api_test.core.public_api",
-        },
     )
 
 
@@ -235,34 +192,10 @@ def test_rule_validator_rejects_missing_required_fields():
     assert any("path" in violation for violation in violations)
 
 
-def test_rule_validator_rejects_invalid_existing_api_module_metadata():
-    """TC-V1-RULE-005 旧接口模块目录缺少平台约束标签或命名不规范时应被识别。"""
+def test_rule_validator_no_longer_exposes_private_site_specific_rules():
+    """规则校验器不应再暴露旧私有站点专用规则入口。"""
     validator = RuleValidator()
-    invalid_module = build_legacy_module().model_copy(update={"module_code": "UserManagement", "tags": []})
 
-    violations = validator.validate_existing_api_module(invalid_module)
-
-    assert any("module_code" in violation for violation in violations)
-    assert any("legacy_public_api" in violation for violation in violations)
-
-
-def test_rule_validator_rejects_invalid_existing_api_operation_metadata():
-    """TC-V1-RULE-006 旧接口操作缺少私有环境标记或响应模式异常时应被识别。"""
-    validator = RuleValidator()
-    invalid_operation = build_legacy_operation().model_copy(
-        update={
-            "tags": ["legacy_public_api"],
-            "metadata": {
-                "payload_mode": "json",
-                "response_mode": "binary",
-                "source_layer": "legacy.public_api",
-            },
-        }
-    )
-
-    violations = validator.validate_existing_api_operation(invalid_operation)
-
-    assert any("requires_private_env" in violation for violation in violations)
-    assert any("private_env" in violation for violation in violations)
-    assert any("response_mode" in violation for violation in violations)
-    assert any("source_layer" in violation for violation in violations)
+    assert not hasattr(validator, "validate_existing_api_module")
+    assert not hasattr(validator, "validate_existing_api_operation")
+    assert not hasattr(validator, "validate_existing_api_inventory")

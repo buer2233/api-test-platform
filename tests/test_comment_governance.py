@@ -49,8 +49,28 @@ def _tracked_python_files() -> list[Path]:
     files = []
     for line in result.splitlines():
         if line.startswith(PYTHON_TARGETS):
-            files.append(ROOT / line)
+            path = ROOT / line
+            if path.exists():
+                files.append(path)
     return files
+
+
+def test_tracked_python_files_skip_deleted_worktree_paths(tmp_path, monkeypatch):
+    """已从工作树删除但尚未提交的 Python 文件不应继续进入治理扫描。"""
+    existing_file = tmp_path / "api_test" / "kept.py"
+    existing_file.parent.mkdir(parents=True, exist_ok=True)
+    existing_file.write_text('"""中文模块"""', encoding="utf-8")
+
+    monkeypatch.setattr(
+        subprocess,
+        "check_output",
+        lambda *args, **kwargs: "api_test/kept.py\napi_test/removed.py\n",
+    )
+    monkeypatch.setattr(__import__(__name__), "ROOT", tmp_path)
+
+    files = _tracked_python_files()
+
+    assert files == [existing_file]
 
 
 def _iter_definitions(tree: ast.AST) -> list[tuple[str, str, int]]:

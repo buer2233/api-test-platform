@@ -2,7 +2,6 @@
 
 from .assets import AssetWorkspace
 from .executors import PytestExecutor
-from .legacy_assets import LegacyPublicApiCatalogAdapter
 from .models import (
     ApiModule,
     ApiOperation,
@@ -14,7 +13,6 @@ from .models import (
     AssertionCandidate,
     ExecutionRecord,
     GenerationRecord,
-    LegacyApiInventoryResult,
     ParsedDocument,
     PipelineResult,
     ResponseField,
@@ -39,8 +37,6 @@ __all__ = [
     "DocumentDrivenPipeline",
     "ExecutionRecord",
     "GenerationRecord",
-    "LegacyApiInventoryResult",
-    "LegacyPublicApiCatalogAdapter",
     "OpenAPIDocumentParser",
     "ParsedDocument",
     "PipelineResult",

@@ -1,15 +1,15 @@
-"""资产清单、旧接口快照与应用服务测试。"""
+"""资产清单与应用服务测试。"""
 
 import json
 import subprocess
 import sys
+from argparse import ArgumentParser, _SubParsersAction
 from datetime import datetime
 from pathlib import Path
 
 import pytest
 
-from api_test.legacy_api_catalog import LegacyApiOperation
-from platform_core.legacy_assets import LegacyPublicApiCatalogAdapter
+from platform_core.cli import build_parser
 from platform_core.models import ApiOperation, AssetManifest, AssertionCandidate, GenerationRecord
 from platform_core.parsers import OpenAPIDocumentParser
 from platform_core.pipeline import DocumentDrivenPipeline
@@ -77,27 +77,6 @@ def build_operation() -> ApiOperation:
         success_codes=[200],
         source_ids=["src-openapi-001"],
     )
-
-
-class InvalidLegacyPublicApiCatalogAdapter(LegacyPublicApiCatalogAdapter):
-    """故意返回非法旧接口目录的测试替身。"""
-
-    @staticmethod
-    def _load_catalog():
-        """返回带非法字段的旧接口目录，用于触发规则错误。"""
-        return {
-            "invalid_legacy_operation": LegacyApiOperation(
-                operation_name="非法旧接口",
-                operation_code="invalid_legacy_operation",
-                module_code="UserManagement",
-                path_template="/api/legacy/invalid",
-                http_method="POST",
-                payload_mode="json",
-                requires_private_env=True,
-                response_mode="binary",
-                description="故意构造的非法旧接口目录，用于校验规则层。",
-            )
-        }
 
 
 def test_parser_creates_json_field_equals_assertion_from_response_examples(tmp_path):
@@ -312,112 +291,25 @@ def test_platform_application_service_blocks_future_routes_in_v1(tmp_path):
         service.run_traffic_capture_pipeline(source_path=tmp_path / "capture.har", output_root=tmp_path / "out")
 
 
-def test_platform_application_service_can_inspect_legacy_public_api_catalog():
-    """应用服务应能输出旧接口目录库存摘要。"""
+def test_platform_application_service_no_longer_exposes_legacy_catalog_methods():
+    """应用服务不应再暴露旧 PublicAPI 目录桥接方法。"""
     service = PlatformApplicationService(project_root=Path.cwd())
 
-    inventory = service.inspect_legacy_public_api_catalog()
+    assert not hasattr(service, "inspect_legacy_public_api_catalog")
+    assert not hasattr(service, "snapshot_legacy_public_api_catalog")
 
-    assert inventory.source_document.source_type == "existing_api_asset"
-    assert inventory.validation_status == "valid"
-    assert inventory.validation_errors == []
-    assert inventory.module_count >= 4
-    assert inventory.operation_count >= 8
-    assert inventory.private_env_operation_count == inventory.operation_count
-    assert any(module.module_code == "user_management" for module in inventory.modules)
-    invite_operation = next(operation for operation in inventory.operations if operation.operation_code == "invite_user")
-    assert invite_operation.http_method == "POST"
-    assert invite_operation.metadata["requires_private_env"] is True
+def test_platform_core_cli_no_longer_registers_legacy_catalog_commands():
+    """CLI 不应再注册旧目录检查和快照命令。"""
+    parser = build_parser()
+    subparsers = [action for action in parser._actions if isinstance(action, _SubParsersAction)]
 
+    assert len(subparsers) == 1
+    commands = set(subparsers[0].choices)
+    assert "inspect-legacy-public-api" not in commands
+    assert "snapshot-legacy-public-api" not in commands
 
-def test_platform_core_cli_can_inspect_legacy_public_api_catalog():
-    """CLI 应支持检查旧接口目录库存。"""
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "platform_core.cli",
-            "inspect-legacy-public-api",
-        ],
-        cwd=Path.cwd(),
-        capture_output=True,
-        text=True,
-    )
+    with pytest.raises(SystemExit):
+        parser.parse_args(["inspect-legacy-public-api"])
 
-    assert result.returncode == 0, result.stderr
-    payload = json.loads(result.stdout)
-    assert payload["source_document"]["source_type"] == "existing_api_asset"
-    assert payload["validation_status"] == "valid"
-    assert payload["validation_errors"] == []
-    assert payload["module_count"] >= 4
-    assert payload["operation_count"] >= 8
-    assert any(operation["operation_code"] == "invite_user" for operation in payload["operations"])
-
-
-def test_platform_application_service_can_snapshot_legacy_public_api_catalog(tmp_path):
-    """应用服务应能把旧接口目录导出为工作区快照。"""
-    output_root = tmp_path / "legacy-workspace"
-    service = PlatformApplicationService(project_root=Path.cwd())
-
-    result = service.snapshot_legacy_public_api_catalog(output_root=output_root)
-    inspection = service.inspect_workspace(output_root)
-
-    assert result.source_document.source_type == "existing_api_asset"
-    assert result.execution_record.execution_level == "structure_check"
-    assert result.execution_record.result_status == "passed"
-    assert Path(result.execution_record.report_path).exists()
-    assert Path(result.asset_manifest_path).exists()
-    assert len(result.modules) >= 4
-    assert len(result.operations) >= 8
-    assert len(result.asset_manifest.assets) == len(result.modules)
-    assert all(asset.asset_type == "api_module" for asset in result.asset_manifest.assets)
-    assert any(key.startswith("api::legacy::") for key in result.generated_paths)
-    assert inspection.validation_status == "valid"
-    assert inspection.asset_count == len(result.modules)
-    report_payload = json.loads(Path(result.execution_record.report_path).read_text(encoding="utf-8"))
-    assert report_payload["validation_status"] == "valid"
-    assert report_payload["validation_errors"] == []
-
-
-def test_platform_core_cli_can_snapshot_legacy_public_api_catalog(tmp_path):
-    """CLI 应支持导出旧接口目录快照。"""
-    output_root = tmp_path / "legacy-cli-workspace"
-
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "platform_core.cli",
-            "snapshot-legacy-public-api",
-            "--output",
-            str(output_root),
-        ],
-        cwd=Path.cwd(),
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
-    payload = json.loads(result.stdout)
-    assert payload["source_type"] == "existing_api_asset"
-    assert payload["execution_status"] == "passed"
-    assert payload["module_count"] >= 4
-    assert payload["operation_count"] >= 8
-    assert Path(payload["asset_manifest_path"]).exists()
-
-
-def test_platform_application_service_rejects_invalid_legacy_public_api_catalog_snapshot(tmp_path):
-    """非法旧接口目录快照应在导出前被阻断。"""
-    service = PlatformApplicationService(
-        project_root=Path.cwd(),
-        legacy_catalog_adapter=InvalidLegacyPublicApiCatalogAdapter(),
-    )
-
-    inventory = service.inspect_legacy_public_api_catalog()
-
-    assert inventory.validation_status == "invalid"
-    assert any("module_code" in violation for violation in inventory.validation_errors)
-    assert any("response_mode" in violation for violation in inventory.validation_errors)
-
-    with pytest.raises(ValueError, match="module_code|response_mode"):
-        service.snapshot_legacy_public_api_catalog(output_root=tmp_path / "invalid-legacy-workspace")
+    with pytest.raises(SystemExit):
+        parser.parse_args(["snapshot-legacy-public-api", "--output", "workspace"])

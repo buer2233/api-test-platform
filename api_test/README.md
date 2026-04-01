@@ -1,6 +1,6 @@
 # api_test
 
-`api_test/` 正在从“带私有站点历史包袱的接口测试框架”重构为“通用 HTTP 测试底座 + 公开示例适配”。
+`api_test/` 正在从历史接口测试框架收口为“通用 HTTP 测试底座 + JSON 配置驱动 + 公开示例适配”。
 
 ## 当前状态
 
@@ -11,12 +11,17 @@
 - 新增配置测试 [test_config_loader.py](/D:/AI/api-test-platform/api_test/tests/test_config_loader.py)
 - 已完成第二个 TDD 循环：
   - [session.py](/D:/AI/api-test-platform/api_test/core/session.py) 改为读取 JSON 配置
-  - [base_api.py](/D:/AI/api-test-platform/api_test/core/base_api.py) 去除 RSA/登录链路
+  - [base_api.py](/D:/AI/api-test-platform/api_test/core/base_api.py) 收口为通用 HTTP 客户端
   - [test_base_api_governance.py](/D:/AI/api-test-platform/api_test/tests/test_base_api_governance.py) 通过
 - 已补充代理能力：
   - `api_config.json` 新增 `proxy.enabled` 与 `proxy.url`
   - `session.py` 会在代理开关开启时同时为 `http/https` 配置代理
   - 未来客户端应直接控制同一组配置字段
+- 已完成历史残留文件清理：
+  - 已删除 `config.py`
+  - 已删除旧目录桥接清单文件
+  - 已删除 `core/legacy_assets.py`
+  - 已删除 `test_data/account.txt`
 - 已完成中文注释治理首轮：
   - `api_config.json` 已为关键配置段补充中文说明字段
   - `run_test.py`、`config_loader.py`、`base_api.py`、`session.py`、`jsonplaceholder_api.py` 和现有测试文件已补齐中文注释
@@ -39,9 +44,9 @@ python -m pytest api_test/tests/test_config_loader.py api_test/tests/test_base_a
 
 - `5 passed`
 - `10 passed`
-- `29 passed`
-- `12 passed, 17 deselected`
-- `12 passed, 17 deselected`
+- `30 passed`
+- `12 passed, 18 deselected`
+- `12 passed, 18 deselected`
 - `10 passed`
 - `1 failed, 28 passed`
 - `18 passed`
@@ -51,16 +56,16 @@ python -m pytest api_test/tests/test_config_loader.py api_test/tests/test_base_a
 - 2026-04-01 已完成代理端口探测和真实代理请求验证，代理开启时公开基线双入口均通过；
 - 同日默认关闭代理的 `api_test` 全量直连复验出现 `test_patch_updates_partial_fields` 超时失败，根因为访问公开站点时的 `SSL handshake/read timeout`，不是框架功能断言失败。
 - 2026-04-01 已新增中文注释治理测试，并完成本地 `api_test` 注释兼容性回归 `18 passed`。
+- 2026-04-01 当前轮综合复验中，`api_test/tests` 全量已更新为 `30 passed`，公开基线双入口均为 `12 passed, 18 deselected`。
 
 ## 当前目录结构
 
 ```text
 api_test/
-├─ api_config.json         # 通用配置唯一来源（已建立）
-├─ config.py               # 旧配置入口（迁移未完成前仍存在）
+├─ api_config.json         # 通用配置唯一来源
 ├─ core/
-│  ├─ base_api.py          # 待去除私有登录与 RSA 逻辑
-│  ├─ __init__.py          # 已去除旧 PublicAPI 导出
+│  ├─ base_api.py          # 通用 HTTP 客户端
+│  ├─ __init__.py          # 通用运行时导出
 │  ├─ config_loader.py     # 新配置加载器
 │  ├─ jsonplaceholder_api.py
 │  └─ session.py
@@ -70,9 +75,9 @@ api_test/
 │  ├─ test_jsonplaceholder_api.py
 │  ├─ test_jsonplaceholder_resources.py
 │  └─ test_run_test.py
-├─ conftest.py             # 待移除账号文件与私有环境 fixture
+├─ conftest.py             # 公开基线 fixture / HTML 报告 hook
 ├─ pytest.ini
-├─ run_test.py             # 待改为正向 `public_baseline` 执行
+├─ run_test.py             # 正向 `public_baseline` 执行入口
 ├─ requirements.txt
 ├─ README.md
 └─ QUICKSTART.md
@@ -84,7 +89,7 @@ api_test/
 
 - `api_config.json` 作为唯一配置源
 - `BaseAPI` 只保留通用 HTTP 能力
-- 删除 RSA、公私有环境登录和旧 `PublicAPI` 专有链路
+- 历史专用登录链路、旧桥接目录和账号文件已删除
 - `JsonPlaceholderAPI` 只作为公开示例适配层
 - `run_test.py --public-baseline` 正向执行公开基线用例
 - 代理开关和代理地址统一收口到 `api_config.json`，供后续客户端直接控制
@@ -118,8 +123,8 @@ api_test/
 
 说明：
 
-- `api_test/tests/test_demo.py` 与 `api_test/tests/test_public_api_governance.py` 已从当前测试集移除，因为它们绑定旧 `PublicAPI` 私有站点链路，不再属于通用框架回归范围。
-- 当前剩余的后续工作主要集中在更大范围的旧文件清理和 `platform_core` 去特化，而不是 `api_test` 当前通用回归链路。
+- `api_test/tests/test_demo.py` 与 `api_test/tests/test_public_api_governance.py` 已从当前测试集移除，不再属于通用框架回归范围。
+- 当前剩余的后续工作主要集中在职责进一步拆分、模板/规则覆盖扩展和 `platform_core` 服务边界收口，而不是 `api_test` 当前通用回归链路。
 
 ## 当前公开测试站点
 
