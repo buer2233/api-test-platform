@@ -191,6 +191,33 @@ def test_generation_record_captures_minimum_traceability():
     assert record.generator_type == "hybrid"
 
 
+def test_generation_record_captures_extended_traceability_fields():
+    """TC-V1-MODEL-006A GenerationRecord 应记录资产归属与内容摘要。"""
+    generated_at = datetime(2026, 4, 1, 15, 0, 0)
+
+    record = GenerationRecord(
+        generation_id="gen-extended-001",
+        generation_type="test_case",
+        source_ids=["src-openapi-001"],
+        target_asset_type="test_case",
+        target_asset_path="generated/tests/test_get_user_profile.py",
+        generator_type="hybrid",
+        generated_at=generated_at,
+        generated_by="codex",
+        generation_version="v1",
+        template_reference="templates/tests/test_module.py.j2",
+        module_code="user",
+        operation_code="get_user_profile",
+        target_asset_digest="a" * 64,
+        review_status="pending",
+        execution_status="not_run",
+    )
+
+    assert record.module_code == "user"
+    assert record.operation_code == "get_user_profile"
+    assert record.target_asset_digest == "a" * 64
+
+
 def test_execution_record_captures_minimum_execution_traceability():
     """TC-V1-MODEL-007 ExecutionRecord 应记录最小执行信息。"""
     started_at = datetime(2026, 3, 30, 10, 35, 0)
@@ -207,11 +234,22 @@ def test_execution_record_captures_minimum_execution_traceability():
         report_path="generated/reports/junit.xml",
         error_summary="",
         environment="local",
+        command="python -m pytest generated/tests -v",
+        exit_code=0,
+        total_count=1,
+        passed_count=1,
+        failed_count=0,
+        error_count=0,
+        skipped_count=0,
     )
 
     assert record.execution_level == "smoke"
     assert record.result_status == "passed"
     assert record.report_path.endswith("junit.xml")
+    assert record.command.startswith("python -m pytest")
+    assert record.exit_code == 0
+    assert record.total_count == 1
+    assert record.passed_count == 1
 
 
 def test_assertion_candidate_keeps_expected_target():

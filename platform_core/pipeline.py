@@ -52,12 +52,15 @@ class DocumentDrivenPipeline:
             api_path = asset_workspace.apis_dir / f"{module.module_code}_api.py"
             api_path.write_text(self.renderer.render_api_module(module, operations), encoding="utf-8")
             generated_paths[f"api::{module.module_code}"] = str(api_path)
+            api_digest = asset_workspace.build_content_digest(api_path)
             api_record = self._write_generation_record(
                 records_dir=asset_workspace.records_dir,
                 source_id=parsed.source_document.source_id,
                 asset_type="api_module",
                 asset_path=api_path,
                 template_reference="templates/api/api_module.py.j2",
+                module_code=module.module_code,
+                target_asset_digest=api_digest,
             )
             generation_records.append(api_record)
             generated_assets.append(
@@ -66,6 +69,7 @@ class DocumentDrivenPipeline:
                     asset_path=api_path,
                     generation_record=api_record,
                     module_code=module.module_code,
+                    content_digest=api_digest,
                 )
             )
 
@@ -84,12 +88,16 @@ class DocumentDrivenPipeline:
                     encoding="utf-8",
                 )
                 generated_paths[f"test::{operation.operation_code}"] = str(test_path)
+                test_digest = asset_workspace.build_content_digest(test_path)
                 test_record = self._write_generation_record(
                     records_dir=asset_workspace.records_dir,
                     source_id=parsed.source_document.source_id,
                     asset_type="test_case",
                     asset_path=test_path,
                     template_reference="templates/tests/test_module.py.j2",
+                    module_code=module.module_code,
+                    operation_code=operation.operation_code,
+                    target_asset_digest=test_digest,
                 )
                 generation_records.append(test_record)
                 generated_assets.append(
@@ -99,6 +107,7 @@ class DocumentDrivenPipeline:
                         generation_record=test_record,
                         module_code=module.module_code,
                         operation_code=operation.operation_code,
+                        content_digest=test_digest,
                     )
                 )
 
@@ -138,6 +147,9 @@ class DocumentDrivenPipeline:
         asset_type: str,
         asset_path: Path,
         template_reference: str,
+        module_code: str | None = None,
+        operation_code: str | None = None,
+        target_asset_digest: str | None = None,
     ) -> GenerationRecord:
         """为生成出的 API 或测试文件写出生成记录。"""
         record = GenerationRecord(
@@ -151,6 +163,9 @@ class DocumentDrivenPipeline:
             generated_by="codex",
             generation_version="v1",
             template_reference=template_reference,
+            module_code=module_code,
+            operation_code=operation_code,
+            target_asset_digest=target_asset_digest,
             review_status="pending",
             execution_status="not_run",
         )

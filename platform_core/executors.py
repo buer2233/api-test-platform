@@ -7,6 +7,7 @@ import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from xml.etree import ElementTree
 
 from platform_core.models import ExecutionRecord
 
@@ -37,16 +38,17 @@ class PytestExecutor:
         env["PYTHONPATH"] = os.pathsep.join(pythonpath_entries)
 
         started_at = datetime.now(UTC)
+        command = [
+            self.python_executable,
+            "-m",
+            "pytest",
+            str(test_target),
+            "-v",
+            f"--basetemp={basetemp_path}",
+            f"--junitxml={report_path}",
+        ]
         result = subprocess.run(
-            [
-                self.python_executable,
-                "-m",
-                "pytest",
-                str(test_target),
-                "-v",
-                f"--basetemp={basetemp_path}",
-                f"--junitxml={report_path}",
-            ],
+            command,
             cwd=self.project_root,
             env=env,
             capture_output=True,
@@ -62,6 +64,8 @@ class PytestExecutor:
             result_status = "failed"
 
         resolved_target_id = target_id or ("generated-suite" if test_target.is_dir() else test_target.stem)
+        total_count, failed_count, error_count, skipped_count = self._parse_junit_counts(report_path)
+        passed_count = max(total_count - failed_count - error_count - skipped_count, 0)
 
         return ExecutionRecord(
             execution_id=f"exec-{resolved_target_id}",
@@ -74,4 +78,32 @@ class PytestExecutor:
             report_path=str(report_path),
             error_summary=error_summary,
             environment="local",
+            command=" ".join(command),
+            exit_code=result.returncode,
+            total_count=total_count,
+            passed_count=passed_count,
+            failed_count=failed_count,
+            error_count=error_count,
+            skipped_count=skipped_count,
+        )
+
+    @staticmethod
+    def _parse_junit_counts(report_path: Path) -> tuple[int, int, int, int]:
+        """解析 JUnit XML 报告中的总数、失败数、错误数和跳过数。"""
+        if not report_path.exists():
+            return 0, 0, 0, 0
+        try:
+            report_root = ElementTree.parse(report_path).getroot()
+        except ElementTree.ParseError:
+            return 0, 0, 0, 0
+
+        testsuite = report_root.find("testsuite") if report_root.tag == "testsuites" else report_root
+        if testsuite is None:
+            return 0, 0, 0, 0
+
+        return (
+            int(testsuite.attrib.get("tests", 0)),
+            int(testsuite.attrib.get("failures", 0)),
+            int(testsuite.attrib.get("errors", 0)),
+            int(testsuite.attrib.get("skipped", 0)),
         )

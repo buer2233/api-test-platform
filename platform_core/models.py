@@ -142,6 +142,9 @@ class GenerationRecord(PlatformBaseModel):
     generation_version: str | None = None
     prompt_reference: str | None = None
     template_reference: str | None = None
+    module_code: str | None = None
+    operation_code: str | None = None
+    target_asset_digest: str | None = None
     review_status: Literal["pending", "approved", "rejected", "revised"] = "pending"
     execution_status: Literal["not_run", "passed", "failed"] = "not_run"
 
@@ -173,6 +176,20 @@ class AssetInspectionEntry(PlatformBaseModel):
     review_status: Literal["pending", "approved", "rejected", "revised"] = "pending"
 
 
+class GenerationInspectionEntry(PlatformBaseModel):
+    """生成记录检查结果中的单条生成摘要。"""
+
+    generation_id: str
+    generation_type: Literal["api_method", "test_case", "assertion", "scenario"]
+    target_asset_type: str
+    target_asset_path: str
+    module_code: str | None = None
+    operation_code: str | None = None
+    template_reference: str | None = None
+    review_status: Literal["pending", "approved", "rejected", "revised"] = "pending"
+    execution_status: Literal["not_run", "passed", "failed"] = "not_run"
+
+
 class AssetManifest(PlatformBaseModel):
     """资产清单模型。"""
 
@@ -197,10 +214,12 @@ class AssetInspectionResult(PlatformBaseModel):
     asset_count: int
     generation_count: int
     assets: list[AssetInspectionEntry] = Field(default_factory=list)
+    generation_records: list[GenerationInspectionEntry] = Field(default_factory=list)
     execution_id: str | None = None
     report_path: str | None = None
     report_exists: bool = False
     missing_assets: list[str] = Field(default_factory=list)
+    missing_generation_records: list[str] = Field(default_factory=list)
     digest_mismatches: list[str] = Field(default_factory=list)
     validation_errors: list[str] = Field(default_factory=list)
     validation_status: Literal["valid", "invalid"]
@@ -219,6 +238,13 @@ class ExecutionRecord(PlatformBaseModel):
     report_path: str | None = None
     error_summary: str | None = None
     environment: str | None = None
+    command: str | None = None
+    exit_code: int | None = None
+    total_count: int = 0
+    passed_count: int = 0
+    failed_count: int = 0
+    error_count: int = 0
+    skipped_count: int = 0
 
 
 class ParsedDocument(PlatformBaseModel):

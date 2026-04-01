@@ -40,6 +40,11 @@
 - 已移除 `api_test/tests` 中两个旧私有站点测试入口：
   - `test_demo.py`
   - `test_public_api_governance.py`
+- 已完成 `platform_core` 记录与服务摘要增强首轮落地：
+  - `GenerationRecord` 新增 `module_code`、`operation_code`、`target_asset_digest`
+  - `ExecutionRecord` 新增 `command`、`exit_code`、测试数量统计字段
+  - `AssetWorkspace.inspect_manifest()` 新增生成记录摘要与缺失生成记录检查
+  - `platform_core.cli run` 新增 `generation_count`、`asset_count`、执行退出码与测试统计输出
 
 当前分支最新已验证结果：
 
@@ -77,14 +82,30 @@
   - `12 passed, 18 deselected`
 - `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_full_after_cleanup`
   - `36 passed`
+- `python -m pytest tests/platform_core/test_models.py -v --basetemp .pytest_tmp/platform_core_models_after_impl`
+  - `10 passed`
+- `python -m pytest tests/platform_core/test_pipeline.py tests/platform_core/test_services_and_assets.py -v --basetemp .pytest_tmp/platform_core_traceability_after_impl`
+  - `17 passed`
+- `python -m pytest tests -v --basetemp .pytest_tmp/root_full_traceability`
+  - `43 passed`
+- `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_full_traceability`
+  - `38 passed`
+- `python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_full_traceability`
+  - `30 passed`
+- `python api_test/run_test.py --public-baseline`
+  - `12 passed, 18 deselected`
+- `cd api_test && python run_test.py --public-baseline`
+  - `12 passed, 18 deselected`
 
 说明：
 
 - 当前 `api_test` 的通用配置、通用运行时、公开基线入口和公开示例测试已经完成当前轮闭环验证；
 - 代理开启时，当前公开基线与运行入口复验稳定通过；
 - 仓库默认保持 `proxy.enabled=false`，但默认直连外网站点仍存在时延波动，当前公开站点回归建议优先开启代理；
+- `platform_core` 的生成记录、执行记录、工作区检查和 CLI 运行摘要已经开始向后续服务接口形态收口；
 - `platform_core`、根治理测试与执行入口回归当前轮均保持通过；
-- 更深一层的职责拆分、模板/规则覆盖扩展和服务接口产品化仍在后续改造范围内。
+- 当前轮完整回归中，`root/tests`、`tests/platform_core`、`api_test/tests` 和公开基线双入口已全部通过；
+- 更深一层的 `api_test` 职责拆分、模板/规则覆盖扩展和服务接口产品化仍在后续改造范围内。
 
 ## 当前仓库结构
 
@@ -126,6 +147,8 @@ api-test-platform/
 - [详细测试用例说明书(V1).md](/D:/AI/api-test-platform/product_document/测试文档/详细测试用例说明书(V1).md)
 - [generic-test-framework-refactor-design.md](/D:/AI/api-test-platform/docs/superpowers/specs/2026-04-01-generic-test-framework-refactor-design.md)
 - [generic-test-framework-refactor.md](/D:/AI/api-test-platform/docs/superpowers/plans/2026-04-01-generic-test-framework-refactor.md)
+- [v1-traceability-summary-design.md](/D:/AI/api-test-platform/docs/superpowers/specs/2026-04-01-v1-traceability-summary-design.md)
+- [v1-traceability-summary.md](/D:/AI/api-test-platform/docs/superpowers/plans/2026-04-01-v1-traceability-summary.md)
 
 ## 当前验证入口
 

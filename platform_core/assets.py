@@ -15,6 +15,7 @@ from platform_core.models import (
     AssetManifest,
     AssetRecord,
     ExecutionRecord,
+    GenerationInspectionEntry,
     GenerationRecord,
     SourceDocument,
 )
@@ -60,6 +61,7 @@ class AssetWorkspace:
         generation_record: GenerationRecord,
         module_code: str | None = None,
         operation_code: str | None = None,
+        content_digest: str | None = None,
     ) -> AssetRecord:
         """根据已生成文件构建资产清单记录。"""
         return AssetRecord(
@@ -70,9 +72,13 @@ class AssetWorkspace:
             module_code=module_code,
             operation_code=operation_code,
             source_ids=generation_record.source_ids,
-            content_digest=self._digest_bytes(asset_path.read_bytes()),
+            content_digest=content_digest or self.build_content_digest(asset_path),
             review_status=generation_record.review_status,
         )
+
+    def build_content_digest(self, asset_path: Path) -> str:
+        """计算生成资产文件的内容摘要。"""
+        return self._digest_bytes(asset_path.read_bytes())
 
     def write_manifest(
         self,
@@ -114,7 +120,9 @@ class AssetWorkspace:
         manifest = self.load_manifest()
         validation_errors = validator.validate_asset_manifest(manifest) if validator else []
         missing_assets: list[str] = []
+        missing_generation_records: list[str] = []
         digest_mismatches: list[str] = []
+        generation_records: list[GenerationInspectionEntry] = []
 
         for asset in manifest.assets:
             resolved_path = self._resolve_path(asset.asset_path)
@@ -124,10 +132,36 @@ class AssetWorkspace:
             if self._digest_bytes(resolved_path.read_bytes()) != asset.content_digest:
                 digest_mismatches.append(str(resolved_path))
 
+        for generation_id in manifest.generation_ids:
+            generation_path = self.records_dir / f"{generation_id}.json"
+            if not generation_path.exists():
+                missing_generation_records.append(str(generation_path))
+                continue
+            generation_record = GenerationRecord.model_validate_json(generation_path.read_text(encoding="utf-8"))
+            generation_records.append(
+                GenerationInspectionEntry(
+                    generation_id=generation_record.generation_id,
+                    generation_type=generation_record.generation_type,
+                    target_asset_type=generation_record.target_asset_type,
+                    target_asset_path=generation_record.target_asset_path,
+                    module_code=generation_record.module_code,
+                    operation_code=generation_record.operation_code,
+                    template_reference=generation_record.template_reference,
+                    review_status=generation_record.review_status,
+                    execution_status=generation_record.execution_status,
+                )
+            )
+
         report_path = self._resolve_path(manifest.report_path)
         report_exists = bool(report_path and report_path.exists())
         validation_status = "valid"
-        if validation_errors or missing_assets or digest_mismatches or (manifest.report_path and not report_exists):
+        if (
+            validation_errors
+            or missing_assets
+            or missing_generation_records
+            or digest_mismatches
+            or (manifest.report_path and not report_exists)
+        ):
             validation_status = "invalid"
 
         return AssetInspectionResult(
@@ -149,10 +183,12 @@ class AssetWorkspace:
                 )
                 for asset in manifest.assets
             ],
+            generation_records=generation_records,
             execution_id=manifest.execution_id,
             report_path=manifest.report_path,
             report_exists=report_exists,
             missing_assets=missing_assets,
+            missing_generation_records=missing_generation_records,
             digest_mismatches=digest_mismatches,
             validation_errors=validation_errors,
             validation_status=validation_status,

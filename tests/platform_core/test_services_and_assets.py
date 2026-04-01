@@ -219,8 +219,11 @@ def test_platform_application_service_can_inspect_generated_workspace(tmp_path):
     assert inspection.asset_count == 2
     assert inspection.generation_count == 2
     assert len(inspection.assets) == 2
+    assert len(inspection.generation_records) == 2
     assert any(asset.operation_code == "get_user_profile" for asset in inspection.assets)
+    assert any(record.operation_code == "get_user_profile" for record in inspection.generation_records)
     assert inspection.missing_assets == []
+    assert inspection.missing_generation_records == []
     assert inspection.digest_mismatches == []
     assert inspection.report_exists is True
 
@@ -241,6 +244,25 @@ def test_platform_application_service_reports_missing_assets_in_workspace(tmp_pa
     assert inspection.validation_status == "invalid"
     assert len(inspection.missing_assets) == 1
     assert inspection.missing_assets[0].endswith("test_get_user_profile.py")
+
+
+def test_platform_application_service_reports_missing_generation_records(tmp_path):
+    """应用服务应能识别工作区中缺失的生成记录文件。"""
+    source_path = tmp_path / "user_openapi.json"
+    source_path.write_text(json.dumps(build_openapi_spec(), ensure_ascii=False, indent=2), encoding="utf-8")
+    output_root = tmp_path / "workspace"
+
+    pipeline = DocumentDrivenPipeline(project_root=Path.cwd())
+    pipeline.run(source_path=source_path, output_root=output_root)
+    generation_record_path = next((output_root / "generated" / "records").glob("gen-*.json"))
+    generation_record_path.unlink()
+
+    service = PlatformApplicationService(project_root=Path.cwd())
+    inspection = service.inspect_workspace(output_root)
+
+    assert inspection.validation_status == "invalid"
+    assert len(inspection.missing_generation_records) == 1
+    assert inspection.missing_generation_records[0].endswith(".json")
 
 
 def test_platform_core_cli_can_inspect_workspace_manifest(tmp_path):
@@ -272,7 +294,10 @@ def test_platform_core_cli_can_inspect_workspace_manifest(tmp_path):
     assert payload["asset_count"] == 2
     assert payload["generation_count"] == 2
     assert len(payload["assets"]) == 2
+    assert len(payload["generation_records"]) == 2
     assert any(asset["operation_code"] == "get_user_profile" for asset in payload["assets"])
+    assert any(record["operation_code"] == "get_user_profile" for record in payload["generation_records"])
+    assert payload["missing_generation_records"] == []
     assert payload["report_exists"] is True
 
 

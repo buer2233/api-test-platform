@@ -154,6 +154,14 @@ def test_pytest_executor_runs_smoke_test_and_returns_execution_record(tmp_path):
     assert record.result_status == "passed"
     assert Path(record.report_path).exists()
     assert record.target_id == "generated-smoke"
+    assert record.command is not None
+    assert "--junitxml=" in record.command
+    assert record.exit_code == 0
+    assert record.total_count == 1
+    assert record.passed_count == 1
+    assert record.failed_count == 0
+    assert record.error_count == 0
+    assert record.skipped_count == 0
 
 
 def test_document_driven_pipeline_generates_traceable_assets_and_executes_pytest(tmp_path):
@@ -177,8 +185,12 @@ def test_document_driven_pipeline_generates_traceable_assets_and_executes_pytest
     assert test_file.exists()
     assert any(record.target_asset_path.endswith("user_api.py") for record in result.generation_records)
     assert any(record.target_asset_path.endswith("test_get_user_profile.py") for record in result.generation_records)
+    assert all(record.target_asset_digest for record in result.generation_records)
+    assert all(len(record.target_asset_digest) == 64 for record in result.generation_records)
     assert result.execution_record.result_status == "passed"
     assert Path(result.execution_record.report_path).exists()
+    assert result.execution_record.total_count == 1
+    assert result.execution_record.passed_count == 1
     assert any(record.name.endswith(".json") for record in records_dir.iterdir())
 
 
@@ -200,6 +212,8 @@ def test_document_driven_pipeline_executes_all_generated_tests_for_multiple_oper
     assert (tests_dir / "test_list_users.py").exists()
     assert (tests_dir / "test_get_user_profile.py").exists()
     assert result.execution_record.target_id == "generated-suite"
+    assert result.execution_record.total_count == 2
+    assert result.execution_record.passed_count == 2
     assert testsuite is not None
     assert testsuite.attrib["tests"] == "2"
 
@@ -227,5 +241,14 @@ def test_platform_core_cli_runs_document_pipeline(tmp_path):
     )
 
     assert result.returncode == 0, result.stderr
-    assert "generated-suite" in result.stdout
+    payload = json.loads(result.stdout)
+    assert payload["execution_target"] == "generated-suite"
+    assert payload["generation_count"] == 2
+    assert payload["asset_count"] == 2
+    assert payload["execution_exit_code"] == 0
+    assert payload["total_count"] == 1
+    assert payload["passed_count"] == 1
+    assert payload["failed_count"] == 0
+    assert payload["error_count"] == 0
+    assert payload["skipped_count"] == 0
     assert (output_root / "generated" / "apis" / "user_api.py").exists()
