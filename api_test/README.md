@@ -13,18 +13,37 @@
   - [session.py](/D:/AI/api-test-platform/api_test/core/session.py) 改为读取 JSON 配置
   - [base_api.py](/D:/AI/api-test-platform/api_test/core/base_api.py) 去除 RSA/登录链路
   - [test_base_api_governance.py](/D:/AI/api-test-platform/api_test/tests/test_base_api_governance.py) 通过
+- 已补充代理能力：
+  - `api_config.json` 新增 `proxy.enabled` 与 `proxy.url`
+  - `session.py` 会在代理开关开启时同时为 `http/https` 配置代理
+  - 未来客户端应直接控制同一组配置字段
 
 已验证结果：
 
 ```bash
 python -m pytest api_test/tests/test_config_loader.py -v --noconftest --basetemp .pytest_tmp/config_loader
 python -m pytest api_test/tests/test_base_api_governance.py -v --noconftest --basetemp .pytest_tmp/base_api
+python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_full_after_cleanup
+python api_test/run_test.py --public-baseline
+cd api_test && python run_test.py --public-baseline
+python -m pytest api_test/tests/test_base_api_governance.py -v --noconftest --basetemp .pytest_tmp/base_api_proxy_recheck
+python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_full_default_off_serial
 ```
 
 结果：
 
 - `5 passed`
-- `8 passed`
+- `10 passed`
+- `29 passed`
+- `12 passed, 17 deselected`
+- `12 passed, 17 deselected`
+- `10 passed`
+- `1 failed, 28 passed`
+
+补充说明：
+
+- 2026-04-01 已完成代理端口探测和真实代理请求验证，代理开启时公开基线双入口均通过；
+- 同日默认关闭代理的 `api_test` 全量直连复验出现 `test_patch_updates_partial_fields` 超时失败，根因为访问公开站点时的 `SSL handshake/read timeout`，不是框架功能断言失败。
 
 ## 当前目录结构
 
@@ -61,16 +80,39 @@ api_test/
 - 删除 RSA、公私有环境登录和旧 `PublicAPI` 专有链路
 - `JsonPlaceholderAPI` 只作为公开示例适配层
 - `run_test.py --public-baseline` 正向执行公开基线用例
+- 代理开关和代理地址统一收口到 `api_config.json`，供后续客户端直接控制
 
-## 当前限制
+## 当前代理配置
 
-当前工作分支还没有完成以下迁移，因此不能把 `api_test/` 视为已完成状态：
+默认配置如下：
 
-- `core/__init__.py` 仍受旧私有导入链路影响
-- `conftest.py` 仍依赖历史账号与私有环境概念
-- `JsonPlaceholderAPI`、`conftest.py`、`run_test.py` 还没有全部切换到新运行时
-- `run_test.py` 仍使用旧的 `private_env` 排除语义
-- `api_test` 全量回归尚未在当前重构分支重新通过
+```json
+"proxy": {
+  "enabled": false,
+  "url": "http://127.0.0.1:7890"
+}
+```
+
+说明：
+
+- 仓库默认值为关闭；
+- 开启后 `requests` 的 `http` 与 `https` 请求都会走同一代理地址；
+- 后续 Web/Desktop 客户端完成后，应直接修改这两个字段来控制代理，而不是增加新的独立配置入口。
+
+## 当前状态判断
+
+当前工作分支已经完成以下验证：
+
+- 历史同口径 `api_test` 全量回归已通过，当前最新代理开启专项复验下公开基线稳定通过
+- `run_test.py --public-baseline` 在仓库根目录和 `api_test/` 目录执行结果一致
+- 公开基线用例使用 `public_baseline` 正向标记
+- 代理配置已落地，并通过端口探测、真实代理请求和公开基线双入口复验
+- 默认关闭代理时，公开站点直连仍存在外网时延波动，当前不宜把单次超时误判为框架逻辑失败
+
+说明：
+
+- `api_test/tests/test_demo.py` 与 `api_test/tests/test_public_api_governance.py` 已从当前测试集移除，因为它们绑定旧 `PublicAPI` 私有站点链路，不再属于通用框架回归范围。
+- 当前剩余的后续工作主要集中在更大范围的旧文件清理和 `platform_core` 去特化，而不是 `api_test` 当前通用回归链路。
 
 ## 当前公开测试站点
 

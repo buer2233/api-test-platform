@@ -22,19 +22,52 @@
   - 已将 `api_test/core/session.py` 改为读取 JSON 配置
   - 已将 `api_test/core/base_api.py` 收口为通用 HTTP 客户端
   - 已将 `api_test/core/__init__.py` 去除旧私有站点导出
+- 已补充代理配置能力：
+  - `api_test/api_config.json` 新增 `proxy.enabled` 和 `proxy.url`
+  - `build_retry_session()` 在代理开关开启时自动为 `http/https` 请求挂载代理
+  - 后续客户端应直接控制这两个配置项，而不是新增平行配置源
+  - 本轮验证曾临时启用 `proxy.enabled=true` 并使用 `http://127.0.0.1:7890` 完成代理连通性验证，仓库默认值已恢复为关闭
+- 已移除 `api_test/tests` 中两个旧私有站点测试入口：
+  - `test_demo.py`
+  - `test_public_api_governance.py`
 
 当前分支最新已验证结果：
 
 - `python -m pytest api_test/tests/test_config_loader.py -v --noconftest --basetemp .pytest_tmp/config_loader`
   - `5 passed`
 - `python -m pytest api_test/tests/test_base_api_governance.py -v --noconftest --basetemp .pytest_tmp/base_api`
-  - `8 passed`
+  - `10 passed`
+- 代理有效性验证：
+  - `Test-NetConnection 127.0.0.1 -Port 7890` -> `TcpTestSucceeded=True`
+  - 基于 `build_retry_session()` 的代理会话请求 `https://jsonplaceholder.typicode.com/posts/1` -> `200 / body_id=1`
+- 2026-04-01 代理开启专项复验：
+  - `python -m pytest api_test/tests/test_base_api_governance.py -v --noconftest --basetemp .pytest_tmp/base_api_proxy_recheck`
+    - `10 passed`
+  - `python api_test/run_test.py --public-baseline`
+    - `12 passed, 17 deselected`
+  - `cd api_test && python run_test.py --public-baseline`
+    - `12 passed, 17 deselected`
+- `python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_full_after_cleanup`
+  - `29 passed`
+- 2026-04-01 默认关闭代理直连复验：
+  - `python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_full_default_off_serial`
+    - `1 failed, 28 passed`
+    - 失败项：`test_patch_updates_partial_fields`
+    - 根因：访问 `jsonplaceholder.typicode.com` 时出现 `SSL handshake/read timeout`，属于外网站点时延波动，不是框架断言逻辑错误
+- `python api_test/run_test.py --public-baseline`
+  - `12 passed, 17 deselected`
+- `cd api_test && python run_test.py --public-baseline`
+  - `12 passed, 17 deselected`
+- `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_full`
+  - `40 passed`
 
 说明：
 
-- 当前 `api_test` 仍在从旧私有站点链路向通用框架迁移；
-- `BaseAPI`、`conftest.py`、`run_test.py` 和 `platform_core` 的去特化改造仍在继续；
-- 2026-03-31 的全量回归结果仅作为重构前备份基线参考，不代表当前工作分支状态。
+- 当前 `api_test` 的通用配置、通用运行时、公开基线入口和公开示例测试已经完成当前轮闭环验证；
+- 代理开启时，当前公开基线与运行入口复验稳定通过；
+- 仓库默认保持 `proxy.enabled=false`，但默认直连外网站点仍存在时延波动，当前公开站点回归建议优先开启代理；
+- `platform_core` 全量仍然保持通过；
+- 更深一层的 `platform_core` 去特化和旧资产桥接清理仍在后续改造范围内。
 
 ## 当前仓库结构
 
@@ -91,6 +124,9 @@ python -m pytest tests/platform_core -v
 ```bash
 python -m pytest api_test/tests/test_config_loader.py -v --noconftest --basetemp .pytest_tmp/config_loader
 python -m pytest api_test/tests/test_base_api_governance.py -v --noconftest --basetemp .pytest_tmp/base_api
+python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_full_after_cleanup
+python api_test/run_test.py --public-baseline
+cd api_test && python run_test.py --public-baseline
 ```
 
 ## 备注

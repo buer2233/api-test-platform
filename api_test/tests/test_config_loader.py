@@ -26,6 +26,8 @@ def test_load_api_config_reads_default_json_file():
 
     assert config.runtime.base_url == "https://jsonplaceholder.typicode.com"
     assert config.runtime.timeout == 30
+    assert config.proxy.enabled is False
+    assert config.proxy.url == "http://127.0.0.1:7890"
     assert config.execution.tests_root == "tests"
     assert config.execution.public_baseline_marker == "public_baseline"
 
@@ -40,6 +42,7 @@ def test_load_api_config_uses_explicit_path(tmp_path):
             "default_headers": {"Content-Type": "application/json"},
         },
         "session": {"pool_connections": 10, "pool_maxsize": 11, "max_retries": 2},
+        "proxy": {"enabled": True, "url": "http://127.0.0.1:7891"},
         "execution": {
             "tests_root": "tests",
             "report_dir": "report",
@@ -65,6 +68,8 @@ def test_load_api_config_uses_explicit_path(tmp_path):
 
     assert config.runtime.base_url == "https://example.com"
     assert config.session.pool_connections == 10
+    assert config.proxy.enabled is True
+    assert config.proxy.url == "http://127.0.0.1:7891"
 
 
 def test_load_api_config_rejects_missing_required_sections(tmp_path):
@@ -75,7 +80,7 @@ def test_load_api_config_rejects_missing_required_sections(tmp_path):
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="session|execution|logging|site_profiles"):
+    with pytest.raises(ValueError, match="session|proxy|execution|logging|site_profiles"):
         module.load_api_config(config_path)
 
 

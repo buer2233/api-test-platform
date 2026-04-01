@@ -20,6 +20,11 @@ class SessionConfig(BaseModel):
     max_retries: int
 
 
+class ProxyConfig(BaseModel):
+    enabled: bool = False
+    url: str = "http://127.0.0.1:7890"
+
+
 class ExecutionConfig(BaseModel):
     tests_root: str
     report_dir: str
@@ -46,6 +51,7 @@ class SiteProfile(BaseModel):
 class ApiTestConfig(BaseModel):
     runtime: RuntimeConfig
     session: SessionConfig
+    proxy: ProxyConfig
     execution: ExecutionConfig
     logging: LoggingConfig
     site_profiles: dict[str, SiteProfile] = Field(default_factory=dict)
@@ -67,7 +73,7 @@ def load_api_config(config_path: str | Path | None = None) -> ApiTestConfig:
     payload: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
     missing_sections = [
         section
-        for section in ("runtime", "session", "execution", "logging", "site_profiles")
+        for section in ("runtime", "session", "proxy", "execution", "logging", "site_profiles")
         if section not in payload
     ]
     if missing_sections:

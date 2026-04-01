@@ -42,8 +42,7 @@ class JsonPlaceholderAPI(BaseAPI):
         )
 
     def replace_post(self, post_id: int, title: str, body: str, user_id: int) -> dict[str, Any]:
-        return self.request(
-            "PUT",
+        return self.put(
             f"/posts/{post_id}",
             json={"id": post_id, "title": title, "body": body, "userId": user_id},
         )

@@ -12,6 +12,10 @@
     "pool_maxsize": 100,
     "max_retries": 3
   },
+  "proxy": {
+    "enabled": false,
+    "url": "http://127.0.0.1:7890"
+  },
   "execution": {
     "tests_root": "tests",
     "report_dir": "report",

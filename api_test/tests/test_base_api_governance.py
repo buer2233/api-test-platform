@@ -1,6 +1,10 @@
+import json
+from pathlib import Path
+
 import pytest
 import requests
 
+import core.config_loader as config_loader
 from core.base_api import BaseAPI
 from core.config_loader import clear_api_config_cache, get_api_config
 from core.session import build_retry_session
@@ -16,6 +20,34 @@ def test_build_retry_session_uses_config_values():
     assert session.adapters["http://"]._pool_connections == config.session.pool_connections
     assert session.adapters["https://"]._pool_maxsize == config.session.pool_maxsize
     session.close()
+
+
+def test_build_retry_session_retries_transport_failures_for_all_methods():
+    config = get_api_config()
+
+    session = build_retry_session()
+    retry_policy = session.adapters["https://"].max_retries
+
+    assert retry_policy.total == config.session.max_retries
+    assert retry_policy.connect == config.session.max_retries
+    assert retry_policy.read == config.session.max_retries
+    assert retry_policy.allowed_methods is None
+    session.close()
+
+
+def test_build_retry_session_applies_proxy_when_enabled(tmp_path, monkeypatch):
+    payload = json.loads((Path(__file__).resolve().parents[1] / "api_config.json").read_text(encoding="utf-8"))
+    payload["proxy"] = {"enabled": True, "url": "http://127.0.0.1:7890"}
+    config_path = tmp_path / "api_config.json"
+    config_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    monkeypatch.setattr(config_loader, "_CONFIG_CACHE", config_loader.load_api_config(config_path))
+
+    session = build_retry_session()
+
+    assert session.proxies["http"] == "http://127.0.0.1:7890"
+    assert session.proxies["https"] == "http://127.0.0.1:7890"
+    session.close()
+    clear_api_config_cache()
 
 
 def test_base_api_uses_json_runtime_config():
