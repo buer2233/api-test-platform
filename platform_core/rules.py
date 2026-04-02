@@ -73,12 +73,19 @@ class RuleValidator:
             expected_type = assertion.expected_value.get("type")
             if expected_type not in RuleValidator._SUPPORTED_SCHEMA_TYPES:
                 violations.append("schema_match.type 非法或缺失")
+            item_type = assertion.expected_value.get("item_type")
+            if "item_type" in assertion.expected_value and item_type not in RuleValidator._SUPPORTED_SCHEMA_TYPES:
+                violations.append("schema_match.item_type 非法或缺失")
             required_fields = assertion.expected_value.get("required_fields", [])
             if "required_fields" in assertion.expected_value and (
                 not isinstance(required_fields, list)
                 or any(not isinstance(field, str) or not field for field in required_fields)
             ):
                 violations.append("schema_match.required_fields 必须为非空字符串列表")
+            if "required_fields" in assertion.expected_value and not (
+                expected_type == "object" or (expected_type == "array" and item_type == "object")
+            ):
+                violations.append("schema_match.required_fields 仅支持对象或对象数组结构")
         return violations
 
     @staticmethod

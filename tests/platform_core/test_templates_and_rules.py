@@ -167,6 +167,30 @@ def test_assertion_template_renders_schema_match():
     assert 'for required_field in ["id", "name"]:' in rendered
 
 
+def test_assertion_template_renders_array_object_schema_match():
+    """TC-V1-TPL-003B 断言模板应生成对象数组结构断言片段。"""
+    renderer = TemplateRenderer()
+    assertions = [
+        AssertionCandidate(
+            assertion_id="assert-schema-001",
+            operation_id="op-list-user",
+            assertion_type="schema_match",
+            target_path="data",
+            expected_value={"type": "array", "item_type": "object", "required_fields": ["id", "name"]},
+            priority="medium",
+            source="openapi",
+            confidence_score=0.8,
+            review_status="pending",
+        )
+    ]
+
+    rendered = renderer.render_assertions(assertions)
+
+    assert 'for schema_item in schema_value:' in rendered
+    assert 'assert isinstance(schema_item, dict)' in rendered
+    assert 'for required_field in ["id", "name"]:' in rendered
+
+
 def test_pytest_template_builds_fake_response_for_object_schema_assertions():
     """TC-V1-TPL-002A pytest 模板应生成满足对象断言的假响应。"""
     renderer = TemplateRenderer()
@@ -231,6 +255,39 @@ def test_pytest_template_builds_fake_response_for_array_schema_assertions():
     rendered = renderer.render_test_module(build_module(), build_list_operation(), assertions)
 
     assert '"data": []' in rendered
+
+
+def test_pytest_template_builds_fake_response_for_array_object_schema_assertions():
+    """TC-V1-TPL-002C pytest 模板应生成满足对象数组断言的假响应。"""
+    renderer = TemplateRenderer()
+    assertions = [
+        AssertionCandidate(
+            assertion_id="assert-status-001",
+            operation_id="op-list-user",
+            assertion_type="status_code",
+            target_path="status_code",
+            expected_value=200,
+            priority="high",
+            source="openapi",
+            confidence_score=1.0,
+            review_status="pending",
+        ),
+        AssertionCandidate(
+            assertion_id="assert-schema-001",
+            operation_id="op-list-user",
+            assertion_type="schema_match",
+            target_path="data",
+            expected_value={"type": "array", "item_type": "object", "required_fields": ["id", "name"]},
+            priority="medium",
+            source="openapi",
+            confidence_score=0.8,
+            review_status="pending",
+        ),
+    ]
+
+    rendered = renderer.render_test_module(build_module(), build_list_operation(), assertions)
+
+    assert '"data": [{"id": "sample-id", "name": "sample-name"}]' in rendered
 
 
 def test_generation_record_template_renders_traceable_json():

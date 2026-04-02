@@ -133,6 +133,47 @@ def build_multi_operation_openapi_spec() -> dict:
     }
 
 
+def build_array_object_pipeline_openapi_spec() -> dict:
+    """构造对象数组结构的流水线 OpenAPI 样例。"""
+    return {
+        "openapi": "3.0.0",
+        "info": {"title": "User API", "version": "1.0.0"},
+        "paths": {
+            "/api/users": {
+                "get": {
+                    "tags": ["user"],
+                    "operationId": "listUsers",
+                    "summary": "查询用户列表",
+                    "responses": {
+                        "200": {
+                            "description": "success",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "id": {"type": "string", "example": "u-100"},
+                                                        "name": {"type": "string", "example": "Alice"},
+                                                    },
+                                                },
+                                            }
+                                        },
+                                    }
+                                }
+                            },
+                        }
+                    },
+                }
+            }
+        },
+    }
+
+
 def test_pytest_executor_runs_smoke_test_and_returns_execution_record(tmp_path):
     """TC-V1-EXEC-001/002/003 执行器应完成最小 smoke 执行并输出记录。"""
     output_root = tmp_path / "workspace"
@@ -217,6 +258,27 @@ def test_document_driven_pipeline_executes_all_generated_tests_for_multiple_oper
     assert result.execution_record.passed_count == 2
     assert testsuite is not None
     assert testsuite.attrib["tests"] == "2"
+
+
+def test_document_driven_pipeline_renders_array_object_schema_match_and_executes_pytest(tmp_path):
+    """对象数组结构闭环应生成数组项断言并可执行通过。"""
+    source_path = tmp_path / "user_array_openapi.json"
+    source_path.write_text(
+        json.dumps(build_array_object_pipeline_openapi_spec(), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    output_root = tmp_path / "workspace"
+    pipeline = DocumentDrivenPipeline(project_root=Path.cwd())
+
+    result = pipeline.run(source_path=source_path, output_root=output_root)
+
+    test_file = output_root / "generated" / "tests" / "test_list_users.py"
+    rendered_test = test_file.read_text(encoding="utf-8")
+
+    assert result.execution_record.result_status == "passed"
+    assert 'for schema_item in schema_value:' in rendered_test
+    assert 'assert isinstance(schema_item, dict)' in rendered_test
 
 
 def test_platform_core_cli_runs_document_pipeline(tmp_path):

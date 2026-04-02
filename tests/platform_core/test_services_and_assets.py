@@ -65,6 +65,47 @@ def build_openapi_spec() -> dict:
     }
 
 
+def build_array_object_openapi_spec() -> dict:
+    """构造对象数组响应结构的 OpenAPI 样例。"""
+    return {
+        "openapi": "3.0.0",
+        "info": {"title": "User API", "version": "1.0.0"},
+        "paths": {
+            "/api/users": {
+                "get": {
+                    "tags": ["user"],
+                    "operationId": "listUsers",
+                    "summary": "获取用户列表",
+                    "responses": {
+                        "200": {
+                            "description": "success",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "id": {"type": "string", "example": "u-100"},
+                                                        "name": {"type": "string", "example": "Alice"},
+                                                    },
+                                                },
+                                            }
+                                        },
+                                    }
+                                }
+                            },
+                        }
+                    },
+                }
+            }
+        },
+    }
+
+
 def build_operation() -> ApiOperation:
     """构造规则测试使用的最小接口对象。"""
     return ApiOperation(
@@ -103,6 +144,21 @@ def test_parser_creates_schema_match_assertion_from_object_response(tmp_path):
     assert len(schema_assertions) == 1
     assert schema_assertions[0].target_path == "data"
     assert schema_assertions[0].expected_value["type"] == "object"
+    assert schema_assertions[0].expected_value["required_fields"] == ["id", "name"]
+
+
+def test_parser_creates_schema_match_assertion_from_array_object_response(tmp_path):
+    """解析器应从对象数组响应结构中生成增强版 schema_match 断言。"""
+    source_path = tmp_path / "user_array_openapi.json"
+    source_path.write_text(json.dumps(build_array_object_openapi_spec(), ensure_ascii=False, indent=2), encoding="utf-8")
+
+    parsed = OpenAPIDocumentParser().parse(source_path)
+
+    schema_assertions = [assertion for assertion in parsed.assertions if assertion.assertion_type == "schema_match"]
+    assert len(schema_assertions) == 1
+    assert schema_assertions[0].target_path == "data"
+    assert schema_assertions[0].expected_value["type"] == "array"
+    assert schema_assertions[0].expected_value["item_type"] == "object"
     assert schema_assertions[0].expected_value["required_fields"] == ["id", "name"]
 
 
@@ -204,6 +260,39 @@ def test_rule_validator_rejects_invalid_schema_match_assertion():
     violations = validator.validate_assertions(build_operation(), assertions)
 
     assert any("schema_match" in violation for violation in violations)
+
+
+def test_rule_validator_rejects_invalid_array_object_schema_match_assertion():
+    """对象数组 schema_match 的非法 item_type 应被拦截。"""
+    validator = RuleValidator()
+    assertions = [
+        AssertionCandidate(
+            assertion_id="assert-schema-001",
+            operation_id="op-get-user",
+            assertion_type="schema_match",
+            target_path="data",
+            expected_value={"type": "array", "item_type": "unsupported", "required_fields": ["id"]},
+            priority="medium",
+            source="openapi",
+            confidence_score=0.7,
+            review_status="pending",
+        ),
+        AssertionCandidate(
+            assertion_id="assert-status-001",
+            operation_id="op-get-user",
+            assertion_type="status_code",
+            target_path="status_code",
+            expected_value=200,
+            priority="high",
+            source="openapi",
+            confidence_score=1.0,
+            review_status="pending",
+        ),
+    ]
+
+    violations = validator.validate_assertions(build_operation(), assertions)
+
+    assert any("schema_match.item_type" in violation for violation in violations)
 
 
 def test_rule_validator_rejects_asset_manifest_without_assets_and_generation_links():

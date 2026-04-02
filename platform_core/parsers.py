@@ -136,7 +136,11 @@ class OpenAPIDocumentParser:
         if is_openapi:
             body_params.extend(self._build_openapi_body_params(operation_code, operation_spec))
 
-        success_code, response_fields = self._build_response_fields(operation_code, operation_spec, is_openapi)
+        success_code, response_fields, response_schema = self._build_response_fields(
+            operation_code,
+            operation_spec,
+            is_openapi,
+        )
 
         return ApiOperation(
             operation_id=f"operation-{operation_code}",
@@ -156,6 +160,7 @@ class OpenAPIDocumentParser:
             response_fields=response_fields,
             success_codes=[success_code] if success_code is not None else [],
             source_ids=[source_document.source_id],
+            metadata={"primary_success_response_schema": response_schema},
         )
 
     def _build_param(
@@ -235,12 +240,12 @@ class OpenAPIDocumentParser:
         operation_code: str,
         operation_spec: dict[str, Any],
         is_openapi: bool,
-    ) -> tuple[int | None, list[ResponseField]]:
+    ) -> tuple[int | None, list[ResponseField], dict[str, Any]]:
         """提取成功响应码及其响应字段。"""
         responses = operation_spec.get("responses") or {}
         success_codes = sorted([int(code) for code in responses if code.isdigit() and code.startswith("2")])
         if not success_codes:
-            return None, []
+            return None, [], {}
 
         success_code = success_codes[0]
         response_payload = responses.get(str(success_code)) or {}
@@ -253,7 +258,7 @@ class OpenAPIDocumentParser:
             status_code=success_code,
             schema=schema,
         )
-        return success_code, fields
+        return success_code, fields, schema
 
     def _extract_response_fields(
         self,
@@ -355,6 +360,12 @@ class OpenAPIDocumentParser:
 
     def _build_schema_match_assertion(self, operation: ApiOperation) -> AssertionCandidate | None:
         """根据响应字段推导最小 schema_match 断言。"""
+        response_schema = operation.metadata.get("primary_success_response_schema", {})
+        if isinstance(response_schema, dict):
+            schema_assertion = self._build_schema_match_from_schema(operation, response_schema)
+            if schema_assertion is not None:
+                return schema_assertion
+
         object_field = next(
             (field for field in operation.response_fields if field.can_assert and field.data_type == "object"),
             None,
@@ -391,6 +402,52 @@ class OpenAPIDocumentParser:
                 confidence_score=0.7,
                 review_status="pending",
             )
+        return None
+
+    def _build_schema_match_from_schema(
+        self,
+        operation: ApiOperation,
+        response_schema: dict[str, Any],
+    ) -> AssertionCandidate | None:
+        """根据原始成功响应 schema 推导更精确的 schema_match 断言。"""
+        properties = response_schema.get("properties") or {}
+        for field_name, field_schema in properties.items():
+            field_type = field_schema.get("type")
+            if field_type == "object":
+                expected_value: dict[str, Any] = {"type": "object"}
+                required_fields = list((field_schema.get("properties") or {}).keys())
+                if required_fields:
+                    expected_value["required_fields"] = required_fields
+                return AssertionCandidate(
+                    assertion_id=f"{operation.operation_id}-schema-match",
+                    operation_id=operation.operation_id,
+                    assertion_type="schema_match",
+                    target_path=field_name,
+                    expected_value=expected_value,
+                    priority="medium",
+                    source="openapi",
+                    confidence_score=0.7,
+                    review_status="pending",
+                )
+            if field_type == "array":
+                expected_value = {"type": "array"}
+                item_schema = field_schema.get("items") or {}
+                if item_schema.get("type") == "object":
+                    expected_value["item_type"] = "object"
+                    required_fields = list((item_schema.get("properties") or {}).keys())
+                    if required_fields:
+                        expected_value["required_fields"] = required_fields
+                return AssertionCandidate(
+                    assertion_id=f"{operation.operation_id}-schema-match",
+                    operation_id=operation.operation_id,
+                    assertion_type="schema_match",
+                    target_path=field_name,
+                    expected_value=expected_value,
+                    priority="medium",
+                    source="openapi",
+                    confidence_score=0.7,
+                    review_status="pending",
+                )
         return None
 
     @staticmethod

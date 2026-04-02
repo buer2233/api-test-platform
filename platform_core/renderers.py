@@ -77,6 +77,8 @@ class TemplateRenderer:
                     "target_path": assertion.target_path,
                     "expected_type": expected_value.get("type", "object"),
                     "python_type_expr": self._build_python_type_expr(expected_value.get("type", "object")),
+                    "item_type": expected_value.get("item_type"),
+                    "item_python_type_expr": self._build_python_type_expr(expected_value.get("item_type", "object")),
                     "required_fields": expected_value.get("required_fields", []),
                     "required_fields_literal": json.dumps(
                         expected_value.get("required_fields", []),
@@ -205,6 +207,20 @@ class TemplateRenderer:
                 if isinstance(current_value, dict) and field_name not in current_value:
                     current_value[field_name] = self._build_path_placeholder(f"{target_path}.{field_name}")
             return
+
+        if expected_type == "array":
+            item_type = expected_value.get("item_type")
+            required_fields = expected_value.get("required_fields", [])
+            if item_type == "object":
+                item_payload = {
+                    field_name: self._build_path_placeholder(f"{target_path}.{field_name}")
+                    for field_name in required_fields
+                }
+                self._set_nested_value(body, target_path, [item_payload or {}])
+                return
+            if isinstance(item_type, str):
+                self._set_nested_value(body, target_path, [self._build_schema_placeholder(item_type)])
+                return
 
         self._set_nested_value(body, target_path, self._build_schema_placeholder(expected_type))
 

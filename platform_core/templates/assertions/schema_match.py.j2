@@ -3,7 +3,18 @@ assert schema_value is not None, "schema_match 断言失败: 目标路径 {{ tar
 assert isinstance(schema_value, {{ python_type_expr }}), (
     "schema_match 断言失败: 路径 {{ target_path }} 的值类型不符合预期 {{ expected_type }}"
 )
-{% if required_fields %}
+{% if expected_type == "array" and item_type %}
+for schema_item in schema_value:
+    assert isinstance(schema_item, {{ item_python_type_expr }}), (
+        "schema_match 断言失败: 路径 {{ target_path }} 的数组元素类型不符合预期 {{ item_type }}"
+    )
+{% if item_type == "object" and required_fields %}
+    for required_field in {{ required_fields_literal }}:
+        assert required_field in schema_item, (
+            f"schema_match 断言失败: 路径 {{ target_path }} 的数组元素缺少字段 {required_field}"
+        )
+{% endif %}
+{% elif required_fields %}
 for required_field in {{ required_fields_literal }}:
     assert isinstance(schema_value, dict) and required_field in schema_value, (
         f"schema_match 断言失败: 路径 {{ target_path }} 缺少字段 {required_field}"
