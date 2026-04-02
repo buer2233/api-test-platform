@@ -1,0 +1,11 @@
+schema_value = _get_nested_value(body, "{{ target_path }}")
+assert schema_value is not None, "schema_match 断言失败: 目标路径 {{ target_path }} 不存在"
+assert isinstance(schema_value, {{ python_type_expr }}), (
+    "schema_match 断言失败: 路径 {{ target_path }} 的值类型不符合预期 {{ expected_type }}"
+)
+{% if required_fields %}
+for required_field in {{ required_fields_literal }}:
+    assert isinstance(schema_value, dict) and required_field in schema_value, (
+        f"schema_match 断言失败: 路径 {{ target_path }} 缺少字段 {required_field}"
+    )
+{% endif %}

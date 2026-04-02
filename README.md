@@ -8,7 +8,7 @@
 
 ## 当前状态
 
-截至 2026-04-01，仓库处于“通用测试框架大重构”执行中，已完成：
+截至 2026-04-02，仓库处于“通用测试框架大重构”执行中，已完成：
 
 - 重构设计说明与实施计划；
 - 重构前备份提交并推送：
@@ -45,6 +45,10 @@
   - `ExecutionRecord` 新增 `command`、`exit_code`、测试数量统计字段
   - `AssetWorkspace.inspect_manifest()` 新增生成记录摘要与缺失生成记录检查
   - `platform_core.cli run` 新增 `generation_count`、`asset_count`、执行退出码与测试统计输出
+- 已完成 `platform_core` 断言模板覆盖增强：
+  - 已新增 `schema_match` 断言模板、解析候选生成和规则校验
+  - 生成的 pytest 测试骨架会根据断言集合自动构造最小假响应体，不再固定写死对象结构
+  - `schema_match` 的 `required_fields` 渲染改为稳定的 JSON 风格字符串，便于模板与测试长期一致
 
 当前分支最新已验证结果：
 
@@ -86,6 +90,20 @@
   - `10 passed`
 - `python -m pytest tests/platform_core/test_pipeline.py tests/platform_core/test_services_and_assets.py -v --basetemp .pytest_tmp/platform_core_traceability_after_impl`
   - `17 passed`
+- `python -m pytest tests/platform_core/test_templates_and_rules.py -k "schema_match or fake_response" -v --basetemp .pytest_tmp/schema_green`
+  - `3 passed`
+- `python -m pytest tests/platform_core/test_services_and_assets.py tests/platform_core/test_pipeline.py -v --basetemp .pytest_tmp/schema_pipeline_green`
+  - `19 passed`
+- `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_assertion_full`
+  - `43 passed`
+- `python -m pytest tests -v --basetemp .pytest_tmp/root_assertion_full`
+  - `48 passed`
+- `python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_assertion_full`
+  - `30 passed`
+- `python api_test/run_test.py --public-baseline`
+  - `12 passed, 18 deselected`
+- `cd api_test && python run_test.py --public-baseline`
+  - `12 passed, 18 deselected`
 - `python -m pytest tests -v --basetemp .pytest_tmp/root_full_traceability`
   - `43 passed`
 - `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_full_traceability`
@@ -102,9 +120,10 @@
 - 当前 `api_test` 的通用配置、通用运行时、公开基线入口和公开示例测试已经完成当前轮闭环验证；
 - 代理开启时，当前公开基线与运行入口复验稳定通过；
 - 仓库默认保持 `proxy.enabled=false`，但默认直连外网站点仍存在时延波动，当前公开站点回归建议优先开启代理；
-- `platform_core` 的生成记录、执行记录、工作区检查和 CLI 运行摘要已经开始向后续服务接口形态收口；
+- `platform_core` 的生成记录、执行记录、工作区检查、CLI 运行摘要和 `schema_match` 断言闭环已经开始向后续服务接口形态收口；
+- 生成测试骨架时，伪客户端返回值已从固定示例改为随断言上下文生成，当前多接口场景不会再因假响应结构失真而误报失败；
 - `platform_core`、根治理测试与执行入口回归当前轮均保持通过；
-- 当前轮完整回归中，`root/tests`、`tests/platform_core`、`api_test/tests` 和公开基线双入口已全部通过；
+- 2026-04-02 当前轮完整回归中，`tests/platform_core` 为 `43 passed`、根测试为 `48 passed`、`api_test/tests` 为 `30 passed`，公开基线双入口均为 `12 passed, 18 deselected`；
 - 更深一层的 `api_test` 职责拆分、模板/规则覆盖扩展和服务接口产品化仍在后续改造范围内。
 
 ## 当前仓库结构
@@ -149,6 +168,8 @@ api-test-platform/
 - [generic-test-framework-refactor.md](/D:/AI/api-test-platform/docs/superpowers/plans/2026-04-01-generic-test-framework-refactor.md)
 - [v1-traceability-summary-design.md](/D:/AI/api-test-platform/docs/superpowers/specs/2026-04-01-v1-traceability-summary-design.md)
 - [v1-traceability-summary.md](/D:/AI/api-test-platform/docs/superpowers/plans/2026-04-01-v1-traceability-summary.md)
+- [v1-assertion-template-coverage-design.md](/D:/AI/api-test-platform/docs/superpowers/specs/2026-04-02-v1-assertion-template-coverage-design.md)
+- [v1-assertion-template-coverage.md](/D:/AI/api-test-platform/docs/superpowers/plans/2026-04-02-v1-assertion-template-coverage.md)
 
 ## 当前验证入口
 

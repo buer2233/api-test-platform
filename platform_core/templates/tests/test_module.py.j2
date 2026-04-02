@@ -1,23 +1,32 @@
-﻿import pytest
+import json
+
+import pytest
 
 from {{ module_import }} import {{ class_name }}
 from platform_core.runtime import ApiClient
 
+_FAKE_RESPONSE_BODY = json.loads({{ fake_response_json_literal }})
+
 
 class FakeApiClient(ApiClient):
+    """生成测试时使用的伪客户端。"""
+
     def request(self, method, path, **kwargs):
+        """返回与当前断言集合匹配的固定假响应。"""
         return {
-            "status_code": 200,
-            "json": {"code": 0, "data": {"id": "u-100"}},
+            "status_code": {{ fake_status_code }},
+            "json": _FAKE_RESPONSE_BODY,
         }
 
 
 @pytest.fixture()
 def api():
+    """构造当前测试模块使用的 API 实例。"""
     return {{ class_name }}(FakeApiClient(base_url="http://example.com"))
 
 
 def _get_nested_value(data, path):
+    """按点分路径读取嵌套字典中的字段值。"""
     current = data
     for key in path.split("."):
         if not isinstance(current, dict) or key not in current:
@@ -27,6 +36,7 @@ def _get_nested_value(data, path):
 
 
 def test_{{ operation.operation_code }}_smoke(api):
+    """执行 {{ operation.operation_code }} 的最小 smoke 测试。"""
     response = api.{{ operation.operation_code }}({{ call_kwargs }})
     body = response["json"]
 {{ assertions }}

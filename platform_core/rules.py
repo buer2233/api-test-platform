@@ -12,6 +12,7 @@ class RuleValidator:
     """V1 最小规则校验器。"""
 
     _SNAKE_CASE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
+    _SUPPORTED_SCHEMA_TYPES = {"object", "array", "string", "integer", "number", "boolean"}
 
     def validate_operation(self, operation: ApiOperation) -> list[str]:
         """校验通用接口操作是否满足最小命名和字段约束。"""
@@ -63,6 +64,21 @@ class RuleValidator:
             assertion.assertion_type == "status_code" for assertion in assertions
         ):
             violations.append("可执行接口至少需要一个 status_code 断言")
+        for assertion in assertions:
+            if assertion.assertion_type != "schema_match":
+                continue
+            if not isinstance(assertion.expected_value, dict):
+                violations.append("schema_match.expected_value 必须为字典")
+                continue
+            expected_type = assertion.expected_value.get("type")
+            if expected_type not in RuleValidator._SUPPORTED_SCHEMA_TYPES:
+                violations.append("schema_match.type 非法或缺失")
+            required_fields = assertion.expected_value.get("required_fields", [])
+            if "required_fields" in assertion.expected_value and (
+                not isinstance(required_fields, list)
+                or any(not isinstance(field, str) or not field for field in required_fields)
+            ):
+                violations.append("schema_match.required_fields 必须为非空字符串列表")
         return violations
 
     @staticmethod

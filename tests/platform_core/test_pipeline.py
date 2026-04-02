@@ -192,6 +192,7 @@ def test_document_driven_pipeline_generates_traceable_assets_and_executes_pytest
     assert result.execution_record.total_count == 1
     assert result.execution_record.passed_count == 1
     assert any(record.name.endswith(".json") for record in records_dir.iterdir())
+    assert 'schema_value = _get_nested_value(body, "data")' in test_file.read_text(encoding="utf-8")
 
 
 def test_document_driven_pipeline_executes_all_generated_tests_for_multiple_operations(tmp_path):

@@ -48,6 +48,8 @@ class TemplateRenderer:
             "class_name": f"{self._snake_to_pascal(module.module_code)}Api",
             "operation": operation_context,
             "call_kwargs": self._build_call_kwargs(operation),
+            "fake_status_code": self._resolve_fake_status_code(assertions),
+            "fake_response_json_literal": self._build_fake_response_json_literal(assertions),
             "assertions": textwrap.indent(self.render_assertions(assertions).rstrip(), "    "),
         }
         return template.render(**payload).removeprefix("\ufeff")
@@ -67,6 +69,19 @@ class TemplateRenderer:
                 context = {
                     "target_path": assertion.target_path,
                     "expected_value": self._repr_default(assertion.expected_value),
+                }
+            elif assertion.assertion_type == "schema_match":
+                template_name = "assertions/schema_match.py.j2"
+                expected_value = assertion.expected_value if isinstance(assertion.expected_value, dict) else {}
+                context = {
+                    "target_path": assertion.target_path,
+                    "expected_type": expected_value.get("type", "object"),
+                    "python_type_expr": self._build_python_type_expr(expected_value.get("type", "object")),
+                    "required_fields": expected_value.get("required_fields", []),
+                    "required_fields_literal": json.dumps(
+                        expected_value.get("required_fields", []),
+                        ensure_ascii=False,
+                    ),
                 }
             else:
                 continue
@@ -116,11 +131,127 @@ class TemplateRenderer:
         return repr(value)
 
     @staticmethod
+    def _build_python_type_expr(expected_type: str) -> str:
+        """把断言类型映射为 Python `isinstance` 表达式。"""
+        mapping = {
+            "object": "dict",
+            "array": "list",
+            "string": "str",
+            "integer": "int",
+            "number": "(int, float)",
+            "boolean": "bool",
+        }
+        return mapping.get(expected_type, "object")
+
+    @staticmethod
     def _build_path_expression(path: str, path_params: list[Any]) -> str:
         """根据 path 参数情况构建路径表达式。"""
         if not path_params:
             return f'"{path}"'
         return f'f"{path}"'
+
+    def _resolve_fake_status_code(self, assertions: list[AssertionCandidate]) -> int:
+        """从断言候选中推导生成测试使用的假响应状态码。"""
+        for assertion in assertions:
+            if assertion.assertion_type == "status_code" and isinstance(assertion.expected_value, int):
+                return assertion.expected_value
+        return 200
+
+    def _build_fake_response_json_literal(self, assertions: list[AssertionCandidate]) -> str:
+        """构建可在模板中直接反序列化的假响应 JSON 字符串字面量。"""
+        fake_body = self._build_fake_response_body(assertions)
+        return self._repr_default(json.dumps(fake_body, ensure_ascii=False))
+
+    def _build_fake_response_body(self, assertions: list[AssertionCandidate]) -> dict[str, Any]:
+        """根据断言候选构建最小可通过的假响应体。"""
+        body: dict[str, Any] = {}
+
+        for assertion in assertions:
+            if assertion.assertion_type != "schema_match" or not isinstance(assertion.expected_value, dict):
+                continue
+            self._apply_schema_match_placeholder(body, assertion.target_path, assertion.expected_value)
+
+        for assertion in assertions:
+            if assertion.assertion_type != "json_field_exists":
+                continue
+            self._ensure_nested_value(
+                body,
+                assertion.target_path,
+                self._build_path_placeholder(assertion.target_path),
+            )
+
+        for assertion in assertions:
+            if assertion.assertion_type != "json_field_equals":
+                continue
+            self._set_nested_value(body, assertion.target_path, assertion.expected_value)
+
+        return body
+
+    def _apply_schema_match_placeholder(
+        self,
+        body: dict[str, Any],
+        target_path: str,
+        expected_value: dict[str, Any],
+    ) -> None:
+        """把 schema_match 断言转换为假响应中的最小结构。"""
+        expected_type = expected_value.get("type", "object")
+        if expected_type == "object":
+            current_value = self._get_nested_value(body, target_path)
+            if not isinstance(current_value, dict):
+                self._set_nested_value(body, target_path, {})
+                current_value = self._get_nested_value(body, target_path)
+            required_fields = expected_value.get("required_fields", [])
+            for field_name in required_fields:
+                if isinstance(current_value, dict) and field_name not in current_value:
+                    current_value[field_name] = self._build_path_placeholder(f"{target_path}.{field_name}")
+            return
+
+        self._set_nested_value(body, target_path, self._build_schema_placeholder(expected_type))
+
+    @staticmethod
+    def _build_schema_placeholder(expected_type: str) -> Any:
+        """根据 schema 类型生成占位值。"""
+        mapping: dict[str, Any] = {
+            "array": [],
+            "string": "sample-value",
+            "integer": 1,
+            "number": 1,
+            "boolean": True,
+        }
+        return mapping.get(expected_type, {})
+
+    @staticmethod
+    def _build_path_placeholder(target_path: str) -> str:
+        """根据字段路径生成更可读的占位字符串。"""
+        field_name = target_path.split(".")[-1]
+        return f"sample-{field_name}"
+
+    @staticmethod
+    def _get_nested_value(data: dict[str, Any], target_path: str) -> Any:
+        """读取嵌套字典中的目标路径值。"""
+        current: Any = data
+        for key in target_path.split("."):
+            if not isinstance(current, dict) or key not in current:
+                return None
+            current = current[key]
+        return current
+
+    def _ensure_nested_value(self, data: dict[str, Any], target_path: str, default_value: Any) -> None:
+        """仅当目标路径不存在时，补齐默认占位值。"""
+        if self._get_nested_value(data, target_path) is None:
+            self._set_nested_value(data, target_path, default_value)
+
+    @staticmethod
+    def _set_nested_value(data: dict[str, Any], target_path: str, value: Any) -> None:
+        """把值写入嵌套字典路径，并在必要时自动补齐父节点。"""
+        parts = target_path.split(".")
+        current: dict[str, Any] = data
+        for key in parts[:-1]:
+            next_value = current.get(key)
+            if not isinstance(next_value, dict):
+                current[key] = {}
+            current = current[key]
+        current[parts[-1]] = value
 
     @staticmethod
     def _build_call_kwargs(operation: ApiOperation) -> str:

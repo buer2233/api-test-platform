@@ -92,6 +92,20 @@ def test_parser_creates_json_field_equals_assertion_from_response_examples(tmp_p
     assert equals_assertions[0].expected_value == 0
 
 
+def test_parser_creates_schema_match_assertion_from_object_response(tmp_path):
+    """解析器应从对象响应结构中生成 schema_match 断言。"""
+    source_path = tmp_path / "user_openapi.json"
+    source_path.write_text(json.dumps(build_openapi_spec(), ensure_ascii=False, indent=2), encoding="utf-8")
+
+    parsed = OpenAPIDocumentParser().parse(source_path)
+
+    schema_assertions = [assertion for assertion in parsed.assertions if assertion.assertion_type == "schema_match"]
+    assert len(schema_assertions) == 1
+    assert schema_assertions[0].target_path == "data"
+    assert schema_assertions[0].expected_value["type"] == "object"
+    assert schema_assertions[0].expected_value["required_fields"] == ["id", "name"]
+
+
 def test_assertion_template_renders_json_field_equals():
     """断言模板应正确渲染 json_field_equals 断言。"""
     renderer = TemplateRenderer()
@@ -157,6 +171,39 @@ def test_rule_validator_requires_status_code_assertion_for_executable_operation(
     violations = validator.validate_assertions(build_operation(), assertions)
 
     assert any("status_code" in violation for violation in violations)
+
+
+def test_rule_validator_rejects_invalid_schema_match_assertion():
+    """非法 schema_match 断言结构应被拦截。"""
+    validator = RuleValidator()
+    assertions = [
+        AssertionCandidate(
+            assertion_id="assert-schema-001",
+            operation_id="op-get-user",
+            assertion_type="schema_match",
+            target_path="data",
+            expected_value={"required_fields": ["id"]},
+            priority="medium",
+            source="openapi",
+            confidence_score=0.7,
+            review_status="pending",
+        ),
+        AssertionCandidate(
+            assertion_id="assert-status-001",
+            operation_id="op-get-user",
+            assertion_type="status_code",
+            target_path="status_code",
+            expected_value=200,
+            priority="high",
+            source="openapi",
+            confidence_score=1.0,
+            review_status="pending",
+        ),
+    ]
+
+    violations = validator.validate_assertions(build_operation(), assertions)
+
+    assert any("schema_match" in violation for violation in violations)
 
 
 def test_rule_validator_rejects_asset_manifest_without_assets_and_generation_links():

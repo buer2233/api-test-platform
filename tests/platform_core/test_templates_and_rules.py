@@ -62,6 +62,24 @@ def build_operation() -> ApiOperation:
     )
 
 
+def build_list_operation() -> ApiOperation:
+    """构造列表接口操作样例。"""
+    return ApiOperation(
+        operation_id="op-list-user",
+        module_id="mod-user",
+        operation_name="获取用户列表",
+        operation_code="list_users",
+        http_method="GET",
+        path="/api/users",
+        summary="获取用户列表",
+        description="查询用户列表",
+        tags=["user"],
+        auth_type=None,
+        success_codes=[200],
+        source_ids=["src-openapi-001"],
+    )
+
+
 def build_assertions() -> list[AssertionCandidate]:
     """构造断言样例集合。"""
     return [
@@ -123,6 +141,96 @@ def test_assertion_template_renders_unified_assertions():
 
     assert 'assert response["status_code"] == 200' in rendered
     assert 'assert _get_nested_value(body, "data.id") is not None' in rendered
+
+
+def test_assertion_template_renders_schema_match():
+    """TC-V1-TPL-003A 断言模板应生成 schema_match 断言片段。"""
+    renderer = TemplateRenderer()
+    assertions = [
+        AssertionCandidate(
+            assertion_id="assert-schema-001",
+            operation_id="op-get-user",
+            assertion_type="schema_match",
+            target_path="data",
+            expected_value={"type": "object", "required_fields": ["id", "name"]},
+            priority="medium",
+            source="openapi",
+            confidence_score=0.8,
+            review_status="pending",
+        )
+    ]
+
+    rendered = renderer.render_assertions(assertions)
+
+    assert 'schema_value = _get_nested_value(body, "data")' in rendered
+    assert 'assert isinstance(schema_value, dict)' in rendered
+    assert 'for required_field in ["id", "name"]:' in rendered
+
+
+def test_pytest_template_builds_fake_response_for_object_schema_assertions():
+    """TC-V1-TPL-002A pytest 模板应生成满足对象断言的假响应。"""
+    renderer = TemplateRenderer()
+    assertions = build_assertions() + [
+        AssertionCandidate(
+            assertion_id="assert-schema-001",
+            operation_id="op-get-user",
+            assertion_type="schema_match",
+            target_path="data",
+            expected_value={"type": "object", "required_fields": ["id", "name"]},
+            priority="medium",
+            source="openapi",
+            confidence_score=0.8,
+            review_status="pending",
+        )
+    ]
+
+    rendered = renderer.render_test_module(build_module(), build_operation(), assertions)
+
+    assert '"name": "sample-name"' in rendered
+
+
+def test_pytest_template_builds_fake_response_for_array_schema_assertions():
+    """TC-V1-TPL-002B pytest 模板应生成满足数组断言的假响应。"""
+    renderer = TemplateRenderer()
+    assertions = [
+        AssertionCandidate(
+            assertion_id="assert-status-001",
+            operation_id="op-list-user",
+            assertion_type="status_code",
+            target_path="status_code",
+            expected_value=200,
+            priority="high",
+            source="openapi",
+            confidence_score=1.0,
+            review_status="pending",
+        ),
+        AssertionCandidate(
+            assertion_id="assert-exists-001",
+            operation_id="op-list-user",
+            assertion_type="json_field_exists",
+            target_path="data",
+            expected_value=None,
+            priority="medium",
+            source="openapi",
+            confidence_score=0.8,
+            review_status="pending",
+        ),
+        AssertionCandidate(
+            assertion_id="assert-schema-001",
+            operation_id="op-list-user",
+            assertion_type="schema_match",
+            target_path="data",
+            expected_value={"type": "array"},
+            priority="medium",
+            source="openapi",
+            confidence_score=0.8,
+            review_status="pending",
+        ),
+    ]
+
+    rendered = renderer.render_test_module(build_module(), build_list_operation(), assertions)
+
+    assert '"data": []' in rendered
 
 
 def test_generation_record_template_renders_traceable_json():

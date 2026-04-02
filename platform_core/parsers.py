@@ -326,6 +326,9 @@ class OpenAPIDocumentParser:
                     review_status="pending",
                 )
             )
+        schema_assertion = self._build_schema_match_assertion(operation)
+        if schema_assertion:
+            assertions.append(schema_assertion)
         comparable_field = next(
             (
                 field
@@ -349,6 +352,60 @@ class OpenAPIDocumentParser:
                 )
             )
         return assertions
+
+    def _build_schema_match_assertion(self, operation: ApiOperation) -> AssertionCandidate | None:
+        """根据响应字段推导最小 schema_match 断言。"""
+        object_field = next(
+            (field for field in operation.response_fields if field.can_assert and field.data_type == "object"),
+            None,
+        )
+        if object_field:
+            return AssertionCandidate(
+                assertion_id=f"{operation.operation_id}-schema-match",
+                operation_id=operation.operation_id,
+                assertion_type="schema_match",
+                target_path=object_field.field_path,
+                expected_value={
+                    "type": "object",
+                    "required_fields": self._collect_direct_child_fields(operation, object_field.field_path),
+                },
+                priority="medium",
+                source="openapi",
+                confidence_score=0.7,
+                review_status="pending",
+            )
+
+        array_field = next(
+            (field for field in operation.response_fields if field.can_assert and field.data_type == "array"),
+            None,
+        )
+        if array_field:
+            return AssertionCandidate(
+                assertion_id=f"{operation.operation_id}-schema-match",
+                operation_id=operation.operation_id,
+                assertion_type="schema_match",
+                target_path=array_field.field_path,
+                expected_value={"type": "array"},
+                priority="medium",
+                source="openapi",
+                confidence_score=0.7,
+                review_status="pending",
+            )
+        return None
+
+    @staticmethod
+    def _collect_direct_child_fields(operation: ApiOperation, parent_path: str) -> list[str]:
+        """收集指定对象节点下一层直接字段名。"""
+        prefix = f"{parent_path}."
+        child_fields: list[str] = []
+        for field in operation.response_fields:
+            if not field.field_path.startswith(prefix):
+                continue
+            suffix = field.field_path.removeprefix(prefix)
+            if "." in suffix:
+                continue
+            child_fields.append(field.field_name)
+        return child_fields
 
     @staticmethod
     def _module_name_from_path(path: str) -> str:
