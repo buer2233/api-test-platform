@@ -1,35 +1,31 @@
 # 当前发现
 
+## V1 状态判断
+- `product_document/阶段文档/V1阶段工作计划文档.md` 已切换为 V1 验收版，当前阶段判断为“V1 已完成”。
+- `product_document/测试文档/详细测试用例说明书(V1).md` 已同步到最终验收状态，P0 全部通过，P1/P2 增强项已转入 V2 承接。
+
 ## 代码发现
-- `api_test/core/base_api.py` 已支持 `expected_status`、`put()`、`patch()`，请求底座更完整。
-- `api_test/core/jsonplaceholder_api.py` 已封装 `posts/users/todos` 的基础查询与伪写操作。
-- `api_test/conftest.py` 已提供 `jsonplaceholder_api` fixture，便于公共站点测试复用。
-- `api_test/core/public_api.py` 已补充最小旧接口操作目录，`PublicAPI.describe_operations()` 可输出治理后的旧接口元信息。
-- `api_test/legacy_api_catalog.py` 已把旧目录提升为跨模块可导入的 catalog，供 `api_test` 与 `platform_core` 共同消费。
-- `api_test/run_test.py` 已新增 `--public-baseline` 模式，可稳定排除 `private_env` 用例。
-- `platform_core` 的 CLI `inspect` 现可返回资产摘要列表，不再只有数量级统计。
-- `platform_core/legacy_assets.py` 已可把旧 `PublicAPI` 目录转换为 `existing_api_asset` 类型的结构化快照。
-- `platform_core/legacy_assets.py` 现在还可把旧接口快照导出到工作区，生成模块级 JSON 资产、执行报告和 `asset_manifest.json`。
-- `platform_core/rules.py` 已新增 `existing_api_asset` 专项规则，可校验旧接口模块命名、`legacy_public_api` / `private_env` 标记以及 `payload_mode` / `response_mode` / `requires_private_env` / `source_layer` 元数据。
+- `platform_core/renderers.py` 当前已支持 `business_rule(non_empty_string)` 与 `business_rule(positive_integer)`，并会按规则代码自动生成匹配的最小假响应值。
+- `platform_core/rules.py` 当前已允许 `business_rule.rule_code` 的两类最小取值：`non_empty_string` 与 `positive_integer`。
+- `platform_core/services.py` 的 `run_document_pipeline_summary()` 和 `inspect_workspace_summary()` 已补齐 `source_type`、`execution_id` 和资产聚合字段，当前摘要输出可直接被后续服务接口消费。
+- `platform_core/pipeline.py` 当前会在目录级执行结束后回写各生成记录的 `execution_status`。
+- `api_test/requirements.txt` 已改为固定版本约束，并已删除未使用的 `rsa` 依赖。
 
-## 测试发现
-- `api_test/tests/test_base_api_governance.py` 覆盖底座请求治理、RSA 公钥显式依赖、重试 Session 配置。
-- `api_test/tests/test_jsonplaceholder_api.py` 覆盖 JSONPlaceholder 基础 CRUD 与嵌套路由。
-- `api_test/tests/test_jsonplaceholder_resources.py` 覆盖 `users`、`todos` 和公共 fixture 基线。
-- `api_test/tests/test_public_api_governance.py` 覆盖旧 `PublicAPI` 操作目录和 raw response 调用约束。
-- `api_test/tests/test_run_test.py` 覆盖公开基线执行命令构建逻辑。
-- `tests/platform_core/test_services_and_assets.py` 已覆盖旧接口结构化快照的服务层与 CLI 检查入口。
-- `tests/platform_core/test_services_and_assets.py` 已覆盖旧接口快照落盘、工作区检查和 CLI `snapshot-legacy-public-api` 入口。
-- `tests/platform_core/test_templates_and_rules.py` 与 `tests/platform_core/test_services_and_assets.py` 现已覆盖旧接口专项规则、校验状态输出和无效快照阻断。
-- 当前验证基线为：
-  - `cd api_test && python -m pytest -v` => `30 passed, 4 skipped`
-  - `cd api_test && python run_test.py --public-baseline` => `30 passed, 4 deselected`
-  - `python -m pytest tests/platform_core -v` => `40 passed`
+## 本轮设计结论
+- 采用最小收口方案，不扩展解析器自动推断，不做 DSL。
+- 继续为 `business_rule` 增加 `positive_integer` 规则代码，用于验证“非空字符串之外的第二档规则”。
+- 对服务摘要补充更稳定的资产聚合信息，用于把当前 V1 输出进一步收敛到后续 Web / 客户端可直接承接的结构。
+- 通过新增治理测试把依赖约束固化下来，避免后续再次回退到宽松版本和无用依赖。
 
-## 文档发现
-- README、`api_test/README.md`、V1 阶段计划、实施拆解、测试说明等文件已同步更新旧接口目录治理、公开基线入口、资产摘要输出与最新测试基线。
-- 已完成旧基线扫描，未发现 `18 passed, 4 skipped`、`15 passed, 4 skipped` 或 `25 passed, 4 skipped` 等过期结果残留。
-
-## 新风险发现
-- 旧 `PublicAPI` 虽已补齐最小治理目录和专项规则，但私有业务接口仍未完全接入统一平台中间模型。
-- 私有环境链路仍依赖真实账号、私有环境和 RSA 公钥，当前仅通过 `private_env` 标记和公开基线入口隔离。
+## 已完成验证
+- 定向红灯：`python -m pytest tests/platform_core/test_models.py tests/platform_core/test_templates_and_rules.py tests/platform_core/test_services_and_assets.py tests/test_dependency_governance.py -k "positive_integer or inventory_summary or source_type or execution_id or asset_type_breakdown or dependency_governance" -v --basetemp .pytest_tmp/v1_final_closure_red`
+  - 结果：`1 error`
+  - 含义：`WorkspaceAssetInventorySummary` 尚未实现，确认新增摘要模型确实缺失
+- 定向绿灯：同口径 `... --basetemp .pytest_tmp/v1_final_closure_green`
+  - 结果：`6 passed`
+- 全量回归：
+  - `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_v1_final_closure_full` -> `63 passed`
+  - `python -m pytest tests -v --basetemp .pytest_tmp/root_v1_final_closure_full` -> `70 passed`
+  - `python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_v1_final_closure_full` -> `39 passed`
+  - `python api_test/run_test.py --public-baseline` -> `12 passed, 27 deselected`
+  - `cd api_test && python run_test.py --public-baseline` -> `12 passed, 27 deselected`

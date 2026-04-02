@@ -21,6 +21,7 @@ from .models import (
     RouteCapabilitySummary,
     ServiceCapabilitySnapshot,
     SourceDocument,
+    WorkspaceAssetInventorySummary,
     WorkspaceInspectionSummary,
 )
 from .parsers import OpenAPIDocumentParser
@@ -55,5 +56,6 @@ __all__ = [
     "ServiceCapabilitySnapshot",
     "SourceDocument",
     "TemplateRenderer",
+    "WorkspaceAssetInventorySummary",
     "WorkspaceInspectionSummary",
 ]

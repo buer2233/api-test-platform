@@ -13,7 +13,7 @@ class RuleValidator:
 
     _SNAKE_CASE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
     _SUPPORTED_SCHEMA_TYPES = {"object", "array", "string", "integer", "number", "boolean"}
-    _SUPPORTED_BUSINESS_RULE_CODES = {"non_empty_string"}
+    _SUPPORTED_BUSINESS_RULE_CODES = {"non_empty_string", "positive_integer"}
 
     def validate_operation(self, operation: ApiOperation) -> list[str]:
         """校验通用接口操作是否满足最小命名和字段约束。"""

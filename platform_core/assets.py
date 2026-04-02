@@ -168,6 +168,7 @@ class AssetWorkspace:
             manifest_path=str(manifest_path),
             workspace_root=manifest.workspace_root,
             source_id=manifest.source_id,
+            source_type=manifest.source_type,
             asset_count=len(manifest.assets),
             generation_count=len(manifest.generation_ids),
             assets=[

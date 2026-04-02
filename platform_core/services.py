@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from pathlib import Path
 
 from platform_core.assets import AssetWorkspace
@@ -9,6 +10,7 @@ from platform_core.models import (
     DocumentPipelineRunSummary,
     RouteCapabilitySummary,
     ServiceCapabilitySnapshot,
+    WorkspaceAssetInventorySummary,
     WorkspaceInspectionSummary,
 )
 from platform_core.pipeline import DocumentDrivenPipeline
@@ -78,11 +80,16 @@ class PlatformApplicationService:
             service_stage="v1",
             source=result.source_document.source_name,
             source_id=result.source_document.source_id,
+            source_type=result.source_document.source_type,
             workspace_root=result.asset_manifest.workspace_root,
             modules=len(result.modules),
             operations=len(result.operations),
             generation_count=len(result.generation_records),
             asset_count=len(result.asset_manifest.assets),
+            asset_type_breakdown=PlatformApplicationService._build_breakdown(
+                asset.asset_type for asset in result.asset_manifest.assets
+            ),
+            execution_id=result.execution_record.execution_id,
             execution_target=result.execution_record.target_id,
             execution_status=result.execution_record.result_status,
             execution_exit_code=result.execution_record.exit_code,
@@ -114,15 +121,31 @@ class PlatformApplicationService:
             workspace_root=result.workspace_root,
             manifest_path=result.manifest_path,
             source_id=result.source_id,
+            source_type=result.source_type,
             validation_status=result.validation_status,
             asset_count=result.asset_count,
             generation_count=result.generation_count,
+            execution_id=result.execution_id,
             report_path=result.report_path,
             report_exists=result.report_exists,
             missing_asset_count=len(result.missing_assets),
             missing_generation_record_count=len(result.missing_generation_records),
             digest_mismatch_count=len(result.digest_mismatches),
             validation_error_count=len(result.validation_errors),
+            inventory_summary=WorkspaceAssetInventorySummary(
+                asset_type_breakdown=PlatformApplicationService._build_breakdown(
+                    asset.asset_type for asset in result.assets
+                ),
+                generation_type_breakdown=PlatformApplicationService._build_breakdown(
+                    record.generation_type for record in result.generation_records
+                ),
+                generation_review_status_breakdown=PlatformApplicationService._build_breakdown(
+                    record.review_status for record in result.generation_records
+                ),
+                generation_execution_status_breakdown=PlatformApplicationService._build_breakdown(
+                    record.execution_status for record in result.generation_records
+                ),
+            ),
             assets=result.assets,
             generation_records=result.generation_records,
             missing_assets=result.missing_assets,
@@ -149,3 +172,8 @@ class PlatformApplicationService:
         raise NotImplementedError(
             f"V1 仅支持文档驱动最小闭环，暂不支持抓包驱动: {source_path} -> {output_root}"
         )
+
+    @staticmethod
+    def _build_breakdown(values) -> dict[str, int]:
+        """把枚举值序列聚合为便于前端和服务接口直接消费的数量分布。"""
+        return dict(Counter(value for value in values if value))

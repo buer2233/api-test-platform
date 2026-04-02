@@ -96,6 +96,7 @@ api_test/
 - `JsonPlaceholderAPI` 只作为公开示例适配层
 - `run_test.py --public-baseline` 正向执行公开基线用例
 - 代理开关和代理地址统一收口到 `api_config.json`，供后续客户端直接控制
+- `requirements.txt` 使用固定版本约束，并已移除未使用的 `rsa` 依赖
 
 ## 当前代理配置
 
@@ -124,11 +125,12 @@ api_test/
 - 代理配置已落地，并通过端口探测、真实代理请求和公开基线双入口复验
 - `BaseAPI` 只保留 HTTP 请求相关能力，通用工具已迁移到 `common_tools.py`
 - 默认关闭代理时，公开站点直连仍存在外网时延波动，当前不宜把单次超时误判为框架逻辑失败
+- `requirements.txt` 已改为固定版本清单，满足当前仓库的依赖安全治理要求
 
 说明：
 
 - `api_test/tests/test_demo.py` 与 `api_test/tests/test_public_api_governance.py` 已从当前测试集移除，不再属于通用框架回归范围。
-- 当前剩余的后续工作主要集中在模板/规则覆盖扩展、`platform_core` 服务边界收口，以及按需要继续细拆 `common_tools.py`，而不是 `api_test` 当前通用回归链路。
+- `api_test` 当前通用回归链路已满足 V1 目标；后续增强主要转入 `platform_core` / V2 阶段，而不是继续修改当前 `api_test` 基线链路。
 
 ## 当前公开测试站点
 

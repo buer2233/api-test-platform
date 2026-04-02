@@ -211,6 +211,7 @@ class AssetInspectionResult(PlatformBaseModel):
     manifest_path: str
     workspace_root: str
     source_id: str
+    source_type: str
     asset_count: int
     generation_count: int
     assets: list[AssetInspectionEntry] = Field(default_factory=list)
@@ -272,11 +273,14 @@ class DocumentPipelineRunSummary(PlatformBaseModel):
     service_stage: str
     source: str
     source_id: str
+    source_type: str
     workspace_root: str
     modules: int
     operations: int
     generation_count: int
     asset_count: int
+    asset_type_breakdown: dict[str, int] = Field(default_factory=dict)
+    execution_id: str
     execution_target: str
     execution_status: Literal["passed", "failed", "error"]
     execution_exit_code: int | None = None
@@ -289,6 +293,15 @@ class DocumentPipelineRunSummary(PlatformBaseModel):
     asset_manifest_path: str
 
 
+class WorkspaceAssetInventorySummary(PlatformBaseModel):
+    """工作区资产的聚合摘要模型。"""
+
+    asset_type_breakdown: dict[str, int] = Field(default_factory=dict)
+    generation_type_breakdown: dict[str, int] = Field(default_factory=dict)
+    generation_review_status_breakdown: dict[str, int] = Field(default_factory=dict)
+    generation_execution_status_breakdown: dict[str, int] = Field(default_factory=dict)
+
+
 class WorkspaceInspectionSummary(PlatformBaseModel):
     """工作区检查结果的服务层稳定摘要。"""
 
@@ -297,15 +310,18 @@ class WorkspaceInspectionSummary(PlatformBaseModel):
     workspace_root: str
     manifest_path: str
     source_id: str
+    source_type: str
     validation_status: Literal["valid", "invalid"]
     asset_count: int
     generation_count: int
+    execution_id: str | None = None
     report_path: str | None = None
     report_exists: bool = False
     missing_asset_count: int = 0
     missing_generation_record_count: int = 0
     digest_mismatch_count: int = 0
     validation_error_count: int = 0
+    inventory_summary: WorkspaceAssetInventorySummary = Field(default_factory=WorkspaceAssetInventorySummary)
     assets: list[AssetInspectionEntry] = Field(default_factory=list)
     generation_records: list[GenerationInspectionEntry] = Field(default_factory=list)
     missing_assets: list[str] = Field(default_factory=list)

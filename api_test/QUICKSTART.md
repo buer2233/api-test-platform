@@ -13,6 +13,11 @@ cd api_test
 python -m pip install -r requirements.txt
 ```
 
+说明：
+
+- `requirements.txt` 已改为固定版本约束；
+- 当前仓库禁止使用 `latest`、`>=`、`^` 等宽松依赖写法。
+
 ## 2. 查看唯一配置文件
 
 当前新的统一配置文件为：
@@ -59,8 +64,8 @@ cd api_test && python run_test.py --public-baseline
 - `5 passed`
 - `19 passed`
 - `39 passed`
-- `48 passed`
-- `53 passed`
+- `63 passed`
+- `70 passed`
 - `12 passed, 27 deselected`
 - `12 passed, 27 deselected`
 
@@ -81,6 +86,7 @@ cd api_test && python run_test.py --public-baseline
 - 代理能力已通过端口探测、真实代理请求和公开基线双入口复验；
 - 默认关闭代理直连公开站点时，最新一次 `api_test` 全量复验出现 `SSL handshake/read timeout`，对外网回归建议优先开启代理。
 - 当前已新增中文注释治理测试，`api_config.json` 的中文说明字段不会影响配置加载。
+- 当前 `api_test` 通用回归链路已满足 V1 阶段目标，后续更复杂平台能力转入 `platform_core` / V2 阶段继续扩展。
 
 ## 5. 下一步参考
 

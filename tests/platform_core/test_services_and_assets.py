@@ -391,6 +391,48 @@ def test_renderer_and_validator_accept_supported_business_rule_assertion():
     assert 'assert business_value.strip()' in rendered
 
 
+def test_renderer_and_validator_accept_positive_integer_business_rule_assertion():
+    """支持的 positive_integer 规则应可被规则层接受并渲染进测试骨架。"""
+    renderer = TemplateRenderer()
+    validator = RuleValidator()
+    assertions = [
+        AssertionCandidate(
+            assertion_id="assert-status-001",
+            operation_id="op-get-user",
+            assertion_type="status_code",
+            target_path="status_code",
+            expected_value=200,
+            priority="high",
+            source="manual",
+            confidence_score=1.0,
+            review_status="pending",
+        ),
+        AssertionCandidate(
+            assertion_id="assert-business-002",
+            operation_id="op-get-user",
+            assertion_type="business_rule",
+            target_path="data.total",
+            expected_value={"rule_code": "positive_integer"},
+            priority="medium",
+            source="manual",
+            confidence_score=0.8,
+            review_status="pending",
+        ),
+    ]
+
+    violations = validator.validate_assertions(build_operation(), assertions)
+    rendered = renderer.render_test_module(
+        module=build_module(),
+        operation=build_operation(),
+        assertions=assertions,
+    )
+
+    assert violations == []
+    assert '"total": 1' in rendered
+    assert 'assert isinstance(business_value, int)' in rendered
+    assert 'assert business_value > 0' in rendered
+
+
 def test_rule_validator_rejects_asset_manifest_without_assets_and_generation_links():
     """资产清单缺少关键字段时应被拦截。"""
     validator = RuleValidator()
@@ -476,14 +518,20 @@ def test_platform_application_service_returns_workspace_inspection_summary(tmp_p
     assert summary.command_code == "inspect"
     assert summary.service_stage == "v1"
     assert summary.workspace_root == str(output_root)
+    assert summary.source_type == "openapi"
     assert summary.validation_status == "valid"
     assert summary.asset_count == 2
     assert summary.generation_count == 2
+    assert summary.execution_id is not None
     assert summary.report_exists is True
     assert summary.missing_asset_count == 0
     assert summary.missing_generation_record_count == 0
     assert summary.digest_mismatch_count == 0
     assert summary.validation_error_count == 0
+    assert summary.inventory_summary.asset_type_breakdown == {"api_module": 1, "test_case": 1}
+    assert summary.inventory_summary.generation_type_breakdown == {"api_method": 1, "test_case": 1}
+    assert summary.inventory_summary.generation_review_status_breakdown == {"pending": 2}
+    assert summary.inventory_summary.generation_execution_status_breakdown == {"passed": 2}
     assert len(summary.assets) == 2
     assert len(summary.generation_records) == 2
 
@@ -541,11 +589,14 @@ def test_platform_application_service_returns_document_pipeline_summary(tmp_path
     assert isinstance(summary, DocumentPipelineRunSummary)
     assert summary.route_code == "document"
     assert summary.service_stage == "v1"
+    assert summary.source_type == "openapi"
     assert summary.workspace_root == str(output_root)
     assert summary.modules == 1
     assert summary.operations == 1
     assert summary.generation_count == 2
     assert summary.asset_count == 2
+    assert summary.asset_type_breakdown == {"api_module": 1, "test_case": 1}
+    assert summary.execution_id is not None
     assert summary.execution_target == "generated-suite"
     assert summary.execution_status == "passed"
     assert summary.execution_exit_code == 0
@@ -617,13 +668,19 @@ def test_platform_core_cli_can_inspect_workspace_manifest(tmp_path):
     payload = json.loads(result.stdout)
     assert payload["command_code"] == "inspect"
     assert payload["service_stage"] == "v1"
+    assert payload["source_type"] == "openapi"
     assert payload["validation_status"] == "valid"
     assert payload["asset_count"] == 2
     assert payload["generation_count"] == 2
+    assert payload["execution_id"] is not None
     assert payload["missing_asset_count"] == 0
     assert payload["missing_generation_record_count"] == 0
     assert payload["digest_mismatch_count"] == 0
     assert payload["validation_error_count"] == 0
+    assert payload["inventory_summary"]["asset_type_breakdown"] == {"api_module": 1, "test_case": 1}
+    assert payload["inventory_summary"]["generation_type_breakdown"] == {"api_method": 1, "test_case": 1}
+    assert payload["inventory_summary"]["generation_review_status_breakdown"] == {"pending": 2}
+    assert payload["inventory_summary"]["generation_execution_status_breakdown"] == {"passed": 2}
     assert len(payload["assets"]) == 2
     assert len(payload["generation_records"]) == 2
     assert any(asset["operation_code"] == "get_user_profile" for asset in payload["assets"])

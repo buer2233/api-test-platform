@@ -1,25 +1,28 @@
 # 当前任务计划
 
 ## 目标
-- 继续推进 `api_test` 底座治理的未完成内容，保持 V1 范围收敛。
-- 收口旧 `PublicAPI` 的专项规则校验、校验状态输出和无效快照阻断。
-- 完成文档一致性检查，并输出当前已实现功能和测试覆盖说明。
+- 完成 V1 阶段最后一轮收口，满足“文档驱动最小闭环已完成”的阶段验收条件。
+- 在不扩大到 V2 范围的前提下，继续补齐 `platform_core` 的规则覆盖和产品化摘要边界。
+- 把依赖约束治理写成可执行校验，确保仓库后续持续遵守 `AGENTS.md` 的最高优先级规则。
+
+## 本轮范围
+1. 为 `business_rule` 增加第二个最小通用规则代码 `positive_integer`。
+2. 为 `run` / `inspect` 服务摘要补齐更稳定的资产聚合字段，便于后续 Django + DRF / 客户端直接消费。
+3. 把 `api_test/requirements.txt` 从宽松约束改为固定版本，并删除未使用的 `rsa` 依赖。
+4. 完成对应 TDD 红绿测试、全量回归和文档回填。
 
 ## 阶段状态
 | 阶段 | 状态 | 说明 |
 | --- | --- | --- |
-| 规划记录初始化 | 已完成 | 已创建 `task_plan.md`、`findings.md`、`progress.md` |
-| 测试先行与增量实现 | 已完成 | 已补齐 `existing_api_asset` 专项规则、旧接口校验状态输出和无效快照阻断 |
-| 全量回归验证 | 已完成 | `platform_core` 为 `40 passed`；`api_test` 为 `30 passed, 4 skipped`；公开基线为 `30 passed, 4 deselected` |
-| 文档与记录同步 | 已完成 | README、阶段文档、测试文档、计划记录已同步本轮结果 |
-| 汇总报告输出 | 进行中 | 输出实现功能、测试覆盖与剩余风险说明 |
-
-## 本轮边界
-- 仅继续 `api_test` 底座改造，不扩展到 V2/Web/服务层大范围实现。
-- 公共接口测试基线继续以 `https://jsonplaceholder.typicode.com/` 为准。
-- 保持 TDD 增量策略，不做一次性推翻式重构。
+| 设计与范围收敛 | 已完成 | 已确认本轮以 `business_rule` 扩展、服务摘要收口和依赖治理为主 |
+| 失败测试编写与验证 | 已完成 | 已补失败测试，并通过 `v1_final_closure_red` 看到缺失模型导致的红灯 |
+| 最小实现 | 已完成 | 已补齐 `positive_integer`、资产聚合摘要和依赖治理实现 |
+| 全量回归验证 | 已完成 | `tests/platform_core` 为 `63 passed`，根测试为 `70 passed`，`api_test/tests` 为 `39 passed`，公开基线双入口均为 `12 passed, 27 deselected` |
+| 文档与记录同步 | 已完成 | README、V1/V2 文档、测试说明书、本地记录与设计/计划文档均已同步，并通过 `root_v1_final_doc_sync` 复验 |
+| 提交与阶段判断 | 进行中 | 当前只剩提交并确认工作区状态 |
 
 ## 风险与注意事项
-- 需确保文档中的测试基线统一为 `api_test: 30 passed, 4 skipped`、`api_test public baseline: 30 passed, 4 deselected`、`platform_core: 40 passed`。
-- 私有环境用例仍保留跳过状态，不能误报为完成。
-- 旧 `PublicAPI` 虽已补齐最小操作目录和专项规则，但仍未完全纳入统一平台中间模型。
+- 必须保持严格 TDD，先看见失败，再写最小实现。
+- 不得把 P1 / P2 增强误写成 V1 必做项；V1 完成判断仍以最小闭环与 P0 通过为准。
+- 公开站点回归仍可能受外网时延波动影响，完整复验建议继续启用代理。
+- `.idea/` 继续忽略，不纳入提交。

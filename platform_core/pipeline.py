@@ -116,6 +116,11 @@ class DocumentDrivenPipeline:
             output_root=asset_workspace.workspace_root,
             target_id="generated-suite",
         )
+        generation_execution_status = "passed" if execution_record.result_status == "passed" else "failed"
+        for record in generation_records:
+            record.execution_status = generation_execution_status
+            record_path = asset_workspace.records_dir / f"{record.generation_id}.json"
+            record_path.write_text(self.renderer.render_generation_record(record), encoding="utf-8")
         execution_record_path = asset_workspace.records_dir / "execution_record.json"
         execution_record_path.write_text(
             json.dumps(execution_record.model_dump(mode="json"), ensure_ascii=False, indent=2),

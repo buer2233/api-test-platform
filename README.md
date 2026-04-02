@@ -8,7 +8,7 @@
 
 ## 当前状态
 
-截至 2026-04-02，仓库处于“通用测试框架大重构”执行中，已完成：
+截至 2026-04-02，V1 阶段目标已完成，当前仓库已完成：
 
 - 重构设计说明与实施计划；
 - 重构前备份提交并推送：
@@ -59,24 +59,28 @@
   - `platform_core.cli inspect` 已改为直接消费服务层摘要模型，并输出问题数量字段
 - 已完成 `platform_core` 断言模板覆盖增强：
   - 已新增 `schema_match` 断言模板、解析候选生成和规则校验
-  - 已补齐 `business_rule(non_empty_string)` 的最小闭环，支持模板渲染、规则校验和按断言生成非空字符串假响应
+  - 已补齐 `business_rule(non_empty_string)` 与 `business_rule(positive_integer)` 的最小闭环，支持模板渲染、规则校验和按断言生成非空字符串 / 正整数假响应
   - 生成的 pytest 测试骨架会根据断言集合自动构造最小假响应体，不再固定写死对象结构
   - `schema_match` 的 `required_fields` 渲染改为稳定的 JSON 风格字符串，便于模板与测试长期一致
   - 当前轮继续补齐对象数组结构断言，支持数组项对象字段校验和对象数组假响应生成
+- 已完成 `platform_core` 最终收口增强：
+  - `DocumentPipelineRunSummary` 已补齐 `source_type`、`execution_id` 与 `asset_type_breakdown`
+  - `WorkspaceInspectionSummary` 已补齐 `source_type`、`execution_id` 与 `inventory_summary`
+  - 生成记录在目录级 pytest 执行后会回写 `execution_status`，便于后续服务层和客户端直接消费
+- 已完成依赖治理收口：
+  - `api_test/requirements.txt` 已改为固定版本约束
+  - 已删除仓库中无代码引用的 `rsa` 依赖
+  - 已新增 `tests/test_dependency_governance.py` 锁定依赖治理规则
 
 当前分支最新已验证结果：
 
-- `python -m pytest tests/platform_core/test_templates_and_rules.py tests/platform_core/test_services_and_assets.py -k "business_rule" -v --basetemp .pytest_tmp/business_rule_green`
-  - `4 passed`
-- `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_business_rule_full`
-  - `59 passed`
-- `python -m pytest tests -v --basetemp .pytest_tmp/root_business_rule_full`
-  - `64 passed`
-- `python -m pytest tests -v --basetemp .pytest_tmp/root_business_rule_doc_sync`
-  - `64 passed`
-- `python -m pytest tests/test_generic_framework_cleanup.py -v --basetemp .pytest_tmp/generic_cleanup_business_rule_doc_sync`
-  - `2 passed`
-- `python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_business_rule_full`
+- `python -m pytest tests/platform_core/test_models.py tests/platform_core/test_templates_and_rules.py tests/platform_core/test_services_and_assets.py tests/test_dependency_governance.py -k "positive_integer or inventory_summary or source_type or execution_id or asset_type_breakdown or dependency_governance" -v --basetemp .pytest_tmp/v1_final_closure_green`
+  - `6 passed`
+- `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_v1_final_closure_full`
+  - `63 passed`
+- `python -m pytest tests -v --basetemp .pytest_tmp/root_v1_final_closure_full`
+  - `70 passed`
+- `python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_v1_final_closure_full`
   - `39 passed`
 - `python api_test/run_test.py --public-baseline`
   - `12 passed, 27 deselected`
@@ -177,14 +181,15 @@
 - 当前 `api_test` 的通用配置、通用运行时、公开基线入口和公开示例测试已经完成当前轮闭环验证；
 - 代理开启时，当前公开基线与运行入口复验稳定通过；
 - 仓库默认保持 `proxy.enabled=false`，但默认直连外网站点仍存在时延波动，当前公开站点回归建议优先开启代理；
-- `platform_core` 的生成记录、执行记录、工作区检查、服务能力快照、运行摘要、检查摘要和 `schema_match` 断言闭环已经开始向后续服务接口形态收口；
-- `business_rule(non_empty_string)` 已完成 V1 最小闭环，但当前仍只支持手工构造断言，不由解析器自动生成；
-- 生成测试骨架时，伪客户端返回值已从固定示例改为随断言上下文生成，当前对象、数组、对象数组和 `business_rule(non_empty_string)` 场景都不会再因假响应结构失真而误报失败；
+- `platform_core` 的生成记录、执行记录、工作区检查、服务能力快照、运行摘要、检查摘要和 `schema_match` 断言闭环已经完成 V1 范围内收口；
+- `business_rule` 当前已支持 `non_empty_string` 和 `positive_integer` 两个最小规则代码，但仍只支持手工构造断言，不由解析器自动生成；
+- 生成测试骨架时，伪客户端返回值已从固定示例改为随断言上下文生成，当前对象、数组、对象数组、非空字符串和正整数业务规则场景都不会再因假响应结构失真而误报失败；
+- `run` / `inspect` 摘要已补齐 `source_type`、`execution_id` 和资产聚合字段，工作区检查结果可直接被后续 Django + DRF / 客户端消费；
+- 生成记录在目录级执行完成后会回写 `execution_status`，当前工作区检查摘要已能聚合展示执行状态分布；
+- `api_test/requirements.txt` 已改为固定版本，并通过自动化治理测试锁定，避免再次引入宽松约束和无用依赖；
 - `platform_core`、根治理测试与执行入口回归当前轮均保持通过；
-- 2026-04-02 当前轮完整回归中，`tests/platform_core` 为 `59 passed`、根测试为 `64 passed`、`api_test/tests` 为 `39 passed`，公开基线双入口均为 `12 passed, 27 deselected`；
-- 文档同步后再次执行 `python -m pytest tests -v --basetemp .pytest_tmp/root_business_rule_doc_sync`，结果仍为 `64 passed`，说明 README 与阶段文档更新未破坏当前治理约束；
-- 随后执行 `python -m pytest tests/test_generic_framework_cleanup.py -v --basetemp .pytest_tmp/generic_cleanup_business_rule_doc_sync`，结果 `2 passed`，说明当前文档状态未回退到历史专用站点描述；
-- `BaseAPI` 与 `common_tools` 的首轮职责收口已完成，`platform_core` 的 `run` / `inspect` 服务摘要契约和 `business_rule` 最小闭环也已完成当前轮收口；后续主要剩余工作转为更丰富的规则代码、更深层结构断言，以及服务接口产品化边界继续收敛。
+- 2026-04-02 当前轮完整回归中，`tests/platform_core` 为 `63 passed`、根测试为 `70 passed`、`api_test/tests` 为 `39 passed`，公开基线双入口均为 `12 passed, 27 deselected`；
+- 当前 V1 阶段目标已经完成；更复杂的 `business_rule` DSL、更深层结构断言、动态变量与依赖编排能力已转入 V2 阶段规划。
 
 ## 当前仓库结构
 
@@ -242,6 +247,8 @@ api-test-platform/
 - [v1-inspect-summary-contract.md](/D:/AI/api-test-platform/docs/superpowers/plans/2026-04-02-v1-inspect-summary-contract.md)
 - [v1-business-rule-minimal-closure-design.md](/D:/AI/api-test-platform/docs/superpowers/specs/2026-04-02-v1-business-rule-minimal-closure-design.md)
 - [v1-business-rule-minimal-closure.md](/D:/AI/api-test-platform/docs/superpowers/plans/2026-04-02-v1-business-rule-minimal-closure.md)
+- [v1-final-closure-design.md](/D:/AI/api-test-platform/docs/superpowers/specs/2026-04-02-v1-final-closure-design.md)
+- [v1-final-closure.md](/D:/AI/api-test-platform/docs/superpowers/plans/2026-04-02-v1-final-closure.md)
 
 ## 当前验证入口
 
@@ -251,19 +258,17 @@ api-test-platform/
 python -m pytest tests/platform_core -v
 ```
 
-当前轮配置收口验证：
+V1 验收回归验证：
 
 ```bash
-python -m pytest api_test/tests/test_config_loader.py -v --noconftest --basetemp .pytest_tmp/config_loader
-python -m pytest api_test/tests/test_base_api_governance.py api_test/tests/test_common_tools.py -v --noconftest --basetemp .pytest_tmp/base_api_split_docs
-python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_base_api_split_full
-python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_after_base_api_split
-python -m pytest tests -v --basetemp .pytest_tmp/root_after_doc_sync
+python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_v1_final_closure_full
+python -m pytest tests -v --basetemp .pytest_tmp/root_v1_final_closure_full
+python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_v1_final_closure_full
 python api_test/run_test.py --public-baseline
 cd api_test && python run_test.py --public-baseline
 ```
 
 ## 备注
 
-- 当前 README 已切换为“重构进行中”视角，只记录本分支已验证事实。
-- `api_test` 和 `platform_core` 的更大范围回归，将在本轮去特化和文档同步完成后再次统一复验并回填文档。
+- 当前 README 已切换为“V1 阶段完成”视角，只记录当前分支已验证事实。
+- 后续新增能力应优先转入 V2 阶段文档，再按新的 TDD 轮次推进实现与回归。

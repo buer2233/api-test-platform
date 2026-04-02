@@ -216,6 +216,31 @@ def test_assertion_template_renders_business_rule():
     assert "non_empty_string" in rendered
 
 
+def test_assertion_template_renders_positive_integer_business_rule():
+    """TC-V1-TPL-003D 断言模板应生成 positive_integer 规则片段。"""
+    renderer = TemplateRenderer()
+    assertions = [
+        AssertionCandidate(
+            assertion_id="assert-business-002",
+            operation_id="op-get-user",
+            assertion_type="business_rule",
+            target_path="data.total",
+            expected_value={"rule_code": "positive_integer"},
+            priority="medium",
+            source="manual",
+            confidence_score=0.8,
+            review_status="pending",
+        )
+    ]
+
+    rendered = renderer.render_assertions(assertions)
+
+    assert 'business_value = _get_nested_value(body, "data.total")' in rendered
+    assert 'assert isinstance(business_value, int)' in rendered
+    assert 'assert business_value > 0' in rendered
+    assert "positive_integer" in rendered
+
+
 def test_pytest_template_builds_fake_response_for_object_schema_assertions():
     """TC-V1-TPL-002A pytest 模板应生成满足对象断言的假响应。"""
     renderer = TemplateRenderer()
@@ -346,6 +371,39 @@ def test_pytest_template_builds_fake_response_for_business_rule_assertions():
     rendered = renderer.render_test_module(build_module(), build_operation(), assertions)
 
     assert '"name": "sample-name"' in rendered
+
+
+def test_pytest_template_builds_fake_response_for_positive_integer_business_rule_assertions():
+    """TC-V1-TPL-002E pytest 模板应生成满足 positive_integer 的假响应。"""
+    renderer = TemplateRenderer()
+    assertions = [
+        AssertionCandidate(
+            assertion_id="assert-status-001",
+            operation_id="op-get-user",
+            assertion_type="status_code",
+            target_path="status_code",
+            expected_value=200,
+            priority="high",
+            source="manual",
+            confidence_score=1.0,
+            review_status="pending",
+        ),
+        AssertionCandidate(
+            assertion_id="assert-business-002",
+            operation_id="op-get-user",
+            assertion_type="business_rule",
+            target_path="data.total",
+            expected_value={"rule_code": "positive_integer"},
+            priority="medium",
+            source="manual",
+            confidence_score=0.8,
+            review_status="pending",
+        ),
+    ]
+
+    rendered = renderer.render_test_module(build_module(), build_operation(), assertions)
+
+    assert '"total": 1' in rendered
 
 
 def test_generation_record_template_renders_traceable_json():

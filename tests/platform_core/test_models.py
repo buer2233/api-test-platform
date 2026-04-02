@@ -13,6 +13,7 @@ from platform_core.models import (
     ResponseField,
     RouteCapabilitySummary,
     SourceDocument,
+    WorkspaceAssetInventorySummary,
     WorkspaceInspectionSummary,
 )
 
@@ -277,11 +278,14 @@ def test_document_pipeline_run_summary_captures_service_contract():
         service_stage="v1",
         source="user-openapi",
         source_id="src-openapi-001",
+        source_type="openapi",
         workspace_root="D:/AI/api-test-platform/workspace",
         modules=1,
         operations=1,
         generation_count=2,
         asset_count=2,
+        asset_type_breakdown={"api_module": 1, "test_case": 1},
+        execution_id="exec-001",
         execution_target="generated-suite",
         execution_status="passed",
         execution_exit_code=0,
@@ -297,8 +301,26 @@ def test_document_pipeline_run_summary_captures_service_contract():
     assert summary.route_code == "document"
     assert summary.service_stage == "v1"
     assert summary.workspace_root.endswith("workspace")
+    assert summary.source_type == "openapi"
+    assert summary.asset_type_breakdown == {"api_module": 1, "test_case": 1}
+    assert summary.execution_id == "exec-001"
     assert summary.execution_target == "generated-suite"
     assert summary.execution_exit_code == 0
+
+
+def test_workspace_asset_inventory_summary_captures_breakdown():
+    """TC-V1-MODEL-010A WorkspaceAssetInventorySummary 应表达资产聚合摘要。"""
+    summary = WorkspaceAssetInventorySummary(
+        asset_type_breakdown={"api_module": 1, "test_case": 1},
+        generation_type_breakdown={"api_method": 1, "test_case": 1},
+        generation_review_status_breakdown={"pending": 2},
+        generation_execution_status_breakdown={"passed": 2},
+    )
+
+    assert summary.asset_type_breakdown["api_module"] == 1
+    assert summary.generation_type_breakdown["api_method"] == 1
+    assert summary.generation_review_status_breakdown["pending"] == 2
+    assert summary.generation_execution_status_breakdown["passed"] == 2
 
 
 def test_workspace_inspection_summary_captures_service_contract():
@@ -309,15 +331,23 @@ def test_workspace_inspection_summary_captures_service_contract():
         workspace_root="D:/AI/api-test-platform/workspace",
         manifest_path="D:/AI/api-test-platform/workspace/generated/records/asset_manifest.json",
         source_id="src-openapi-001",
+        source_type="openapi",
         validation_status="valid",
         asset_count=2,
         generation_count=2,
+        execution_id="exec-001",
         report_path="generated/reports/generated-suite.xml",
         report_exists=True,
         missing_asset_count=0,
         missing_generation_record_count=0,
         digest_mismatch_count=0,
         validation_error_count=0,
+        inventory_summary=WorkspaceAssetInventorySummary(
+            asset_type_breakdown={"api_module": 1, "test_case": 1},
+            generation_type_breakdown={"api_method": 1, "test_case": 1},
+            generation_review_status_breakdown={"pending": 2},
+            generation_execution_status_breakdown={"passed": 2},
+        ),
         assets=[],
         generation_records=[],
         missing_assets=[],
@@ -329,9 +359,12 @@ def test_workspace_inspection_summary_captures_service_contract():
     assert summary.command_code == "inspect"
     assert summary.service_stage == "v1"
     assert summary.workspace_root.endswith("workspace")
+    assert summary.source_type == "openapi"
     assert summary.validation_status == "valid"
+    assert summary.execution_id == "exec-001"
     assert summary.missing_asset_count == 0
     assert summary.validation_error_count == 0
+    assert summary.inventory_summary.asset_type_breakdown == {"api_module": 1, "test_case": 1}
 
 
 def test_assertion_candidate_keeps_expected_target():

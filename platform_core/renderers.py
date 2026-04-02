@@ -88,7 +88,7 @@ class TemplateRenderer:
             elif assertion.assertion_type == "business_rule":
                 expected_value = assertion.expected_value if isinstance(assertion.expected_value, dict) else {}
                 rule_code = expected_value.get("rule_code")
-                if rule_code != "non_empty_string":
+                if rule_code not in {"non_empty_string", "positive_integer"}:
                     continue
                 template_name = "assertions/business_rule.py.j2"
                 context = {
@@ -196,12 +196,17 @@ class TemplateRenderer:
             if assertion.assertion_type != "business_rule":
                 continue
             expected_value = assertion.expected_value if isinstance(assertion.expected_value, dict) else {}
-            if expected_value.get("rule_code") != "non_empty_string":
+            rule_code = expected_value.get("rule_code")
+            if rule_code == "non_empty_string":
+                placeholder_value = self._build_path_placeholder(assertion.target_path)
+            elif rule_code == "positive_integer":
+                placeholder_value = 1
+            else:
                 continue
             self._ensure_nested_value(
                 body,
                 assertion.target_path,
-                self._build_path_placeholder(assertion.target_path),
+                placeholder_value,
             )
 
         for assertion in assertions:
