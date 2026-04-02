@@ -16,6 +16,7 @@ from platform_core.models import (
     AssertionCandidate,
     DocumentPipelineRunSummary,
     GenerationRecord,
+    WorkspaceInspectionSummary,
 )
 from platform_core.parsers import OpenAPIDocumentParser
 from platform_core.pipeline import DocumentDrivenPipeline
@@ -370,6 +371,58 @@ def test_platform_application_service_can_inspect_generated_workspace(tmp_path):
     assert inspection.report_exists is True
 
 
+def test_platform_application_service_returns_workspace_inspection_summary(tmp_path):
+    """应用服务应直接返回稳定的工作区检查摘要。"""
+    source_path = tmp_path / "user_openapi.json"
+    source_path.write_text(json.dumps(build_openapi_spec(), ensure_ascii=False, indent=2), encoding="utf-8")
+    output_root = tmp_path / "workspace"
+
+    pipeline = DocumentDrivenPipeline(project_root=Path.cwd())
+    pipeline.run(source_path=source_path, output_root=output_root)
+
+    service = PlatformApplicationService(project_root=Path.cwd())
+    summary = service.inspect_workspace_summary(output_root)
+
+    assert isinstance(summary, WorkspaceInspectionSummary)
+    assert summary.command_code == "inspect"
+    assert summary.service_stage == "v1"
+    assert summary.workspace_root == str(output_root)
+    assert summary.validation_status == "valid"
+    assert summary.asset_count == 2
+    assert summary.generation_count == 2
+    assert summary.report_exists is True
+    assert summary.missing_asset_count == 0
+    assert summary.missing_generation_record_count == 0
+    assert summary.digest_mismatch_count == 0
+    assert summary.validation_error_count == 0
+    assert len(summary.assets) == 2
+    assert len(summary.generation_records) == 2
+
+
+def test_platform_application_service_workspace_inspection_summary_counts_issues(tmp_path):
+    """工作区检查摘要应能输出缺失资产和缺失生成记录数量。"""
+    source_path = tmp_path / "user_openapi.json"
+    source_path.write_text(json.dumps(build_openapi_spec(), ensure_ascii=False, indent=2), encoding="utf-8")
+    output_root = tmp_path / "workspace"
+
+    pipeline = DocumentDrivenPipeline(project_root=Path.cwd())
+    result = pipeline.run(source_path=source_path, output_root=output_root)
+    Path(result.generated_paths["test::get_user_profile"]).unlink()
+    generation_record_path = next((output_root / "generated" / "records").glob("gen-*.json"))
+    generation_record_path.unlink()
+
+    service = PlatformApplicationService(project_root=Path.cwd())
+    summary = service.inspect_workspace_summary(output_root)
+
+    assert summary.validation_status == "invalid"
+    assert summary.missing_asset_count == 1
+    assert summary.missing_generation_record_count == 1
+    assert summary.digest_mismatch_count == 0
+    assert summary.validation_error_count == 0
+    assert len(summary.missing_assets) == 1
+    assert len(summary.missing_generation_records) == 1
+
+
 def test_platform_application_service_describes_v1_capabilities():
     """应用服务应输出可直接消费的能力快照。"""
     service = PlatformApplicationService(project_root=Path.cwd())
@@ -473,9 +526,15 @@ def test_platform_core_cli_can_inspect_workspace_manifest(tmp_path):
 
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
+    assert payload["command_code"] == "inspect"
+    assert payload["service_stage"] == "v1"
     assert payload["validation_status"] == "valid"
     assert payload["asset_count"] == 2
     assert payload["generation_count"] == 2
+    assert payload["missing_asset_count"] == 0
+    assert payload["missing_generation_record_count"] == 0
+    assert payload["digest_mismatch_count"] == 0
+    assert payload["validation_error_count"] == 0
     assert len(payload["assets"]) == 2
     assert len(payload["generation_records"]) == 2
     assert any(asset["operation_code"] == "get_user_profile" for asset in payload["assets"])

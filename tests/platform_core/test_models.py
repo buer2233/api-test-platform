@@ -13,6 +13,7 @@ from platform_core.models import (
     ResponseField,
     RouteCapabilitySummary,
     SourceDocument,
+    WorkspaceInspectionSummary,
 )
 
 
@@ -298,6 +299,39 @@ def test_document_pipeline_run_summary_captures_service_contract():
     assert summary.workspace_root.endswith("workspace")
     assert summary.execution_target == "generated-suite"
     assert summary.execution_exit_code == 0
+
+
+def test_workspace_inspection_summary_captures_service_contract():
+    """TC-V1-MODEL-010 WorkspaceInspectionSummary 应表达服务层稳定检查摘要。"""
+    summary = WorkspaceInspectionSummary(
+        command_code="inspect",
+        service_stage="v1",
+        workspace_root="D:/AI/api-test-platform/workspace",
+        manifest_path="D:/AI/api-test-platform/workspace/generated/records/asset_manifest.json",
+        source_id="src-openapi-001",
+        validation_status="valid",
+        asset_count=2,
+        generation_count=2,
+        report_path="generated/reports/generated-suite.xml",
+        report_exists=True,
+        missing_asset_count=0,
+        missing_generation_record_count=0,
+        digest_mismatch_count=0,
+        validation_error_count=0,
+        assets=[],
+        generation_records=[],
+        missing_assets=[],
+        missing_generation_records=[],
+        digest_mismatches=[],
+        validation_errors=[],
+    )
+
+    assert summary.command_code == "inspect"
+    assert summary.service_stage == "v1"
+    assert summary.workspace_root.endswith("workspace")
+    assert summary.validation_status == "valid"
+    assert summary.missing_asset_count == 0
+    assert summary.validation_error_count == 0
 
 
 def test_assertion_candidate_keeps_expected_target():

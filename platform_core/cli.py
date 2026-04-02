@@ -36,9 +36,9 @@ def main() -> int:
 
     if args.command == "inspect":
         service = PlatformApplicationService(project_root=Path.cwd())
-        inspection = service.inspect_workspace(output_root=args.workspace)
-        print(json.dumps(inspection.model_dump(mode="json"), ensure_ascii=False))
-        return 0 if inspection.validation_status == "valid" else 1
+        summary = service.inspect_workspace_summary(output_root=args.workspace)
+        print(json.dumps(summary.model_dump(mode="json"), ensure_ascii=False))
+        return 0 if summary.validation_status == "valid" else 1
 
     parser.error("unsupported command")
     return 2

@@ -9,6 +9,7 @@ from platform_core.models import (
     DocumentPipelineRunSummary,
     RouteCapabilitySummary,
     ServiceCapabilitySnapshot,
+    WorkspaceInspectionSummary,
 )
 from platform_core.pipeline import DocumentDrivenPipeline
 from platform_core.rules import RuleValidator
@@ -103,6 +104,37 @@ class PlatformApplicationService:
         """检查指定工作区的资产清单和生成结果。"""
         workspace = AssetWorkspace(output_root)
         return workspace.inspect_manifest(validator=self.validator)
+
+    @staticmethod
+    def build_workspace_inspection_summary(result) -> WorkspaceInspectionSummary:
+        """把工作区检查结果转换为对外稳定的检查摘要。"""
+        return WorkspaceInspectionSummary(
+            command_code="inspect",
+            service_stage="v1",
+            workspace_root=result.workspace_root,
+            manifest_path=result.manifest_path,
+            source_id=result.source_id,
+            validation_status=result.validation_status,
+            asset_count=result.asset_count,
+            generation_count=result.generation_count,
+            report_path=result.report_path,
+            report_exists=result.report_exists,
+            missing_asset_count=len(result.missing_assets),
+            missing_generation_record_count=len(result.missing_generation_records),
+            digest_mismatch_count=len(result.digest_mismatches),
+            validation_error_count=len(result.validation_errors),
+            assets=result.assets,
+            generation_records=result.generation_records,
+            missing_assets=result.missing_assets,
+            missing_generation_records=result.missing_generation_records,
+            digest_mismatches=result.digest_mismatches,
+            validation_errors=result.validation_errors,
+        )
+
+    def inspect_workspace_summary(self, output_root: str | Path) -> WorkspaceInspectionSummary:
+        """检查指定工作区并返回服务层稳定摘要。"""
+        result = self.inspect_workspace(output_root=output_root)
+        return self.build_workspace_inspection_summary(result)
 
     @staticmethod
     def run_functional_case_pipeline(source_path: str | Path, output_root: str | Path):

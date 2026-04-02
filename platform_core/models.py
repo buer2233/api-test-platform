@@ -289,6 +289,31 @@ class DocumentPipelineRunSummary(PlatformBaseModel):
     asset_manifest_path: str
 
 
+class WorkspaceInspectionSummary(PlatformBaseModel):
+    """工作区检查结果的服务层稳定摘要。"""
+
+    command_code: Literal["inspect"]
+    service_stage: str
+    workspace_root: str
+    manifest_path: str
+    source_id: str
+    validation_status: Literal["valid", "invalid"]
+    asset_count: int
+    generation_count: int
+    report_path: str | None = None
+    report_exists: bool = False
+    missing_asset_count: int = 0
+    missing_generation_record_count: int = 0
+    digest_mismatch_count: int = 0
+    validation_error_count: int = 0
+    assets: list[AssetInspectionEntry] = Field(default_factory=list)
+    generation_records: list[GenerationInspectionEntry] = Field(default_factory=list)
+    missing_assets: list[str] = Field(default_factory=list)
+    missing_generation_records: list[str] = Field(default_factory=list)
+    digest_mismatches: list[str] = Field(default_factory=list)
+    validation_errors: list[str] = Field(default_factory=list)
+
+
 class ParsedDocument(PlatformBaseModel):
     """解析器输出模型。"""
 
