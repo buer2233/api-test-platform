@@ -305,6 +305,9 @@ def test_platform_core_cli_runs_document_pipeline(tmp_path):
 
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
+    assert payload["route_code"] == "document"
+    assert payload["service_stage"] == "v1"
+    assert payload["workspace_root"] == str(output_root)
     assert payload["execution_target"] == "generated-suite"
     assert payload["generation_count"] == 2
     assert payload["asset_count"] == 2

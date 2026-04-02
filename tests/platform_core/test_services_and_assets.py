@@ -10,7 +10,13 @@ from pathlib import Path
 import pytest
 
 from platform_core.cli import build_parser
-from platform_core.models import ApiOperation, AssetManifest, AssertionCandidate, GenerationRecord
+from platform_core.models import (
+    ApiOperation,
+    AssetManifest,
+    AssertionCandidate,
+    DocumentPipelineRunSummary,
+    GenerationRecord,
+)
 from platform_core.parsers import OpenAPIDocumentParser
 from platform_core.pipeline import DocumentDrivenPipeline
 from platform_core.renderers import TemplateRenderer
@@ -364,6 +370,47 @@ def test_platform_application_service_can_inspect_generated_workspace(tmp_path):
     assert inspection.report_exists is True
 
 
+def test_platform_application_service_describes_v1_capabilities():
+    """应用服务应输出可直接消费的能力快照。"""
+    service = PlatformApplicationService(project_root=Path.cwd())
+
+    snapshot = service.describe_capabilities()
+    routes = {route.route_code: route for route in snapshot.routes}
+
+    assert snapshot.service_stage == "v1"
+    assert snapshot.local_mode_only is True
+    assert snapshot.available_commands == ["run", "inspect"]
+    assert routes["document"].enabled is True
+    assert routes["document"].stage == "v1_active"
+    assert routes["functional_case"].enabled is False
+    assert routes["traffic_capture"].enabled is False
+    assert "V1" in routes["functional_case"].detail
+
+
+def test_platform_application_service_returns_document_pipeline_summary(tmp_path):
+    """应用服务应直接返回稳定的文档驱动运行摘要。"""
+    source_path = tmp_path / "user_openapi.json"
+    source_path.write_text(json.dumps(build_openapi_spec(), ensure_ascii=False, indent=2), encoding="utf-8")
+    output_root = tmp_path / "workspace"
+
+    service = PlatformApplicationService(project_root=Path.cwd())
+    summary = service.run_document_pipeline_summary(source_path=source_path, output_root=output_root)
+
+    assert isinstance(summary, DocumentPipelineRunSummary)
+    assert summary.route_code == "document"
+    assert summary.service_stage == "v1"
+    assert summary.workspace_root == str(output_root)
+    assert summary.modules == 1
+    assert summary.operations == 1
+    assert summary.generation_count == 2
+    assert summary.asset_count == 2
+    assert summary.execution_target == "generated-suite"
+    assert summary.execution_status == "passed"
+    assert summary.execution_exit_code == 0
+    assert summary.total_count == 1
+    assert summary.passed_count == 1
+
+
 def test_platform_application_service_reports_missing_assets_in_workspace(tmp_path):
     """应用服务应能识别工作区中缺失的生成文件。"""
     source_path = tmp_path / "user_openapi.json"
@@ -458,6 +505,7 @@ def test_platform_application_service_no_longer_exposes_legacy_catalog_methods()
 
     assert not hasattr(service, "inspect_legacy_public_api_catalog")
     assert not hasattr(service, "snapshot_legacy_public_api_catalog")
+
 
 def test_platform_core_cli_no_longer_registers_legacy_catalog_commands():
     """CLI 不应再注册旧目录检查和快照命令。"""

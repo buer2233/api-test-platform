@@ -30,30 +30,9 @@ def main() -> int:
 
     if args.command == "run":
         service = PlatformApplicationService(project_root=Path.cwd())
-        result = service.run_document_pipeline(source_path=args.source, output_root=args.output)
-        print(
-            json.dumps(
-                {
-                    "source": result.source_document.source_name,
-                    "modules": len(result.modules),
-                    "operations": len(result.operations),
-                    "generation_count": len(result.generation_records),
-                    "asset_count": len(result.asset_manifest.assets),
-                    "execution_target": result.execution_record.target_id,
-                    "execution_status": result.execution_record.result_status,
-                    "execution_exit_code": result.execution_record.exit_code,
-                    "total_count": result.execution_record.total_count,
-                    "passed_count": result.execution_record.passed_count,
-                    "failed_count": result.execution_record.failed_count,
-                    "error_count": result.execution_record.error_count,
-                    "skipped_count": result.execution_record.skipped_count,
-                    "report_path": result.execution_record.report_path,
-                    "asset_manifest_path": result.asset_manifest_path,
-                },
-                ensure_ascii=False,
-            )
-        )
-        return 0 if result.execution_record.result_status == "passed" else 1
+        summary = service.run_document_pipeline_summary(source_path=args.source, output_root=args.output)
+        print(json.dumps(summary.model_dump(mode="json"), ensure_ascii=False))
+        return 0 if summary.execution_status == "passed" else 1
 
     if args.command == "inspect":
         service = PlatformApplicationService(project_root=Path.cwd())

@@ -11,12 +11,15 @@ from .models import (
     AssetManifest,
     AssetRecord,
     AssertionCandidate,
+    DocumentPipelineRunSummary,
     ExecutionRecord,
     GenerationInspectionEntry,
     GenerationRecord,
     ParsedDocument,
     PipelineResult,
     ResponseField,
+    RouteCapabilitySummary,
+    ServiceCapabilitySnapshot,
     SourceDocument,
 )
 from .parsers import OpenAPIDocumentParser
@@ -35,6 +38,7 @@ __all__ = [
     "AssetRecord",
     "AssetWorkspace",
     "AssertionCandidate",
+    "DocumentPipelineRunSummary",
     "DocumentDrivenPipeline",
     "ExecutionRecord",
     "GenerationInspectionEntry",
@@ -45,7 +49,9 @@ __all__ = [
     "PlatformApplicationService",
     "PytestExecutor",
     "ResponseField",
+    "RouteCapabilitySummary",
     "RuleValidator",
+    "ServiceCapabilitySnapshot",
     "SourceDocument",
     "TemplateRenderer",
 ]

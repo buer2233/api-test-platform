@@ -225,6 +225,24 @@ class AssetInspectionResult(PlatformBaseModel):
     validation_status: Literal["valid", "invalid"]
 
 
+class RouteCapabilitySummary(PlatformBaseModel):
+    """应用服务层对单条输入路线的能力摘要。"""
+
+    route_code: Literal["document", "functional_case", "traffic_capture"]
+    enabled: bool
+    stage: str
+    detail: str
+
+
+class ServiceCapabilitySnapshot(PlatformBaseModel):
+    """应用服务层当前可对外暴露的能力快照。"""
+
+    service_stage: str
+    local_mode_only: bool
+    available_commands: list[str] = Field(default_factory=list)
+    routes: list[RouteCapabilitySummary] = Field(default_factory=list)
+
+
 class ExecutionRecord(PlatformBaseModel):
     """执行记录模型。"""
 
@@ -245,6 +263,30 @@ class ExecutionRecord(PlatformBaseModel):
     failed_count: int = 0
     error_count: int = 0
     skipped_count: int = 0
+
+
+class DocumentPipelineRunSummary(PlatformBaseModel):
+    """文档驱动闭环的服务层稳定运行摘要。"""
+
+    route_code: Literal["document"]
+    service_stage: str
+    source: str
+    source_id: str
+    workspace_root: str
+    modules: int
+    operations: int
+    generation_count: int
+    asset_count: int
+    execution_target: str
+    execution_status: Literal["passed", "failed", "error"]
+    execution_exit_code: int | None = None
+    total_count: int = 0
+    passed_count: int = 0
+    failed_count: int = 0
+    error_count: int = 0
+    skipped_count: int = 0
+    report_path: str | None = None
+    asset_manifest_path: str
 
 
 class ParsedDocument(PlatformBaseModel):

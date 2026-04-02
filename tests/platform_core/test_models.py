@@ -7,9 +7,11 @@ from platform_core.models import (
     ApiOperation,
     ApiParam,
     AssertionCandidate,
+    DocumentPipelineRunSummary,
     ExecutionRecord,
     GenerationRecord,
     ResponseField,
+    RouteCapabilitySummary,
     SourceDocument,
 )
 
@@ -250,6 +252,52 @@ def test_execution_record_captures_minimum_execution_traceability():
     assert record.exit_code == 0
     assert record.total_count == 1
     assert record.passed_count == 1
+
+
+def test_route_capability_summary_describes_v1_route_boundaries():
+    """TC-V1-MODEL-008 RouteCapabilitySummary 应记录路线状态和阻断原因。"""
+    capability = RouteCapabilitySummary(
+        route_code="functional_case",
+        enabled=False,
+        stage="v1_blocked",
+        detail="V1 仅支持文档驱动最小闭环，功能测试用例驱动留待后续阶段开放",
+    )
+
+    assert capability.route_code == "functional_case"
+    assert capability.enabled is False
+    assert capability.stage == "v1_blocked"
+    assert "V1" in capability.detail
+
+
+def test_document_pipeline_run_summary_captures_service_contract():
+    """TC-V1-MODEL-009 DocumentPipelineRunSummary 应表达服务层稳定运行摘要。"""
+    summary = DocumentPipelineRunSummary(
+        route_code="document",
+        service_stage="v1",
+        source="user-openapi",
+        source_id="src-openapi-001",
+        workspace_root="D:/AI/api-test-platform/workspace",
+        modules=1,
+        operations=1,
+        generation_count=2,
+        asset_count=2,
+        execution_target="generated-suite",
+        execution_status="passed",
+        execution_exit_code=0,
+        total_count=1,
+        passed_count=1,
+        failed_count=0,
+        error_count=0,
+        skipped_count=0,
+        report_path="generated/reports/generated-suite.xml",
+        asset_manifest_path="generated/records/asset_manifest.json",
+    )
+
+    assert summary.route_code == "document"
+    assert summary.service_stage == "v1"
+    assert summary.workspace_root.endswith("workspace")
+    assert summary.execution_target == "generated-suite"
+    assert summary.execution_exit_code == 0
 
 
 def test_assertion_candidate_keeps_expected_target():

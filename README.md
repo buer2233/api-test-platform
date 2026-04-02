@@ -49,6 +49,10 @@
   - `ExecutionRecord` 新增 `command`、`exit_code`、测试数量统计字段
   - `AssetWorkspace.inspect_manifest()` 新增生成记录摘要与缺失生成记录检查
   - `platform_core.cli run` 新增 `generation_count`、`asset_count`、执行退出码与测试统计输出
+- 已完成 `platform_core` 服务摘要契约收口：
+  - 新增服务层能力快照与文档驱动运行摘要模型
+  - `PlatformApplicationService` 已可直接返回 `describe_capabilities()` 与 `run_document_pipeline_summary()`
+  - `platform_core.cli run` 已改为直接消费服务层摘要模型，不再自行拼装输出字典
 - 已完成 `platform_core` 断言模板覆盖增强：
   - 已新增 `schema_match` 断言模板、解析候选生成和规则校验
   - 生成的 pytest 测试骨架会根据断言集合自动构造最小假响应体，不再固定写死对象结构
@@ -56,6 +60,21 @@
   - 当前轮继续补齐对象数组结构断言，支持数组项对象字段校验和对象数组假响应生成
 
 当前分支最新已验证结果：
+
+- `python -m pytest tests/platform_core/test_models.py tests/platform_core/test_services_and_assets.py tests/platform_core/test_pipeline.py -k "route_capability_summary or document_pipeline_run_summary or capabilities or returns_document_pipeline_summary or cli_runs_document_pipeline" -v --basetemp .pytest_tmp/platform_core_service_contract_green`
+  - `5 passed`
+- `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_service_contract_full`
+  - `52 passed`
+- `python -m pytest tests -v --basetemp .pytest_tmp/root_service_contract_full`
+  - `57 passed`
+- `python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_service_contract_full`
+  - `39 passed`
+- `python api_test/run_test.py --public-baseline`
+  - `12 passed, 27 deselected`
+- `cd api_test && python run_test.py --public-baseline`
+  - `12 passed, 27 deselected`
+
+以下保留当前阶段的历史专项与阶段性验证记录，用于追踪演进过程，不代表当前最新综合计数：
 
 - `python -m pytest api_test/tests/test_base_api_governance.py api_test/tests/test_common_tools.py -v --noconftest --basetemp .pytest_tmp/base_api_split_docs`
   - `19 passed`
@@ -149,11 +168,11 @@
 - 当前 `api_test` 的通用配置、通用运行时、公开基线入口和公开示例测试已经完成当前轮闭环验证；
 - 代理开启时，当前公开基线与运行入口复验稳定通过；
 - 仓库默认保持 `proxy.enabled=false`，但默认直连外网站点仍存在时延波动，当前公开站点回归建议优先开启代理；
-- `platform_core` 的生成记录、执行记录、工作区检查、CLI 运行摘要和 `schema_match` 断言闭环已经开始向后续服务接口形态收口；
+- `platform_core` 的生成记录、执行记录、工作区检查、服务能力快照、CLI 运行摘要和 `schema_match` 断言闭环已经开始向后续服务接口形态收口；
 - 生成测试骨架时，伪客户端返回值已从固定示例改为随断言上下文生成，当前对象、数组和对象数组场景都不会再因假响应结构失真而误报失败；
 - `platform_core`、根治理测试与执行入口回归当前轮均保持通过；
-- 2026-04-02 当前轮完整回归中，`tests/platform_core` 为 `48 passed`、根测试为 `53 passed`、`api_test/tests` 为 `39 passed`，公开基线双入口均为 `12 passed, 27 deselected`；
-- `BaseAPI` 与 `common_tools` 的首轮职责收口已完成；后续主要剩余工作转为模板/规则更深覆盖，以及服务接口产品化边界继续收敛。
+- 2026-04-02 当前轮完整回归中，`tests/platform_core` 为 `52 passed`、根测试为 `57 passed`、`api_test/tests` 为 `39 passed`，公开基线双入口均为 `12 passed, 27 deselected`；
+- `BaseAPI` 与 `common_tools` 的首轮职责收口已完成，`platform_core` 服务摘要契约也已完成当前轮收口；后续主要剩余工作转为模板/规则更深覆盖，以及服务接口产品化边界继续收敛。
 
 ## 当前仓库结构
 
@@ -205,6 +224,8 @@ api-test-platform/
 - [v1-array-schema-match.md](/D:/AI/api-test-platform/docs/superpowers/plans/2026-04-02-v1-array-schema-match.md)
 - [v1-base-api-responsibility-split-design.md](/D:/AI/api-test-platform/docs/superpowers/specs/2026-04-02-v1-base-api-responsibility-split-design.md)
 - [v1-base-api-responsibility-split.md](/D:/AI/api-test-platform/docs/superpowers/plans/2026-04-02-v1-base-api-responsibility-split.md)
+- [v1-service-summary-contract-design.md](/D:/AI/api-test-platform/docs/superpowers/specs/2026-04-02-v1-service-summary-contract-design.md)
+- [v1-service-summary-contract.md](/D:/AI/api-test-platform/docs/superpowers/plans/2026-04-02-v1-service-summary-contract.md)
 
 ## 当前验证入口
 

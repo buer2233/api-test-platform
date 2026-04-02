@@ -5,6 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from platform_core.assets import AssetWorkspace
+from platform_core.models import (
+    DocumentPipelineRunSummary,
+    RouteCapabilitySummary,
+    ServiceCapabilitySnapshot,
+)
 from platform_core.pipeline import DocumentDrivenPipeline
 from platform_core.rules import RuleValidator
 
@@ -32,9 +37,67 @@ class PlatformApplicationService:
             "traffic_capture": False,
         }
 
+    def describe_capabilities(self) -> ServiceCapabilitySnapshot:
+        """返回当前阶段可直接暴露给外部入口的能力快照。"""
+        return ServiceCapabilitySnapshot(
+            service_stage="v1",
+            local_mode_only=True,
+            available_commands=["run", "inspect"],
+            routes=[
+                RouteCapabilitySummary(
+                    route_code="document",
+                    enabled=True,
+                    stage="v1_active",
+                    detail="V1 当前开放文档驱动最小闭环，可执行解析、生成、校验与 pytest 回归。",
+                ),
+                RouteCapabilitySummary(
+                    route_code="functional_case",
+                    enabled=False,
+                    stage="v1_blocked",
+                    detail="V1 仅支持文档驱动最小闭环，功能测试用例驱动留待后续阶段开放。",
+                ),
+                RouteCapabilitySummary(
+                    route_code="traffic_capture",
+                    enabled=False,
+                    stage="v1_blocked",
+                    detail="V1 仅支持文档驱动最小闭环，抓包驱动留待后续阶段开放。",
+                ),
+            ],
+        )
+
     def run_document_pipeline(self, source_path: str | Path, output_root: str | Path):
         """执行文档驱动最小闭环。"""
         return self.document_pipeline.run(source_path=source_path, output_root=output_root)
+
+    @staticmethod
+    def build_document_pipeline_summary(result) -> DocumentPipelineRunSummary:
+        """把流水线结果转换为对外稳定的运行摘要。"""
+        return DocumentPipelineRunSummary(
+            route_code="document",
+            service_stage="v1",
+            source=result.source_document.source_name,
+            source_id=result.source_document.source_id,
+            workspace_root=result.asset_manifest.workspace_root,
+            modules=len(result.modules),
+            operations=len(result.operations),
+            generation_count=len(result.generation_records),
+            asset_count=len(result.asset_manifest.assets),
+            execution_target=result.execution_record.target_id,
+            execution_status=result.execution_record.result_status,
+            execution_exit_code=result.execution_record.exit_code,
+            total_count=result.execution_record.total_count,
+            passed_count=result.execution_record.passed_count,
+            failed_count=result.execution_record.failed_count,
+            error_count=result.execution_record.error_count,
+            skipped_count=result.execution_record.skipped_count,
+            report_path=result.execution_record.report_path,
+            asset_manifest_path=result.asset_manifest_path,
+        )
+
+    def run_document_pipeline_summary(self, source_path: str | Path, output_root: str | Path) -> DocumentPipelineRunSummary:
+        """执行文档驱动最小闭环并返回稳定摘要。"""
+        result = self.run_document_pipeline(source_path=source_path, output_root=output_root)
+        return self.build_document_pipeline_summary(result)
 
     def inspect_workspace(self, output_root: str | Path):
         """检查指定工作区的资产清单和生成结果。"""
