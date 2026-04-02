@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-截至 2026-04-01，当前目录已完成配置层首个 TDD 循环：
+截至 2026-04-02，当前目录已完成配置层首个 TDD 循环：
 
 - 新增唯一配置文件 [api_config.json](/D:/AI/api-test-platform/api_test/api_config.json)
 - 新增配置加载器 [config_loader.py](/D:/AI/api-test-platform/api_test/core/config_loader.py)
@@ -13,6 +13,10 @@
   - [session.py](/D:/AI/api-test-platform/api_test/core/session.py) 改为读取 JSON 配置
   - [base_api.py](/D:/AI/api-test-platform/api_test/core/base_api.py) 收口为通用 HTTP 客户端
   - [test_base_api_governance.py](/D:/AI/api-test-platform/api_test/tests/test_base_api_governance.py) 通过
+- 已完成第三个 TDD 循环：
+  - 新增 [common_tools.py](/D:/AI/api-test-platform/api_test/core/common_tools.py) 作为通用工具承接层
+  - [base_api.py](/D:/AI/api-test-platform/api_test/core/base_api.py) 已移除所有非 HTTP 工具方法
+  - 新增 [test_common_tools.py](/D:/AI/api-test-platform/api_test/tests/test_common_tools.py) 锁定工具迁移后的回归行为
 - 已补充代理能力：
   - `api_config.json` 新增 `proxy.enabled` 与 `proxy.url`
   - `session.py` 会在代理开关开启时同时为 `http/https` 配置代理
@@ -31,32 +35,29 @@
 
 ```bash
 python -m pytest api_test/tests/test_config_loader.py -v --noconftest --basetemp .pytest_tmp/config_loader
-python -m pytest api_test/tests/test_base_api_governance.py -v --noconftest --basetemp .pytest_tmp/base_api
-python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_full_after_cleanup
+python -m pytest api_test/tests/test_base_api_governance.py api_test/tests/test_common_tools.py -v --noconftest --basetemp .pytest_tmp/base_api_split_docs
+python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_base_api_split_full
+python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_after_base_api_split
+python -m pytest tests -v --basetemp .pytest_tmp/root_after_base_api_split
 python api_test/run_test.py --public-baseline
 cd api_test && python run_test.py --public-baseline
-python -m pytest api_test/tests/test_base_api_governance.py -v --noconftest --basetemp .pytest_tmp/base_api_proxy_recheck
-python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_full_default_off_serial
-python -m pytest api_test/tests/test_config_loader.py api_test/tests/test_base_api_governance.py api_test/tests/test_run_test.py -v --noconftest --basetemp .pytest_tmp/api_test_local_comment_update_fix
 ```
 
 结果：
 
 - `5 passed`
-- `10 passed`
-- `30 passed`
-- `12 passed, 18 deselected`
-- `12 passed, 18 deselected`
-- `10 passed`
-- `1 failed, 28 passed`
-- `18 passed`
+- `19 passed`
+- `39 passed`
+- `48 passed`
+- `53 passed`
+- `12 passed, 27 deselected`
+- `12 passed, 27 deselected`
 
 补充说明：
 
 - 2026-04-01 已完成代理端口探测和真实代理请求验证，代理开启时公开基线双入口均通过；
-- 同日默认关闭代理的 `api_test` 全量直连复验出现 `test_patch_updates_partial_fields` 超时失败，根因为访问公开站点时的 `SSL handshake/read timeout`，不是框架功能断言失败。
-- 2026-04-01 已新增中文注释治理测试，并完成本地 `api_test` 注释兼容性回归 `18 passed`。
-- 2026-04-01 当前轮综合复验中，`api_test/tests` 全量已更新为 `30 passed`，公开基线双入口均为 `12 passed, 18 deselected`。
+- 2026-04-01 默认关闭代理的 `api_test` 全量直连复验曾出现 `test_patch_updates_partial_fields` 超时失败，根因为访问公开站点时的 `SSL handshake/read timeout`，不是框架功能断言失败；
+- 2026-04-02 当前轮已完成 `BaseAPI` 与 `common_tools` 的职责收口，`api_test/tests` 全量更新为 `39 passed`，公开基线双入口均为 `12 passed, 27 deselected`。
 
 ## 当前目录结构
 
@@ -65,6 +66,7 @@ api_test/
 ├─ api_config.json         # 通用配置唯一来源
 ├─ core/
 │  ├─ base_api.py          # 通用 HTTP 客户端
+│  ├─ common_tools.py      # 通用工具函数
 │  ├─ __init__.py          # 通用运行时导出
 │  ├─ config_loader.py     # 新配置加载器
 │  ├─ jsonplaceholder_api.py
@@ -72,6 +74,7 @@ api_test/
 ├─ tests/
 │  ├─ test_config_loader.py
 │  ├─ test_base_api_governance.py
+│  ├─ test_common_tools.py
 │  ├─ test_jsonplaceholder_api.py
 │  ├─ test_jsonplaceholder_resources.py
 │  └─ test_run_test.py
@@ -119,12 +122,13 @@ api_test/
 - `run_test.py --public-baseline` 在仓库根目录和 `api_test/` 目录执行结果一致
 - 公开基线用例使用 `public_baseline` 正向标记
 - 代理配置已落地，并通过端口探测、真实代理请求和公开基线双入口复验
+- `BaseAPI` 只保留 HTTP 请求相关能力，通用工具已迁移到 `common_tools.py`
 - 默认关闭代理时，公开站点直连仍存在外网时延波动，当前不宜把单次超时误判为框架逻辑失败
 
 说明：
 
 - `api_test/tests/test_demo.py` 与 `api_test/tests/test_public_api_governance.py` 已从当前测试集移除，不再属于通用框架回归范围。
-- 当前剩余的后续工作主要集中在职责进一步拆分、模板/规则覆盖扩展和 `platform_core` 服务边界收口，而不是 `api_test` 当前通用回归链路。
+- 当前剩余的后续工作主要集中在模板/规则覆盖扩展、`platform_core` 服务边界收口，以及按需要继续细拆 `common_tools.py`，而不是 `api_test` 当前通用回归链路。
 
 ## 当前公开测试站点
 

@@ -187,3 +187,26 @@ def test_base_api_no_longer_exposes_private_login_helpers():
     assert not hasattr(BaseAPI, "password_rsa")
     assert not hasattr(BaseAPI, "login")
     assert not hasattr(BaseAPI, "get_admin_session")
+
+
+def test_base_api_only_keeps_http_client_methods():
+    """校验 BaseAPI 不再暴露非 HTTP 工具方法。"""
+    removed_tool_methods = [
+        "get_value",
+        "time_to_stamp",
+        "stamp_to_time",
+        "get_week_info",
+        "get_month_info",
+        "md5_encrypt",
+        "sha1_encrypt",
+        "aes_ecb_encrypt",
+        "aes_ecb_decrypt",
+        "aes_cbc_encrypt",
+        "aes_cbc_decrypt",
+        "generate_random_string",
+        "generate_phone_number",
+        "generate_email",
+    ]
+
+    for method_name in removed_tool_methods:
+        assert not hasattr(BaseAPI, method_name), f"BaseAPI 不应再暴露工具方法：{method_name}"

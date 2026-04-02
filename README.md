@@ -22,6 +22,10 @@
   - 已将 `api_test/core/session.py` 改为读取 JSON 配置
   - 已将 `api_test/core/base_api.py` 收口为通用 HTTP 客户端
   - 已将 `api_test/core/__init__.py` 去除旧私有站点导出
+- 已完成 `api_test/` 公共工具层拆分的第三个 TDD 循环：
+  - 新增 `api_test/core/common_tools.py`
+  - `BaseAPI` 已移除嵌套取值、时间、加解密与随机数据工具
+  - 新增 `api_test/tests/test_common_tools.py` 锁定工具迁移后的行为回归
 - 已补充代理配置能力：
   - `api_test/api_config.json` 新增 `proxy.enabled` 和 `proxy.url`
   - `build_retry_session()` 在代理开关开启时自动为 `http/https` 请求挂载代理
@@ -53,6 +57,18 @@
 
 当前分支最新已验证结果：
 
+- `python -m pytest api_test/tests/test_base_api_governance.py api_test/tests/test_common_tools.py -v --noconftest --basetemp .pytest_tmp/base_api_split_docs`
+  - `19 passed`
+- `python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_base_api_split_full`
+  - `39 passed`
+- `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_after_base_api_split`
+  - `48 passed`
+- `python -m pytest tests -v --basetemp .pytest_tmp/root_after_doc_sync`
+  - `53 passed`
+- `python api_test/run_test.py --public-baseline`
+  - `12 passed, 27 deselected`
+- `cd api_test && python run_test.py --public-baseline`
+  - `12 passed, 27 deselected`
 - `python -m pytest api_test/tests/test_config_loader.py -v --noconftest --basetemp .pytest_tmp/config_loader`
   - `5 passed`
 - `python -m pytest api_test/tests/test_base_api_governance.py -v --noconftest --basetemp .pytest_tmp/base_api`
@@ -136,8 +152,8 @@
 - `platform_core` 的生成记录、执行记录、工作区检查、CLI 运行摘要和 `schema_match` 断言闭环已经开始向后续服务接口形态收口；
 - 生成测试骨架时，伪客户端返回值已从固定示例改为随断言上下文生成，当前对象、数组和对象数组场景都不会再因假响应结构失真而误报失败；
 - `platform_core`、根治理测试与执行入口回归当前轮均保持通过；
-- 2026-04-02 当前轮完整回归中，`tests/platform_core` 为 `43 passed`、根测试为 `48 passed`、`api_test/tests` 为 `30 passed`，公开基线双入口均为 `12 passed, 18 deselected`；
-- 更深一层的 `api_test` 职责拆分、模板/规则覆盖扩展和服务接口产品化仍在后续改造范围内。
+- 2026-04-02 当前轮完整回归中，`tests/platform_core` 为 `48 passed`、根测试为 `53 passed`、`api_test/tests` 为 `39 passed`，公开基线双入口均为 `12 passed, 27 deselected`；
+- `BaseAPI` 与 `common_tools` 的首轮职责收口已完成；后续主要剩余工作转为模板/规则更深覆盖，以及服务接口产品化边界继续收敛。
 
 ## 当前仓库结构
 
@@ -146,7 +162,9 @@ api-test-platform/
 ├─ api_test/
 │  ├─ api_config.json       # 唯一配置源
 │  ├─ core/                 # 通用运行时与历史底座代码
+│  │  ├─ common_tools.py    # 通用工具函数
 │  ├─ tests/                # api_test 自动化测试
+│  │  ├─ test_common_tools.py
 │  ├─ conftest.py           # 公开基线 fixture / 报告 hook
 │  ├─ pytest.ini            # api_test pytest 配置
 │  ├─ run_test.py           # 公开基线执行入口
@@ -185,6 +203,8 @@ api-test-platform/
 - [v1-assertion-template-coverage.md](/D:/AI/api-test-platform/docs/superpowers/plans/2026-04-02-v1-assertion-template-coverage.md)
 - [v1-array-schema-match-design.md](/D:/AI/api-test-platform/docs/superpowers/specs/2026-04-02-v1-array-schema-match-design.md)
 - [v1-array-schema-match.md](/D:/AI/api-test-platform/docs/superpowers/plans/2026-04-02-v1-array-schema-match.md)
+- [v1-base-api-responsibility-split-design.md](/D:/AI/api-test-platform/docs/superpowers/specs/2026-04-02-v1-base-api-responsibility-split-design.md)
+- [v1-base-api-responsibility-split.md](/D:/AI/api-test-platform/docs/superpowers/plans/2026-04-02-v1-base-api-responsibility-split.md)
 
 ## 当前验证入口
 
@@ -198,8 +218,10 @@ python -m pytest tests/platform_core -v
 
 ```bash
 python -m pytest api_test/tests/test_config_loader.py -v --noconftest --basetemp .pytest_tmp/config_loader
-python -m pytest api_test/tests/test_base_api_governance.py -v --noconftest --basetemp .pytest_tmp/base_api
-python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_full_after_cleanup
+python -m pytest api_test/tests/test_base_api_governance.py api_test/tests/test_common_tools.py -v --noconftest --basetemp .pytest_tmp/base_api_split_docs
+python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_base_api_split_full
+python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_after_base_api_split
+python -m pytest tests -v --basetemp .pytest_tmp/root_after_doc_sync
 python api_test/run_test.py --public-baseline
 cd api_test && python run_test.py --public-baseline
 ```

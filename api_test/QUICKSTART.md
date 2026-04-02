@@ -4,7 +4,7 @@
 
 本指南对应 2026-04-01 开始的通用测试框架重构阶段。
 
-当前已完成并验证配置收口、运行时治理、公开基线执行入口和代理控制能力。
+当前已完成并验证配置收口、运行时治理、`BaseAPI` 工具拆分、公开基线执行入口和代理控制能力。
 
 ## 1. 安装依赖
 
@@ -46,20 +46,23 @@ python -m pip install -r requirements.txt
 
 ```bash
 python -m pytest api_test/tests/test_config_loader.py -v --noconftest --basetemp .pytest_tmp/config_loader
-python -m pytest api_test/tests/test_base_api_governance.py -v --noconftest --basetemp .pytest_tmp/base_api
-python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_full_after_cleanup
+python -m pytest api_test/tests/test_base_api_governance.py api_test/tests/test_common_tools.py -v --noconftest --basetemp .pytest_tmp/base_api_split_docs
+python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_base_api_split_full
+python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_after_base_api_split
+python -m pytest tests -v --basetemp .pytest_tmp/root_after_base_api_split
 python api_test/run_test.py --public-baseline
+cd api_test && python run_test.py --public-baseline
 ```
 
 当前结果：
 
 - `5 passed`
-- `10 passed`
-- `30 passed`
-- `12 passed, 18 deselected`
-- `12 passed, 18 deselected`
-- `1 failed, 28 passed`
-- `18 passed`
+- `19 passed`
+- `39 passed`
+- `48 passed`
+- `53 passed`
+- `12 passed, 27 deselected`
+- `12 passed, 27 deselected`
 
 ## 4. 当前建议优先使用的入口
 
@@ -67,12 +70,14 @@ python api_test/run_test.py --public-baseline
 
 - `api_test/conftest.py`
 - `api_test/core/base_api.py`
+- `api_test/core/common_tools.py`
 - `api_test/run_test.py`
 
 补充：
 
 - `api_test` 全量测试回归已通过；
 - `run_test.py --public-baseline` 已在仓库根目录和 `api_test/` 目录两种方式下通过；
+- `BaseAPI` 的非 HTTP 工具方法已迁移到 `common_tools.py`，当前公共层边界更清晰；
 - 代理能力已通过端口探测、真实代理请求和公开基线双入口复验；
 - 默认关闭代理直连公开站点时，最新一次 `api_test` 全量复验出现 `SSL handshake/read timeout`，对外网回归建议优先开启代理。
 - 当前已新增中文注释治理测试，`api_config.json` 的中文说明字段不会影响配置加载。
@@ -84,3 +89,5 @@ python api_test/run_test.py --public-baseline
 - [api_test/README.md](/D:/AI/api-test-platform/api_test/README.md)
 - [generic-test-framework-refactor-design.md](/D:/AI/api-test-platform/docs/superpowers/specs/2026-04-01-generic-test-framework-refactor-design.md)
 - [generic-test-framework-refactor.md](/D:/AI/api-test-platform/docs/superpowers/plans/2026-04-01-generic-test-framework-refactor.md)
+- [v1-base-api-responsibility-split-design.md](/D:/AI/api-test-platform/docs/superpowers/specs/2026-04-02-v1-base-api-responsibility-split-design.md)
+- [v1-base-api-responsibility-split.md](/D:/AI/api-test-platform/docs/superpowers/plans/2026-04-02-v1-base-api-responsibility-split.md)
