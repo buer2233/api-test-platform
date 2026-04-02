@@ -191,6 +191,31 @@ def test_assertion_template_renders_array_object_schema_match():
     assert 'for required_field in ["id", "name"]:' in rendered
 
 
+def test_assertion_template_renders_business_rule():
+    """TC-V1-TPL-003C 断言模板应生成 business_rule 最小断言片段。"""
+    renderer = TemplateRenderer()
+    assertions = [
+        AssertionCandidate(
+            assertion_id="assert-business-001",
+            operation_id="op-get-user",
+            assertion_type="business_rule",
+            target_path="data.name",
+            expected_value={"rule_code": "non_empty_string"},
+            priority="medium",
+            source="manual",
+            confidence_score=0.8,
+            review_status="pending",
+        )
+    ]
+
+    rendered = renderer.render_assertions(assertions)
+
+    assert 'business_value = _get_nested_value(body, "data.name")' in rendered
+    assert 'assert isinstance(business_value, str)' in rendered
+    assert 'assert business_value.strip()' in rendered
+    assert "non_empty_string" in rendered
+
+
 def test_pytest_template_builds_fake_response_for_object_schema_assertions():
     """TC-V1-TPL-002A pytest 模板应生成满足对象断言的假响应。"""
     renderer = TemplateRenderer()
@@ -288,6 +313,39 @@ def test_pytest_template_builds_fake_response_for_array_object_schema_assertions
     rendered = renderer.render_test_module(build_module(), build_list_operation(), assertions)
 
     assert '"data": [{"id": "sample-id", "name": "sample-name"}]' in rendered
+
+
+def test_pytest_template_builds_fake_response_for_business_rule_assertions():
+    """TC-V1-TPL-002D pytest 模板应生成满足 business_rule 的假响应。"""
+    renderer = TemplateRenderer()
+    assertions = [
+        AssertionCandidate(
+            assertion_id="assert-status-001",
+            operation_id="op-get-user",
+            assertion_type="status_code",
+            target_path="status_code",
+            expected_value=200,
+            priority="high",
+            source="manual",
+            confidence_score=1.0,
+            review_status="pending",
+        ),
+        AssertionCandidate(
+            assertion_id="assert-business-001",
+            operation_id="op-get-user",
+            assertion_type="business_rule",
+            target_path="data.name",
+            expected_value={"rule_code": "non_empty_string"},
+            priority="medium",
+            source="manual",
+            confidence_score=0.8,
+            review_status="pending",
+        ),
+    ]
+
+    rendered = renderer.render_test_module(build_module(), build_operation(), assertions)
+
+    assert '"name": "sample-name"' in rendered
 
 
 def test_generation_record_template_renders_traceable_json():

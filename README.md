@@ -59,27 +59,24 @@
   - `platform_core.cli inspect` 已改为直接消费服务层摘要模型，并输出问题数量字段
 - 已完成 `platform_core` 断言模板覆盖增强：
   - 已新增 `schema_match` 断言模板、解析候选生成和规则校验
+  - 已补齐 `business_rule(non_empty_string)` 的最小闭环，支持模板渲染、规则校验和按断言生成非空字符串假响应
   - 生成的 pytest 测试骨架会根据断言集合自动构造最小假响应体，不再固定写死对象结构
   - `schema_match` 的 `required_fields` 渲染改为稳定的 JSON 风格字符串，便于模板与测试长期一致
   - 当前轮继续补齐对象数组结构断言，支持数组项对象字段校验和对象数组假响应生成
 
 当前分支最新已验证结果：
 
-- `python -m pytest tests/platform_core/test_models.py -k "workspace_inspection_summary" -v --basetemp .pytest_tmp/platform_core_inspect_summary_models_green`
-  - `1 passed`
-- `python -m pytest tests/platform_core/test_services_and_assets.py::test_platform_application_service_returns_workspace_inspection_summary -v --basetemp .pytest_tmp/platform_core_inspect_summary_service_method_green`
-  - `1 passed`
-- `python -m pytest tests/platform_core/test_services_and_assets.py::test_platform_application_service_workspace_inspection_summary_counts_issues -v --basetemp .pytest_tmp/platform_core_inspect_summary_issue_green`
-  - `1 passed`
-- `python -m pytest tests/platform_core/test_services_and_assets.py -k "cli_can_inspect_workspace_manifest" -v --basetemp .pytest_tmp/platform_core_inspect_summary_service_green`
-  - `1 passed`
-- `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_inspect_summary_full`
-  - `55 passed`
-- `python -m pytest tests -v --basetemp .pytest_tmp/root_inspect_summary_full`
-  - `60 passed`
-- `python -m pytest tests -v --basetemp .pytest_tmp/root_inspect_summary_doc_sync`
-  - `60 passed`
-- `python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_inspect_summary_full`
+- `python -m pytest tests/platform_core/test_templates_and_rules.py tests/platform_core/test_services_and_assets.py -k "business_rule" -v --basetemp .pytest_tmp/business_rule_green`
+  - `4 passed`
+- `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_business_rule_full`
+  - `59 passed`
+- `python -m pytest tests -v --basetemp .pytest_tmp/root_business_rule_full`
+  - `64 passed`
+- `python -m pytest tests -v --basetemp .pytest_tmp/root_business_rule_doc_sync`
+  - `64 passed`
+- `python -m pytest tests/test_generic_framework_cleanup.py -v --basetemp .pytest_tmp/generic_cleanup_business_rule_doc_sync`
+  - `2 passed`
+- `python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_business_rule_full`
   - `39 passed`
 - `python api_test/run_test.py --public-baseline`
   - `12 passed, 27 deselected`
@@ -181,10 +178,13 @@
 - 代理开启时，当前公开基线与运行入口复验稳定通过；
 - 仓库默认保持 `proxy.enabled=false`，但默认直连外网站点仍存在时延波动，当前公开站点回归建议优先开启代理；
 - `platform_core` 的生成记录、执行记录、工作区检查、服务能力快照、运行摘要、检查摘要和 `schema_match` 断言闭环已经开始向后续服务接口形态收口；
-- 生成测试骨架时，伪客户端返回值已从固定示例改为随断言上下文生成，当前对象、数组和对象数组场景都不会再因假响应结构失真而误报失败；
+- `business_rule(non_empty_string)` 已完成 V1 最小闭环，但当前仍只支持手工构造断言，不由解析器自动生成；
+- 生成测试骨架时，伪客户端返回值已从固定示例改为随断言上下文生成，当前对象、数组、对象数组和 `business_rule(non_empty_string)` 场景都不会再因假响应结构失真而误报失败；
 - `platform_core`、根治理测试与执行入口回归当前轮均保持通过；
-- 2026-04-02 当前轮完整回归中，`tests/platform_core` 为 `55 passed`、根测试为 `60 passed`、`api_test/tests` 为 `39 passed`，公开基线双入口均为 `12 passed, 27 deselected`；
-- `BaseAPI` 与 `common_tools` 的首轮职责收口已完成，`platform_core` 的 `run` / `inspect` 服务摘要契约也已完成当前轮收口；后续主要剩余工作转为模板/规则更深覆盖，以及服务接口产品化边界继续收敛。
+- 2026-04-02 当前轮完整回归中，`tests/platform_core` 为 `59 passed`、根测试为 `64 passed`、`api_test/tests` 为 `39 passed`，公开基线双入口均为 `12 passed, 27 deselected`；
+- 文档同步后再次执行 `python -m pytest tests -v --basetemp .pytest_tmp/root_business_rule_doc_sync`，结果仍为 `64 passed`，说明 README 与阶段文档更新未破坏当前治理约束；
+- 随后执行 `python -m pytest tests/test_generic_framework_cleanup.py -v --basetemp .pytest_tmp/generic_cleanup_business_rule_doc_sync`，结果 `2 passed`，说明当前文档状态未回退到历史专用站点描述；
+- `BaseAPI` 与 `common_tools` 的首轮职责收口已完成，`platform_core` 的 `run` / `inspect` 服务摘要契约和 `business_rule` 最小闭环也已完成当前轮收口；后续主要剩余工作转为更丰富的规则代码、更深层结构断言，以及服务接口产品化边界继续收敛。
 
 ## 当前仓库结构
 
@@ -240,6 +240,8 @@ api-test-platform/
 - [v1-service-summary-contract.md](/D:/AI/api-test-platform/docs/superpowers/plans/2026-04-02-v1-service-summary-contract.md)
 - [v1-inspect-summary-contract-design.md](/D:/AI/api-test-platform/docs/superpowers/specs/2026-04-02-v1-inspect-summary-contract-design.md)
 - [v1-inspect-summary-contract.md](/D:/AI/api-test-platform/docs/superpowers/plans/2026-04-02-v1-inspect-summary-contract.md)
+- [v1-business-rule-minimal-closure-design.md](/D:/AI/api-test-platform/docs/superpowers/specs/2026-04-02-v1-business-rule-minimal-closure-design.md)
+- [v1-business-rule-minimal-closure.md](/D:/AI/api-test-platform/docs/superpowers/plans/2026-04-02-v1-business-rule-minimal-closure.md)
 
 ## 当前验证入口
 

@@ -1,0 +1,7 @@
+business_value = _get_nested_value(body, "{{ target_path }}")
+assert isinstance(business_value, str), (
+    "business_rule 断言失败: 规则 {{ rule_code }} 要求路径 {{ target_path }} 的值必须为字符串"
+)
+assert business_value.strip(), (
+    "business_rule 断言失败: 规则 {{ rule_code }} 要求路径 {{ target_path }} 的值不能为空字符串"
+)

@@ -85,6 +85,16 @@ class TemplateRenderer:
                         ensure_ascii=False,
                     ),
                 }
+            elif assertion.assertion_type == "business_rule":
+                expected_value = assertion.expected_value if isinstance(assertion.expected_value, dict) else {}
+                rule_code = expected_value.get("rule_code")
+                if rule_code != "non_empty_string":
+                    continue
+                template_name = "assertions/business_rule.py.j2"
+                context = {
+                    "target_path": assertion.target_path,
+                    "rule_code": rule_code,
+                }
             else:
                 continue
             rendered.append(
@@ -175,6 +185,18 @@ class TemplateRenderer:
 
         for assertion in assertions:
             if assertion.assertion_type != "json_field_exists":
+                continue
+            self._ensure_nested_value(
+                body,
+                assertion.target_path,
+                self._build_path_placeholder(assertion.target_path),
+            )
+
+        for assertion in assertions:
+            if assertion.assertion_type != "business_rule":
+                continue
+            expected_value = assertion.expected_value if isinstance(assertion.expected_value, dict) else {}
+            if expected_value.get("rule_code") != "non_empty_string":
                 continue
             self._ensure_nested_value(
                 body,

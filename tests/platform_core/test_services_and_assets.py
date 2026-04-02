@@ -11,6 +11,7 @@ import pytest
 
 from platform_core.cli import build_parser
 from platform_core.models import (
+    ApiModule,
     ApiOperation,
     AssetManifest,
     AssertionCandidate,
@@ -124,6 +125,20 @@ def build_operation() -> ApiOperation:
         path="/api/users/{user_id}",
         success_codes=[200],
         source_ids=["src-openapi-001"],
+    )
+
+
+def build_module() -> ApiModule:
+    """构造模板渲染使用的最小模块对象。"""
+    return ApiModule(
+        module_id="mod-user",
+        module_name="user",
+        module_code="user",
+        module_path_hint="generated/apis/user_api.py",
+        module_type="api",
+        module_desc="用户模块",
+        source_ids=["src-openapi-001"],
+        tags=["user"],
     )
 
 
@@ -300,6 +315,80 @@ def test_rule_validator_rejects_invalid_array_object_schema_match_assertion():
     violations = validator.validate_assertions(build_operation(), assertions)
 
     assert any("schema_match.item_type" in violation for violation in violations)
+
+
+def test_rule_validator_rejects_invalid_business_rule_assertion():
+    """非法 business_rule 断言结构应被拦截。"""
+    validator = RuleValidator()
+    assertions = [
+        AssertionCandidate(
+            assertion_id="assert-business-001",
+            operation_id="op-get-user",
+            assertion_type="business_rule",
+            target_path="data.name",
+            expected_value={"rule_code": "unsupported"},
+            priority="medium",
+            source="manual",
+            confidence_score=0.7,
+            review_status="pending",
+        ),
+        AssertionCandidate(
+            assertion_id="assert-status-001",
+            operation_id="op-get-user",
+            assertion_type="status_code",
+            target_path="status_code",
+            expected_value=200,
+            priority="high",
+            source="manual",
+            confidence_score=1.0,
+            review_status="pending",
+        ),
+    ]
+
+    violations = validator.validate_assertions(build_operation(), assertions)
+
+    assert any("business_rule" in violation for violation in violations)
+
+
+def test_renderer_and_validator_accept_supported_business_rule_assertion():
+    """支持的 business_rule 应可被规则层接受并渲染进测试骨架。"""
+    renderer = TemplateRenderer()
+    validator = RuleValidator()
+    assertions = [
+        AssertionCandidate(
+            assertion_id="assert-status-001",
+            operation_id="op-get-user",
+            assertion_type="status_code",
+            target_path="status_code",
+            expected_value=200,
+            priority="high",
+            source="manual",
+            confidence_score=1.0,
+            review_status="pending",
+        ),
+        AssertionCandidate(
+            assertion_id="assert-business-001",
+            operation_id="op-get-user",
+            assertion_type="business_rule",
+            target_path="data.name",
+            expected_value={"rule_code": "non_empty_string"},
+            priority="medium",
+            source="manual",
+            confidence_score=0.8,
+            review_status="pending",
+        ),
+    ]
+
+    violations = validator.validate_assertions(build_operation(), assertions)
+    rendered = renderer.render_test_module(
+        module=build_module(),
+        operation=build_operation(),
+        assertions=assertions,
+    )
+
+    assert violations == []
+    assert '"name": "sample-name"' in rendered
+    assert 'assert business_value.strip()' in rendered
 
 
 def test_rule_validator_rejects_asset_manifest_without_assets_and_generation_links():
