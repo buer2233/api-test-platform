@@ -1,28 +1,25 @@
 # 当前任务计划
 
 ## 目标
-- 完成 V1 阶段最后一轮收口，满足“文档驱动最小闭环已完成”的阶段验收条件。
-- 在不扩大到 V2 范围的前提下，继续补齐 `platform_core` 的规则覆盖和产品化摘要边界。
-- 把依赖约束治理写成可执行校验，确保仓库后续持续遵守 `AGENTS.md` 的最高优先级规则。
+- 完成 2026-04-03 的 V1 正式验收复验。
+- 对 `jsonplaceholder.typicode.com` 相关用例采用“临时开启代理执行，完成后恢复默认关闭”的验证流程。
+- 产出正式验收文档并同步 README、阶段文档、测试文档与本地记录。
 
 ## 本轮范围
-1. 为 `business_rule` 增加第二个最小通用规则代码 `positive_integer`。
-2. 为 `run` / `inspect` 服务摘要补齐更稳定的资产聚合字段，便于后续 Django + DRF / 客户端直接消费。
-3. 把 `api_test/requirements.txt` 从宽松约束改为固定版本，并删除未使用的 `rsa` 依赖。
-4. 完成对应 TDD 红绿测试、全量回归和文档回填。
+1. 临时开启 `api_test/api_config.json` 中的代理开关，验证代理连通性与 `jsonplaceholder` 相关用例。
+2. 如测试失败则定位并修复；如失败仅来自临时配置偏离默认契约，则恢复默认状态并重跑。
+3. 完成 V1 正式验收回归和 `V1阶段正式验收报告.md` 输出。
 
 ## 阶段状态
 | 阶段 | 状态 | 说明 |
 | --- | --- | --- |
-| 设计与范围收敛 | 已完成 | 已确认本轮以 `business_rule` 扩展、服务摘要收口和依赖治理为主 |
-| 失败测试编写与验证 | 已完成 | 已补失败测试，并通过 `v1_final_closure_red` 看到缺失模型导致的红灯 |
-| 最小实现 | 已完成 | 已补齐 `positive_integer`、资产聚合摘要和依赖治理实现 |
-| 全量回归验证 | 已完成 | `tests/platform_core` 为 `63 passed`，根测试为 `70 passed`，`api_test/tests` 为 `39 passed`，公开基线双入口均为 `12 passed, 27 deselected` |
-| 文档与记录同步 | 已完成 | README、V1/V2 文档、测试说明书、本地记录与设计/计划文档均已同步，并通过 `root_v1_final_doc_sync` 复验 |
-| 提交与阶段判断 | 进行中 | 当前只剩提交并确认工作区状态 |
+| 代理开启与公网冒烟 | 已完成 | 已验证 `127.0.0.1:7890` 可连通，代理请求 JSONPlaceholder 返回 `200 / id=1` |
+| `jsonplaceholder` 相关回归 | 已完成 | 代理开启下 `jsonplaceholder` 相关用例为 `12 passed, 27 deselected`，公开基线双入口均为 `12 passed, 27 deselected` |
+| 默认配置恢复与非公网回归 | 已完成 | 已恢复 `proxy.enabled=false`，非 `jsonplaceholder` 用例为 `27 passed, 12 deselected`，`test_config_loader.py` 为 `6 passed` |
+| V1 验收套件复验 | 已完成 | `tests/platform_core` 为 `63 passed`，根测试为 `70 passed` |
+| 文档与正式报告同步 | 已完成 | 已新增正式验收报告，并同步 README、V1 阶段文档、V1 测试文档、`api_test` 文档与本地记录 |
 
 ## 风险与注意事项
-- 必须保持严格 TDD，先看见失败，再写最小实现。
-- 不得把 P1 / P2 增强误写成 V1 必做项；V1 完成判断仍以最小闭环与 P0 通过为准。
-- 公开站点回归仍可能受外网时延波动影响，完整复验建议继续启用代理。
+- `jsonplaceholder` 外网直连仍可能存在时延波动；正式回归优先临时开启代理执行公网用例。
+- 仓库默认状态必须保持 `proxy.enabled=false`，否则会破坏配置契约测试。
 - `.idea/` 继续忽略，不纳入提交。

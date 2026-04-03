@@ -8,7 +8,7 @@
 
 ## 当前状态
 
-截至 2026-04-02，V1 阶段目标已完成，当前仓库已完成：
+截至 2026-04-03，V1 阶段目标已完成，当前仓库已完成：
 
 - 重构设计说明与实施计划；
 - 重构前备份提交并推送：
@@ -31,6 +31,7 @@
   - `build_retry_session()` 在代理开关开启时自动为 `http/https` 请求挂载代理
   - 后续客户端应直接控制这两个配置项，而不是新增平行配置源
   - 本轮验证曾临时启用 `proxy.enabled=true` 并使用 `http://127.0.0.1:7890` 完成代理连通性验证，仓库默认值已恢复为关闭
+  - 2026-04-03 正式验收复验已确认：`jsonplaceholder` 相关公网用例可先开启代理执行，完成后恢复 `proxy.enabled=false`，同时保持默认配置契约测试通过
 - 已完成中文注释治理首轮落地：
   - 新增 `tests/test_comment_governance.py`，对仓库内 Python 模块/类/方法中文 docstring 与 `api_config.json` 中文说明字段做自动校验
   - 已为 `run_test.py`、`config_loader.py`、`base_api.py`、`platform_core` 核心层和现有测试文件补齐中文注释
@@ -74,6 +75,23 @@
 
 当前分支最新已验证结果：
 
+- 2026-04-03 V1 正式验收复验：
+  - `cd api_test && python -m pytest tests -m jsonplaceholder -v --basetemp ..\.pytest_tmp\api_test_jsonplaceholder_acceptance`
+    - `12 passed, 27 deselected`
+  - `python api_test/run_test.py --public-baseline`
+    - `12 passed, 27 deselected`
+  - `cd api_test && python run_test.py --public-baseline`
+    - `12 passed, 27 deselected`
+  - `cd api_test && python -m pytest tests -m "not jsonplaceholder" -v --basetemp ..\.pytest_tmp\api_test_non_jsonplaceholder_acceptance`
+    - `27 passed, 12 deselected`
+  - `cd api_test && python -m pytest tests/test_config_loader.py -v --noconftest --basetemp ..\.pytest_tmp\config_loader_after_proxy_restore_fix`
+    - `6 passed`
+  - `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_v1_acceptance_proxy_20260403`
+    - `63 passed`
+  - `python -m pytest tests -v --basetemp .pytest_tmp/root_v1_acceptance_proxy_20260403`
+    - `70 passed`
+  - `python -m pytest tests -v --basetemp .pytest_tmp/root_v1_acceptance_doc_sync_20260403`
+    - `70 passed`
 - `python -m pytest tests/platform_core/test_models.py tests/platform_core/test_templates_and_rules.py tests/platform_core/test_services_and_assets.py tests/test_dependency_governance.py -k "positive_integer or inventory_summary or source_type or execution_id or asset_type_breakdown or dependency_governance" -v --basetemp .pytest_tmp/v1_final_closure_green`
   - `6 passed`
 - `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_v1_final_closure_full`
@@ -180,6 +198,8 @@
 
 - 当前 `api_test` 的通用配置、通用运行时、公开基线入口和公开示例测试已经完成当前轮闭环验证；
 - 代理开启时，当前公开基线与运行入口复验稳定通过；
+- 2026-04-03 正式验收复验已采用“`jsonplaceholder` 相关用例先开启代理、完成后恢复默认关闭并执行非公网配置/治理回归”的分段流程，相关结果已写入 [V1阶段正式验收报告.md](/D:/AI/api-test-platform/product_document/%E9%98%B6%E6%AE%B5%E6%96%87%E6%A1%A3/V1%E9%98%B6%E6%AE%B5%E6%AD%A3%E5%BC%8F%E9%AA%8C%E6%94%B6%E6%8A%A5%E5%91%8A.md)；
+- 2026-04-03 文档同步后已再次执行根测试 `python -m pytest tests -v --basetemp .pytest_tmp/root_v1_acceptance_doc_sync_20260403`，结果仍为 `70 passed`；
 - 仓库默认保持 `proxy.enabled=false`，但默认直连外网站点仍存在时延波动，当前公开站点回归建议优先开启代理；
 - `platform_core` 的生成记录、执行记录、工作区检查、服务能力快照、运行摘要、检查摘要和 `schema_match` 断言闭环已经完成 V1 范围内收口；
 - `business_rule` 当前已支持 `non_empty_string` 和 `positive_integer` 两个最小规则代码，但仍只支持手工构造断言，不由解析器自动生成；

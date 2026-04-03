@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-截至 2026-04-02，当前目录已完成配置层首个 TDD 循环：
+截至 2026-04-03，当前目录已完成配置层首个 TDD 循环：
 
 - 新增唯一配置文件 [api_config.json](/D:/AI/api-test-platform/api_test/api_config.json)
 - 新增配置加载器 [config_loader.py](/D:/AI/api-test-platform/api_test/core/config_loader.py)
@@ -34,6 +34,11 @@
 已验证结果：
 
 ```bash
+cd api_test && python -m pytest tests -m jsonplaceholder -v --basetemp ..\.pytest_tmp\api_test_jsonplaceholder_acceptance
+python api_test/run_test.py --public-baseline
+cd api_test && python run_test.py --public-baseline
+cd api_test && python -m pytest tests -m "not jsonplaceholder" -v --basetemp ..\.pytest_tmp\api_test_non_jsonplaceholder_acceptance
+cd api_test && python -m pytest tests/test_config_loader.py -v --noconftest --basetemp ..\.pytest_tmp\config_loader_after_proxy_restore_fix
 python -m pytest api_test/tests/test_config_loader.py -v --noconftest --basetemp .pytest_tmp/config_loader
 python -m pytest api_test/tests/test_base_api_governance.py api_test/tests/test_common_tools.py -v --noconftest --basetemp .pytest_tmp/base_api_split_docs
 python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_base_api_split_full
@@ -45,6 +50,11 @@ cd api_test && python run_test.py --public-baseline
 
 结果：
 
+- `12 passed, 27 deselected`
+- `12 passed, 27 deselected`
+- `12 passed, 27 deselected`
+- `27 passed, 12 deselected`
+- `6 passed`
 - `5 passed`
 - `19 passed`
 - `39 passed`
@@ -57,7 +67,8 @@ cd api_test && python run_test.py --public-baseline
 
 - 2026-04-01 已完成代理端口探测和真实代理请求验证，代理开启时公开基线双入口均通过；
 - 2026-04-01 默认关闭代理的 `api_test` 全量直连复验曾出现 `test_patch_updates_partial_fields` 超时失败，根因为访问公开站点时的 `SSL handshake/read timeout`，不是框架功能断言失败；
-- 2026-04-02 当前轮已完成 `BaseAPI` 与 `common_tools` 的职责收口，`api_test/tests` 全量更新为 `39 passed`，公开基线双入口均为 `12 passed, 27 deselected`。
+- 2026-04-02 当前轮已完成 `BaseAPI` 与 `common_tools` 的职责收口，`api_test/tests` 全量更新为 `39 passed`，公开基线双入口均为 `12 passed, 27 deselected`；
+- 2026-04-03 正式验收复验已验证“公网 `jsonplaceholder` 用例开启代理、执行后恢复默认关闭并执行非公网配置/治理回归”的分段流程可稳定通过。
 
 ## 当前目录结构
 
@@ -113,7 +124,8 @@ api_test/
 
 - 仓库默认值为关闭；
 - 开启后 `requests` 的 `http` 与 `https` 请求都会走同一代理地址；
-- 后续 Web/Desktop 客户端完成后，应直接修改这两个字段来控制代理，而不是增加新的独立配置入口。
+- 后续 Web/Desktop 客户端完成后，应直接修改这两个字段来控制代理，而不是增加新的独立配置入口；
+- 对 `jsonplaceholder.typicode.com` 相关公开用例做回归时，建议先临时改为 `enabled=true`，执行完成后立即恢复为 `enabled=false`，以保持仓库默认配置契约稳定。
 
 ## 当前状态判断
 
@@ -126,6 +138,7 @@ api_test/
 - `BaseAPI` 只保留 HTTP 请求相关能力，通用工具已迁移到 `common_tools.py`
 - 默认关闭代理时，公开站点直连仍存在外网时延波动，当前不宜把单次超时误判为框架逻辑失败
 - `requirements.txt` 已改为固定版本清单，满足当前仓库的依赖安全治理要求
+- `product_document/阶段文档/V1阶段正式验收报告.md` 已生成，可直接作为当前 V1 正式验收输出
 
 说明：
 
