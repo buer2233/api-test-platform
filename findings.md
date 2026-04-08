@@ -39,5 +39,144 @@
   - `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/platform_core_v1_final_closure_full` -> `63 passed`
   - `python -m pytest tests -v --basetemp .pytest_tmp/root_v1_final_closure_full` -> `70 passed`
   - `python -m pytest api_test/tests -v --basetemp .pytest_tmp/api_test_v1_final_closure_full` -> `39 passed`
-  - `python api_test/run_test.py --public-baseline` -> `12 passed, 27 deselected`
-  - `cd api_test && python run_test.py --public-baseline` -> `12 passed, 27 deselected`
+- `python api_test/run_test.py --public-baseline` -> `12 passed, 27 deselected`
+- `cd api_test && python run_test.py --public-baseline` -> `12 passed, 27 deselected`
+
+## 2026-04-07 V1 进度分析补充发现
+- `product_document/阶段文档/V1阶段工作计划文档.md`、`product_document/阶段文档/V1实施计划与开发任务拆解说明书.md`、`product_document/测试文档/详细测试用例说明书(V1).md` 和 `product_document/阶段文档/V1阶段正式验收报告.md` 的当前口径一致，均明确写明截至 2026-04-03 V1 已完成并已正式验收通过。
+- `README.md` 的“当前状态”与正式验收报告保持一致，仍以 2026-04-03 作为最新综合验证日期，没有出现后续回退口径。
+- 代码目录侧已存在完整的 V1 最小闭环实现与配套测试资产：
+  - `platform_core/` 覆盖模型、解析、模板、规则、流水线、执行器、CLI、资产管理和服务层。
+  - `tests/platform_core/` 覆盖模型、模板/规则、流水线、服务/资产和解析输入。
+  - 根目录存在中文注释治理、依赖治理和通用框架清理治理测试。
+  - `api_test/tests/` 覆盖配置加载、HTTP 底座治理、公共工具、公开站点资源和执行入口。
+- `api_test/api_config.json` 当前仍保持 `proxy.enabled=false`，与正式验收报告要求的默认配置契约一致。
+- `api_test/requirements.txt` 当前为固定版本约束，符合仓库依赖治理规则，且未见 `rsa` 残留。
+- `git log --format='%h %ad %s' --date=short -5` 显示主线最近一次提交为 2026-04-03 的“文档：同步V1正式验收复验结果并新增正式验收报告”，说明当前仓库没有晚于正式验收的 V1 主线推进记录。
+- `git status --short` 当前仅显示 `?? .idea/`，未见新的 V1 代码或文档改动，表明仓库现状基本停留在正式验收后的稳定状态。
+- 因未在本轮重新执行 pytest，本轮结论应表述为“当前仓库状态与 2026-04-03 正式验收结论一致”，而不是“2026-04-07 已重新完成全量回归”。
+
+## 2026-04-07 V2 计划文档分析发现
+- `product_document/阶段文档/V2阶段工作计划文档.md` 当前只有“简版规划（待后续细化）”，仅列出 7 个方向性要点，没有详细范围、详细设计、测试方案、进度记录、风险记录，不满足仓库对阶段工作计划文档的要求。
+- `product_document/阶段文档/全阶段工作规划文档.md` 当前仍写着“阶段 1 收尾 + 阶段 2 推进中”，并将 V2 标记为“未开始”，这与 `2026-04-03` 已完成 V1 正式验收的事实不一致，后续完善 V2 文档时应同时规划对该总入口文档的同步修正。
+- `product_document/产品需求说明书(全局).md` 已给出较清晰的 V2 承接方向：功能测试用例驱动、抓包驱动、动态变量与依赖编排、Web/Windows 形态增强、审核预览修订确认、执行调度与结果管理。
+- 从全局产品说明书和 V1 文档交叉看，V2 不是“继续补 V1 小功能”，而应是从“文档驱动最小闭环”升级到“多输入路线 + 场景编排 + 产品化入口”的阶段。
+- 当前 V2 文档最缺的不是一句目标描述，而是完整的：
+  - 阶段定位与进入条件
+  - 做什么 / 不做什么
+  - 能力任务分组与实施顺序
+  - 测试策略、验收标准、风险与阻塞记录
+  - 与 V1/V3 的边界说明
+
+## 2026-04-07 V2 承接设计补充发现
+- `总体架构设计说明书.md` 已经给出 V2 的推荐形态：在 V1 基础上增强 Django + DRF 应用服务层、Web 界面、更完整资产管理、功能测试用例驱动 / 抓包驱动接入、Windows 应用封装增强。这意味着 V2 需要同时覆盖核心引擎扩展和产品入口扩展，不能只写算法侧增强。
+- `中间模型设计说明书.md` 明确将 `VariableBinding`、`DependencyLink`、`TestScenario`、`ScenarioStep`、`ReviewRecord` 作为 V1 预留、V2 应重点增强的模型，这些对象应成为 V2 计划文档中的核心任务组，而不是散落在“后续补充方向”里。
+- `模板体系与代码生成规范说明书.md` 明确 V1 暂未强制落地的模板包括：场景测试高级模板、动态变量模板、审核记录模板、高级报告模板、抓包驱动专用模板；这些正好构成 V2 模板体系扩展的主任务清单。
+- `V1阶段工作计划文档.md` 当前已经把 V2 承接建议压缩为 4 个点：更复杂 `business_rule` DSL、更深层结构断言、变量提取与依赖编排、服务接口产品化边界与 Web / 客户端承接。V2 正式计划文档需要把这 4 个点展开成可执行的任务组、测试组和验收标准。
+- `详细测试用例说明书(V1).md` 已将“场景驱动测试、变量绑定测试、依赖编排测试、抓包驱动闭环测试”明确列为 V2 逐步增强项，因此 V2 文档应从一开始就带上测试编号体系和阶段测试策略，不能再等实现后补。
+- 当前最合理的 V2 主线顺序不是“先 Web，再能力”，而应更接近：
+  1. 场景与依赖中间模型补齐；
+  2. 场景生成 / 抓包解析 / 动态变量能力进入闭环；
+  3. 审核、预览、修订与确认机制进入资产生命周期；
+  4. Django + DRF 服务层与 Web / Windows 交互入口承接这些稳定能力；
+  5. 最后补产品化执行调度和结果展示增强。
+
+## 2026-04-07 外部参考发现
+- `microsoft/restler-fuzzer` 展现的关键模式是“先从 OpenAPI 编译为可执行语法，再按 `test -> fuzz-lean -> fuzz` 分级执行”，并强调 stateful / producer-consumer 依赖推断。这对我们 V2 的“依赖编排优先于深度 UI”判断有直接参考价值。来源：https://github.com/microsoft/restler-fuzzer
+- `alufers/mitmproxy2swagger` 展现的关键模式是“抓包 -> 生成路径模板候选 -> 人工筛选/修正 -> 二次生成 OpenAPI”，说明抓包驱动路线不应直接一步到最终资产，中间必须有清洗、去重和确认层。来源：https://github.com/alufers/mitmproxy2swagger
+- `Schemathesis` 强调从 OpenAPI / GraphQL schema 自动生成大量测试用例，并提供 CLI / CI 入口，这说明契约驱动验证能力更适合作为 V2 执行增强和服务入口增强的参考，而不是替代我们现有模板化资产生成主线。来源：https://github.com/schemathesis
+- `openapi-python-client` / `OpenAPI Generator` 的价值更多在“模板与生成器解耦、配置驱动生成、tag/module 归组策略”，可作为我们 V2 优化模板体系和模块归组配置的参考，但不适合直接替代平台化资产治理层。来源：https://github.com/openapi-generators/openapi-python-client 、https://github.com/OpenAPITools/openapi-generator
+
+## 2026-04-08 V2 方案已确认项
+- V2 同时覆盖核心能力和产品入口，但阶段优化重点放在核心能力。
+- Web / Windows 入口目标深度定为“可用型入口”：支持导入、预览、审核确认、执行、结果查看，不追求完整产品化体验。
+- V2 第一主线采用“功能测试用例驱动优先”；抓包驱动纳入 V2，但不作为第一主线。
+- V2 文档组织方式采用“方案1：核心能力分层推进型”。
+- V2 服务化与数据持久化深度采用“方案A：核心数据先服务化落地”，Django + DRF + MySQL 进入阶段必达范围，本地工作区降为导入导出与执行载体。
+- V2 审核确认链路采用“方案B：默认可审核、关键节点需确认”。
+- V2 修订能力采用“方案B：结构化修订 + AI 辅助改写并存”，但 AI 输出不能直接成为正式事实资产。
+- V2 任务组建议已经过用户确认，顺序为：
+  1. 场景驱动核心模型扩展
+  2. 功能测试用例驱动闭环
+  3. 审核、预览、修订与确认链路
+  4. 服务化与数据持久化落地
+  5. 抓包驱动草稿化接入
+  6. 可用型 Web / Windows 入口
+
+## 2026-04-08 正式文档落地发现
+- `product_document/阶段文档/V2阶段工作计划文档.md` 已由“简版规划（待后续细化）”升级为正式规划版，已补齐：
+  - 阶段定位
+  - 进入条件与承接关系
+  - 总目标与不做项
+  - 正式闭环定义
+  - 范围拆解
+  - 详细设计方案
+  - 开发方案
+  - 测试方案
+  - 开发 / 测试进度记录
+  - 风险与阻塞记录
+  - V3 承接建议
+- `product_document/阶段文档/全阶段工作规划文档.md` 已同步修正为：
+  - 阶段 0、阶段 1、阶段 2 均为已完成
+  - 阶段 3 为“V2 阶段规划与能力增强阶段（正式规划版已建立，待进入实施）”
+  - 阶段 4 为 V3 平台化深化承接方向
+- `README.md` 已同步补记：
+  - 2026-04-08 当前仓库重点已切换到 V2 正式规划
+  - 当前已确认方向新增 V2 主线说明
+  - 建议查看顺序新增 `V2阶段工作计划文档.md` 与 V2 设计稿
+- 本轮未执行测试；本轮属于文档同步与阶段规划落地，不应新增测试结果口径。
+
+## 2026-04-08 V2 测试文档设计发现
+- `详细测试用例说明书(V2).md` 应按 V2 范围重写，而不是在 V1 文档上继续追加；原因是 V2 已从“文档驱动最小闭环”升级为“场景驱动 + 服务化 + 可用型入口承接”。
+- V2 测试分层已收敛为 8 层：文档与阶段约束、中间模型、解析与标准化、模板与规则、服务层与持久化、执行与调度、交互入口、主线集成闭环。
+- V2 编号体系建议采用：
+  - `TC-V2-DOC-*`
+  - `TC-V2-MODEL-*`
+  - `TC-V2-PARSE-*`
+  - `TC-V2-TPL-*`
+  - `TC-V2-RULE-*`
+  - `TC-V2-SVC-*`
+  - `TC-V2-EXEC-*`
+  - `TC-V2-UI-*`
+  - `TC-V2-INT-*`
+- 服务层与持久化测试需要独立成组，不能并入执行层；原因是“数据库事实源 + DRF 契约 + 状态回写”是 V2 的核心边界，不再是 V1 那种附属摘要能力。
+- Web / Windows 入口测试在 V2 仍建议统一为“交互入口测试”，暂不拆分双端独立编号；原因是 V2 重点验证流程一致性和服务复用，不是双端产品体验细化。
+- 抓包驱动的“动态值候选识别”建议拆成两档：
+  - 基础候选识别进入 P0，用于保证抓包草稿化闭环成立；
+  - 复杂噪声清洗、低置信度候选筛选进入 P1。
+- AI 辅助改写在 V2 测试中重点验证门禁、留痕、规则校验和回退能力，不把“改写质量优劣”作为阶段必达测试目标。
+- 数据库事实源与本地工作区执行载体的一致性测试，P0 先覆盖状态、摘要、执行结果和导出路径一致；版本冲突、回滚和跨版本演进建议留到 P1 / V3。
+- `product_document/测试文档/详细测试用例说明书(V2).md` 已正式落地，并已同步更新 `product_document/阶段文档/V2阶段工作计划文档.md` 与 `README.md` 的相关口径。
+
+## 2026-04-08 V2 第一实施子阶段开发发现
+- 当前 `platform_core/models.py` 仍完全是 V1 模型集合，尚未落地 `TestScenario`、`ScenarioStep`、`VariableBinding`、`DependencyLink`、`ReviewRecord`、状态对象和场景服务摘要对象。
+- 当前 `platform_core/services.py` 仍是 V1-only 口径：`supported_routes()` 中 `functional_case=False`，`run_functional_case_pipeline()` 直接抛 `NotImplementedError`。
+- 当前 `platform_core/parsers.py` 只有 `OpenAPIDocumentParser`，没有功能测试用例输入到场景草稿的解析器；继续把这部分塞进 `parsers.py` 会让单文件职责继续膨胀，第一实施子阶段更适合新增 `platform_core/functional_cases.py` 聚焦承载。
+- `详细测试用例说明书(V2).md` 中最适合作为第一批落地点的 P0 项是：
+  - `TC-V2-MODEL-011`
+  - `TC-V2-MODEL-012`
+  - `TC-V2-RULE-011`
+  - 功能测试用例主线对应的 `TC-V2-PARSE-001` 到 `TC-V2-PARSE-008` 的最小子集
+- 本轮不建议一开始就直接实现 `TC-V2-SVC-011`、`TC-V2-SVC-012` 所代表的完整 DRF 契约；更稳妥的顺序是先稳定服务对象和状态摘要，再在下一子阶段补正式接口层。
+- 已新增实施计划文件 `docs/superpowers/plans/2026-04-08-v2-phase-1-scenario-core.md`，当前执行方式为“同一会话内 inline TDD 实施”，不再额外停下来做执行方式选择。
+- 首批红灯验证结果如下：
+  - `tests/platform_core/test_models.py -k "v2_scenario"`：`ImportError`，缺少 `DependencyLink` 等 V2 模型
+  - `tests/platform_core/test_parser_inputs.py -k "functional_case_parser"`：`ModuleNotFoundError`，缺少 `platform_core.functional_cases`
+  - `tests/platform_core/test_services_and_assets.py -k "current_capabilities or functional_case_draft_summary or invalid_scenario_status_transition"`：`ImportError`，缺少 `ScenarioServiceSummary`
+- 首批最小实现已落地：
+  - `platform_core/models.py`：新增场景核心模型、状态对象、问题对象和服务摘要对象
+  - `platform_core/functional_cases.py`：新增结构化功能测试用例草稿解析器
+  - `platform_core/rules.py`：新增非法状态流转校验
+  - `platform_core/services.py`：开放功能用例草稿摘要路线，并保留抓包路线阻断
+- `TestScenario` 作为模型名称会触发 pytest 对“Test*”类的默认收集告警，已通过 `__test__ = False` 显式关闭该类的测试收集，避免后续回归噪声。
+- 首批验证与回归结果：
+  - `python -m pytest tests/platform_core/test_models.py -k "v2_scenario" -v --basetemp .pytest_tmp/v2_phase1_models_green` -> `2 passed`
+  - `python -m pytest tests/platform_core/test_parser_inputs.py -k "functional_case_parser" -v --basetemp .pytest_tmp/v2_phase1_parser_green` -> `2 passed`
+  - `python -m pytest tests/platform_core/test_services_and_assets.py -k "current_capabilities or functional_case_draft_summary or invalid_scenario_status_transition" -v --basetemp .pytest_tmp/v2_phase1_service_green` -> `3 passed`
+  - `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/v2_phase1_platform_core_full` -> `68 passed`
+  - `python -m pytest tests -v --basetemp .pytest_tmp/v2_phase1_root_full` -> `75 passed`
+  - `python -m pytest api_test/tests -v --basetemp .pytest_tmp/v2_phase1_api_test_full` -> `39 passed`
+- 本轮仍保留的已知空白：
+  - 还没有正式的 Django + DRF + MySQL 承载层
+  - 还没有 `TC-V2-SVC-011`、`TC-V2-SVC-012` 对应的正式 API 契约实现
+  - 还没有结构化修订持久化、抓包草稿化接入和可用型入口实现

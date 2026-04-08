@@ -17,6 +17,7 @@ from platform_core.models import (
     AssertionCandidate,
     DocumentPipelineRunSummary,
     GenerationRecord,
+    ScenarioServiceSummary,
     WorkspaceInspectionSummary,
 )
 from platform_core.parsers import OpenAPIDocumentParser
@@ -560,21 +561,22 @@ def test_platform_application_service_workspace_inspection_summary_counts_issues
     assert len(summary.missing_generation_records) == 1
 
 
-def test_platform_application_service_describes_v1_capabilities():
-    """应用服务应输出可直接消费的能力快照。"""
+def test_platform_application_service_describes_current_capabilities():
+    """应用服务应输出 V2 第一子阶段可直接消费的能力快照。"""
     service = PlatformApplicationService(project_root=Path.cwd())
 
     snapshot = service.describe_capabilities()
     routes = {route.route_code: route for route in snapshot.routes}
 
-    assert snapshot.service_stage == "v1"
+    assert snapshot.service_stage == "v2_phase1"
     assert snapshot.local_mode_only is True
     assert snapshot.available_commands == ["run", "inspect"]
     assert routes["document"].enabled is True
     assert routes["document"].stage == "v1_active"
-    assert routes["functional_case"].enabled is False
+    assert routes["functional_case"].enabled is True
+    assert routes["functional_case"].stage == "v2_phase1_active"
     assert routes["traffic_capture"].enabled is False
-    assert "V1" in routes["functional_case"].detail
+    assert "V2" in routes["functional_case"].detail
 
 
 def test_platform_application_service_returns_document_pipeline_summary(tmp_path):
@@ -689,19 +691,62 @@ def test_platform_core_cli_can_inspect_workspace_manifest(tmp_path):
     assert payload["report_exists"] is True
 
 
-def test_platform_application_service_blocks_future_routes_in_v1(tmp_path):
-    """应用服务应显式阻断 V1 尚未开放的路线。"""
+def test_platform_application_service_supports_functional_case_draft_summary(tmp_path):
+    """应用服务应支持 V2 第一子阶段的功能用例草稿摘要。"""
+    source_path = tmp_path / "functional_case.json"
+    source_path.write_text(
+        json.dumps(
+            {
+                "case_id": "fc-user-001",
+                "case_code": "query_user_profile",
+                "case_name": "查询用户详情",
+                "steps": [
+                    {
+                        "step_name": "查询用户详情",
+                        "operation_id": "operation-get-user",
+                        "expected": {"status_code": 200},
+                    }
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
     service = PlatformApplicationService(project_root=Path.cwd())
 
     assert service.supported_routes()["document"] is True
-    assert service.supported_routes()["functional_case"] is False
+    assert service.supported_routes()["functional_case"] is True
     assert service.supported_routes()["traffic_capture"] is False
+    summary = service.run_functional_case_pipeline_summary(
+        source_path=source_path,
+        output_root=tmp_path / "workspace",
+    )
 
-    with pytest.raises(NotImplementedError, match="V1 仅支持文档驱动最小闭环"):
-        service.run_functional_case_pipeline(source_path=tmp_path / "cases.md", output_root=tmp_path / "out")
+    assert isinstance(summary, ScenarioServiceSummary)
+    assert summary.route_code == "functional_case"
+    assert summary.service_stage == "v2_phase1"
+    assert summary.scenario_code == "query_user_profile"
+    assert summary.review_status == "pending"
+    assert summary.execution_status == "not_started"
+    assert summary.step_count == 1
 
-    with pytest.raises(NotImplementedError, match="V1 仅支持文档驱动最小闭环"):
+    with pytest.raises(NotImplementedError, match="暂不支持抓包驱动"):
         service.run_traffic_capture_pipeline(source_path=tmp_path / "capture.har", output_root=tmp_path / "out")
+
+
+def test_platform_application_service_blocks_invalid_scenario_status_transition():
+    """TC-V2-RULE-011 非法状态流转应被服务层阻断。"""
+    service = PlatformApplicationService(project_root=Path.cwd())
+
+    with pytest.raises(ValueError, match="非法状态流转"):
+        service.validate_scenario_transition(
+            current_review_status="rejected",
+            target_review_status="approved",
+            current_execution_status="not_started",
+            target_execution_status="not_started",
+        )
 
 
 def test_platform_application_service_no_longer_exposes_legacy_catalog_methods():

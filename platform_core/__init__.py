@@ -1,4 +1,4 @@
-"""V1 平台核心实现。"""
+"""平台核心实现。"""
 
 from .assets import AssetWorkspace
 from .executors import PytestExecutor
@@ -11,19 +11,29 @@ from .models import (
     AssetManifest,
     AssetRecord,
     AssertionCandidate,
+    DependencyLink,
     DocumentPipelineRunSummary,
     ExecutionRecord,
+    FunctionalCaseDraft,
+    FunctionalCaseIssue,
     GenerationInspectionEntry,
     GenerationRecord,
     ParsedDocument,
     PipelineResult,
     ResponseField,
+    ReviewRecord,
     RouteCapabilitySummary,
+    ScenarioLifecycleStatus,
+    ScenarioServiceSummary,
+    ScenarioStep,
     ServiceCapabilitySnapshot,
     SourceDocument,
+    TestScenario,
+    VariableBinding,
     WorkspaceAssetInventorySummary,
     WorkspaceInspectionSummary,
 )
+from .functional_cases import FunctionalCaseDraftParser
 from .parsers import OpenAPIDocumentParser
 from .pipeline import DocumentDrivenPipeline
 from .renderers import TemplateRenderer
@@ -40,9 +50,13 @@ __all__ = [
     "AssetRecord",
     "AssetWorkspace",
     "AssertionCandidate",
+    "DependencyLink",
     "DocumentPipelineRunSummary",
     "DocumentDrivenPipeline",
     "ExecutionRecord",
+    "FunctionalCaseDraft",
+    "FunctionalCaseDraftParser",
+    "FunctionalCaseIssue",
     "GenerationInspectionEntry",
     "GenerationRecord",
     "OpenAPIDocumentParser",
@@ -51,11 +65,17 @@ __all__ = [
     "PlatformApplicationService",
     "PytestExecutor",
     "ResponseField",
+    "ReviewRecord",
     "RouteCapabilitySummary",
     "RuleValidator",
+    "ScenarioLifecycleStatus",
+    "ScenarioServiceSummary",
+    "ScenarioStep",
     "ServiceCapabilitySnapshot",
     "SourceDocument",
+    "TestScenario",
     "TemplateRenderer",
+    "VariableBinding",
     "WorkspaceAssetInventorySummary",
     "WorkspaceInspectionSummary",
 ]

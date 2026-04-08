@@ -8,14 +8,34 @@
 
 ## 当前状态
 
-截至 2026-04-08，在 V1 正式验收完成后，仓库当前工作重点已切换到 V2 阶段正式规划，核心方向为：
+截至 2026-04-08，在 V1 正式验收完成后，仓库当前工作重点已切换到 V2 阶段正式开发，核心方向为：
 
 - 功能测试用例驱动优先；
 - 场景模型、变量绑定、依赖编排与审核确认能力；
 - Django + DRF + MySQL 服务化正式落地；
 - 抓包驱动草稿化接入；
 - 可用型 Web / Windows 入口承接。
-- V2 详细测试用例说明书已建立，后续应按新的 TDD 轮次推进实现与回归。
+- V2 详细测试用例说明书已建立，并已进入第一实施子阶段的 TDD 开发。
+
+当前已完成的 V2 第一实施子阶段首批落地包括：
+
+- 已补齐 `TestScenario`、`ScenarioStep`、`VariableBinding`、`DependencyLink`、`ReviewRecord`、场景状态对象与场景服务摘要对象；
+- 已新增 `platform_core/functional_cases.py`，支持结构化功能测试用例 JSON 输入解析为场景草稿；
+- 已开放 `PlatformApplicationService` 的功能测试用例草稿摘要路线，并补齐非法状态流转阻断；
+- 已完成首批定向 TDD 验证：
+  - `python -m pytest tests/platform_core/test_models.py -k "v2_scenario" -v --basetemp .pytest_tmp/v2_phase1_models_green`
+    - `2 passed`
+  - `python -m pytest tests/platform_core/test_parser_inputs.py -k "functional_case_parser" -v --basetemp .pytest_tmp/v2_phase1_parser_green`
+    - `2 passed`
+  - `python -m pytest tests/platform_core/test_services_and_assets.py -k "current_capabilities or functional_case_draft_summary or invalid_scenario_status_transition" -v --basetemp .pytest_tmp/v2_phase1_service_green`
+    - `3 passed`
+- 已完成首批回归验证：
+  - `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/v2_phase1_platform_core_full`
+    - `68 passed`
+  - `python -m pytest tests -v --basetemp .pytest_tmp/v2_phase1_root_full`
+    - `75 passed`
+  - `python -m pytest api_test/tests -v --basetemp .pytest_tmp/v2_phase1_api_test_full`
+    - `39 passed`
 
 截至 2026-04-03，V1 阶段目标已完成，当前仓库已完成：
 
@@ -113,6 +133,13 @@
   - `12 passed, 27 deselected`
 - `cd api_test && python run_test.py --public-baseline`
   - `12 passed, 27 deselected`
+
+当前已补充的 UI 原型资产：
+
+- `docs/ui-prototypes/mobile-onboarding-illustrated.html`
+  - 移动端 App 引导页静态原型，采用插图风格与三步引导流程，可直接浏览器预览
+- `docs/superpowers/specs/2026-04-08-mobile-onboarding-design.md`
+  - 对应原型设计说明，记录结构拆分、视觉方向与后续 React 组件拆分建议
 
 以下保留当前阶段的历史专项与阶段性验证记录，用于追踪演进过程，不代表当前最新综合计数：
 
@@ -250,6 +277,7 @@ api-test-platform/
 - V2 当前优先围绕功能测试用例驱动、场景编排、审核确认、服务化落地和可用型入口承接推进
 - `api_test/` 的目标是“通用 HTTP 测试底座 + JSON 配置驱动 + 公开示例适配”
 - 所有全局配置最终统一收口到 `api_test/api_config.json`
+- 可用型入口的页面探索当前已补充移动端引导页原型，后续 Web / Windows 正式实现可据此继续拆分组件与交互
 
 ## 当前建议查看顺序
 

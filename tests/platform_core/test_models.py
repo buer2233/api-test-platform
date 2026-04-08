@@ -7,12 +7,19 @@ from platform_core.models import (
     ApiOperation,
     ApiParam,
     AssertionCandidate,
+    DependencyLink,
     DocumentPipelineRunSummary,
     ExecutionRecord,
     GenerationRecord,
     ResponseField,
+    ReviewRecord,
     RouteCapabilitySummary,
+    ScenarioLifecycleStatus,
+    ScenarioServiceSummary,
+    ScenarioStep,
     SourceDocument,
+    TestScenario,
+    VariableBinding,
     WorkspaceAssetInventorySummary,
     WorkspaceInspectionSummary,
 )
@@ -383,3 +390,102 @@ def test_assertion_candidate_keeps_expected_target():
 
     assert candidate.assertion_type == "status_code"
     assert candidate.expected_value == 200
+
+
+def test_v2_scenario_models_capture_core_fields():
+    """TC-V2-MODEL-001/003/005/007/008 场景相关模型应表达核心字段。"""
+    scenario = TestScenario(
+        scenario_id="scenario-order-create",
+        scenario_name="创建订单后查询订单详情",
+        scenario_code="create_order_and_query_order_detail",
+        module_id="module-order",
+        scenario_desc="功能测试用例驱动生成的场景草稿",
+        source_ids=["source-functional-case-001"],
+        priority="high",
+        review_status="pending",
+        preconditions=["已完成登录"],
+        cleanup_required=True,
+    )
+    step = ScenarioStep(
+        step_id="step-create-order",
+        scenario_id=scenario.scenario_id,
+        step_order=1,
+        step_name="创建订单",
+        operation_id="operation-create-order",
+        input_bindings=[],
+        expected_bindings=["assert-status-201"],
+        assertion_ids=["assert-status-201"],
+        optional=False,
+    )
+    binding = VariableBinding(
+        binding_id="binding-order-id",
+        variable_name="order_id",
+        source_operation_id="operation-create-order",
+        source_field_path="data.id",
+        extract_expression="$.data.id",
+        target_operations=["operation-get-order"],
+        target_scope="scenario",
+        fallback_value=None,
+        required=True,
+    )
+    dependency = DependencyLink(
+        dependency_id="dependency-order-query",
+        upstream_operation_id="operation-create-order",
+        downstream_operation_id="operation-get-order",
+        dependency_type="data_flow",
+        binding_id=binding.binding_id,
+        required=True,
+        confidence_score=0.95,
+        source="functional_case",
+    )
+    review = ReviewRecord(
+        review_id="review-001",
+        target_type="scenario",
+        target_id=scenario.scenario_id,
+        reviewer="qa-owner",
+        review_comment="等待人工确认",
+        review_status="pending",
+        reviewed_at=datetime(2026, 4, 8, 20, 0, 0),
+    )
+
+    assert scenario.preconditions == ["已完成登录"]
+    assert scenario.cleanup_required is True
+    assert step.step_order == 1
+    assert step.assertion_ids == ["assert-status-201"]
+    assert binding.target_scope == "scenario"
+    assert binding.required is True
+    assert dependency.downstream_operation_id == "operation-get-order"
+    assert review.review_status == "pending"
+
+
+def test_v2_scenario_status_and_service_summary_capture_contract():
+    """TC-V2-MODEL-011/012 状态对象和服务摘要对象应表达稳定契约。"""
+    lifecycle = ScenarioLifecycleStatus(
+        review_status="pending",
+        execution_status="not_started",
+        current_stage="draft",
+    )
+    summary = ScenarioServiceSummary(
+        route_code="functional_case",
+        service_stage="v2_phase1",
+        scenario_id="scenario-order-create",
+        scenario_code="create_order_and_query_order_detail",
+        scenario_name="创建订单后查询订单详情",
+        review_status="pending",
+        execution_status="not_started",
+        step_count=2,
+        issue_count=1,
+        workspace_root="D:/AI/api-test-platform/workspace",
+        report_path=None,
+        passed_count=0,
+        failed_count=0,
+        skipped_count=0,
+    )
+
+    assert lifecycle.review_status == "pending"
+    assert lifecycle.execution_status == "not_started"
+    assert lifecycle.current_stage == "draft"
+    assert summary.route_code == "functional_case"
+    assert summary.service_stage == "v2_phase1"
+    assert summary.step_count == 2
+    assert summary.issue_count == 1

@@ -244,6 +244,122 @@ class ServiceCapabilitySnapshot(PlatformBaseModel):
     routes: list[RouteCapabilitySummary] = Field(default_factory=list)
 
 
+class TestScenario(PlatformBaseModel):
+    """场景资产或场景草稿模型。"""
+
+    __test__ = False
+
+    scenario_id: str
+    scenario_name: str
+    scenario_code: str
+    module_id: str | None = None
+    scenario_desc: str | None = None
+    source_ids: list[str] = Field(default_factory=list)
+    priority: Literal["high", "medium", "low"] = "medium"
+    review_status: Literal["pending", "approved", "rejected", "revised"] = "pending"
+    preconditions: list[str] = Field(default_factory=list)
+    postconditions: list[str] = Field(default_factory=list)
+    cleanup_required: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ScenarioStep(PlatformBaseModel):
+    """场景步骤模型。"""
+
+    step_id: str
+    scenario_id: str
+    step_order: int
+    step_name: str
+    operation_id: str | None = None
+    input_bindings: list[str] = Field(default_factory=list)
+    expected_bindings: list[str] = Field(default_factory=list)
+    assertion_ids: list[str] = Field(default_factory=list)
+    retry_policy: dict[str, Any] = Field(default_factory=dict)
+    optional: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class VariableBinding(PlatformBaseModel):
+    """变量提取与注入绑定模型。"""
+
+    binding_id: str
+    variable_name: str
+    source_operation_id: str | None = None
+    source_field_path: str | None = None
+    extract_expression: str | None = None
+    target_operations: list[str] = Field(default_factory=list)
+    target_scope: Literal["step", "scenario", "module", "global"] = "scenario"
+    fallback_value: Any | None = None
+    required: bool = True
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class DependencyLink(PlatformBaseModel):
+    """步骤或接口之间的依赖关系模型。"""
+
+    dependency_id: str
+    upstream_operation_id: str | None = None
+    downstream_operation_id: str | None = None
+    dependency_type: str
+    binding_id: str | None = None
+    required: bool = True
+    confidence_score: float = 1.0
+    source: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ReviewRecord(PlatformBaseModel):
+    """审核与修订留痕记录模型。"""
+
+    review_id: str
+    target_type: Literal["scenario", "step", "binding", "dependency", "assertion"]
+    target_id: str
+    reviewer: str
+    review_comment: str | None = None
+    review_status: Literal["pending", "approved", "rejected", "revised"]
+    reviewed_at: datetime
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class FunctionalCaseIssue(PlatformBaseModel):
+    """功能测试用例解析阶段的问题记录。"""
+
+    issue_code: str
+    issue_message: str
+    severity: Literal["error", "warning"] = "error"
+    step_id: str | None = None
+    step_order: int | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ScenarioLifecycleStatus(PlatformBaseModel):
+    """场景生命周期状态对象。"""
+
+    review_status: Literal["pending", "approved", "rejected", "revised"]
+    execution_status: Literal["not_started", "running", "passed", "failed"] = "not_started"
+    current_stage: Literal["draft", "reviewing", "confirmed", "executing", "finished"] = "draft"
+
+
+class ScenarioServiceSummary(PlatformBaseModel):
+    """场景路线对外暴露的稳定服务摘要。"""
+
+    route_code: Literal["functional_case"]
+    service_stage: str
+    scenario_id: str
+    scenario_code: str
+    scenario_name: str
+    review_status: Literal["pending", "approved", "rejected", "revised"]
+    execution_status: Literal["not_started", "running", "passed", "failed"] = "not_started"
+    step_count: int = 0
+    issue_count: int = 0
+    workspace_root: str | None = None
+    report_path: str | None = None
+    latest_execution_id: str | None = None
+    passed_count: int = 0
+    failed_count: int = 0
+    skipped_count: int = 0
+
+
 class ExecutionRecord(PlatformBaseModel):
     """执行记录模型。"""
 
@@ -337,6 +453,20 @@ class ParsedDocument(PlatformBaseModel):
     modules: list[ApiModule]
     operations: list[ApiOperation]
     assertions: list[AssertionCandidate]
+
+
+class FunctionalCaseDraft(PlatformBaseModel):
+    """功能测试用例驱动生成的场景草稿聚合对象。"""
+
+    source_document: SourceDocument
+    scenario: TestScenario
+    steps: list[ScenarioStep] = Field(default_factory=list)
+    bindings: list[VariableBinding] = Field(default_factory=list)
+    dependencies: list[DependencyLink] = Field(default_factory=list)
+    assertions: list[AssertionCandidate] = Field(default_factory=list)
+    review_records: list[ReviewRecord] = Field(default_factory=list)
+    lifecycle: ScenarioLifecycleStatus
+    issues: list[FunctionalCaseIssue] = Field(default_factory=list)
 
 
 class PipelineResult(PlatformBaseModel):

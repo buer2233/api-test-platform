@@ -6,9 +6,12 @@ from collections import Counter
 from pathlib import Path
 
 from platform_core.assets import AssetWorkspace
+from platform_core.functional_cases import FunctionalCaseDraftParser
 from platform_core.models import (
     DocumentPipelineRunSummary,
     RouteCapabilitySummary,
+    ScenarioLifecycleStatus,
+    ScenarioServiceSummary,
     ServiceCapabilitySnapshot,
     WorkspaceAssetInventorySummary,
     WorkspaceInspectionSummary,
@@ -18,32 +21,34 @@ from platform_core.rules import RuleValidator
 
 
 class PlatformApplicationService:
-    """V1 应用服务层，明确当前只支持文档驱动闭环。"""
+    """V1/V2 过渡期应用服务层。"""
 
     def __init__(
         self,
         project_root: str | Path | None = None,
         document_pipeline: DocumentDrivenPipeline | None = None,
+        functional_case_parser: FunctionalCaseDraftParser | None = None,
         validator: RuleValidator | None = None,
     ) -> None:
         """装配平台当前阶段可用的流水线与治理能力。"""
         self.project_root = Path(project_root or Path(__file__).resolve().parent.parent)
         self.document_pipeline = document_pipeline or DocumentDrivenPipeline(project_root=self.project_root)
+        self.functional_case_parser = functional_case_parser or FunctionalCaseDraftParser()
         self.validator = validator or RuleValidator()
 
     @staticmethod
     def supported_routes() -> dict[str, bool]:
-        """返回当前 V1 允许和禁止的输入路线。"""
+        """返回当前阶段允许和禁止的输入路线。"""
         return {
             "document": True,
-            "functional_case": False,
+            "functional_case": True,
             "traffic_capture": False,
         }
 
     def describe_capabilities(self) -> ServiceCapabilitySnapshot:
         """返回当前阶段可直接暴露给外部入口的能力快照。"""
         return ServiceCapabilitySnapshot(
-            service_stage="v1",
+            service_stage="v2_phase1",
             local_mode_only=True,
             available_commands=["run", "inspect"],
             routes=[
@@ -55,15 +60,15 @@ class PlatformApplicationService:
                 ),
                 RouteCapabilitySummary(
                     route_code="functional_case",
-                    enabled=False,
-                    stage="v1_blocked",
-                    detail="V1 仅支持文档驱动最小闭环，功能测试用例驱动留待后续阶段开放。",
+                    enabled=True,
+                    stage="v2_phase1_active",
+                    detail="V2 第一子阶段已开放功能测试用例草稿解析与场景摘要能力。",
                 ),
                 RouteCapabilitySummary(
                     route_code="traffic_capture",
                     enabled=False,
-                    stage="v1_blocked",
-                    detail="V1 仅支持文档驱动最小闭环，抓包驱动留待后续阶段开放。",
+                    stage="v2_phase1_blocked",
+                    detail="V2 当前子阶段暂不支持抓包驱动，后续阶段再开放草稿化接入。",
                 ),
             ],
         )
@@ -159,21 +164,95 @@ class PlatformApplicationService:
         result = self.inspect_workspace(output_root=output_root)
         return self.build_workspace_inspection_summary(result)
 
+    def run_functional_case_pipeline(self, source_path: str | Path, output_root: str | Path):
+        """执行 V2 第一子阶段的功能测试用例草稿解析。"""
+        return self.functional_case_parser.parse(source_path=source_path)
+
     @staticmethod
-    def run_functional_case_pipeline(source_path: str | Path, output_root: str | Path):
-        """显式阻断 V1 尚未支持的功能用例驱动路线。"""
-        raise NotImplementedError(
-            f"V1 仅支持文档驱动最小闭环，暂不支持功能测试用例驱动: {source_path} -> {output_root}"
+    def build_functional_case_pipeline_summary(
+        draft,
+        output_root: str | Path,
+    ) -> ScenarioServiceSummary:
+        """把功能测试用例草稿转换为服务层稳定摘要。"""
+        return ScenarioServiceSummary(
+            route_code="functional_case",
+            service_stage="v2_phase1",
+            scenario_id=draft.scenario.scenario_id,
+            scenario_code=draft.scenario.scenario_code,
+            scenario_name=draft.scenario.scenario_name,
+            review_status=draft.lifecycle.review_status,
+            execution_status=draft.lifecycle.execution_status,
+            step_count=len(draft.steps),
+            issue_count=len(draft.issues),
+            workspace_root=str(output_root),
+            report_path=None,
+            latest_execution_id=None,
+            passed_count=0,
+            failed_count=0,
+            skipped_count=0,
         )
+
+    def run_functional_case_pipeline_summary(
+        self,
+        source_path: str | Path,
+        output_root: str | Path,
+    ) -> ScenarioServiceSummary:
+        """执行功能测试用例草稿解析并返回稳定摘要。"""
+        draft = self.run_functional_case_pipeline(source_path=source_path, output_root=output_root)
+        return self.build_functional_case_pipeline_summary(draft=draft, output_root=output_root)
 
     @staticmethod
     def run_traffic_capture_pipeline(source_path: str | Path, output_root: str | Path):
-        """显式阻断 V1 尚未支持的抓包驱动路线。"""
+        """显式阻断当前子阶段尚未支持的抓包驱动路线。"""
         raise NotImplementedError(
-            f"V1 仅支持文档驱动最小闭环，暂不支持抓包驱动: {source_path} -> {output_root}"
+            f"V2 当前子阶段暂不支持抓包驱动: {source_path} -> {output_root}"
         )
+
+    def validate_scenario_transition(
+        self,
+        current_review_status: str,
+        target_review_status: str,
+        current_execution_status: str,
+        target_execution_status: str,
+    ) -> None:
+        """校验场景状态流转是否合法，并在非法时抛出明确异常。"""
+        current_status = self._build_scenario_status(
+            review_status=current_review_status,
+            execution_status=current_execution_status,
+        )
+        target_status = self._build_scenario_status(
+            review_status=target_review_status,
+            execution_status=target_execution_status,
+        )
+        violations = self.validator.validate_scenario_transition(
+            current_status=current_status,
+            target_status=target_status,
+        )
+        if violations:
+            raise ValueError(f"非法状态流转: {violations[0]}")
 
     @staticmethod
     def _build_breakdown(values) -> dict[str, int]:
         """把枚举值序列聚合为便于前端和服务接口直接消费的数量分布。"""
         return dict(Counter(value for value in values if value))
+
+    @staticmethod
+    def _build_scenario_status(
+        review_status: str,
+        execution_status: str,
+    ) -> ScenarioLifecycleStatus:
+        """根据审核态和执行态推导场景当前阶段。"""
+        current_stage = "draft"
+        if execution_status == "running":
+            current_stage = "executing"
+        elif execution_status in {"passed", "failed"}:
+            current_stage = "finished"
+        elif review_status == "approved":
+            current_stage = "confirmed"
+        elif review_status == "rejected":
+            current_stage = "reviewing"
+        return ScenarioLifecycleStatus(
+            review_status=review_status,
+            execution_status=execution_status,
+            current_stage=current_stage,
+        )

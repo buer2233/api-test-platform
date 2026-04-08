@@ -1,7 +1,9 @@
 """解析器输入格式测试。"""
 
+import json
 from pathlib import Path
 
+from platform_core.functional_cases import FunctionalCaseDraftParser
 from platform_core.parsers import OpenAPIDocumentParser
 
 
@@ -108,3 +110,80 @@ paths:
     assert parsed.source_document.source_type == "swagger"
     assert {operation.operation_code for operation in parsed.operations} == {"list_users", "create_user"}
     assert any(operation.http_method == "POST" for operation in parsed.operations)
+
+
+def test_functional_case_parser_builds_scenario_draft_from_json(tmp_path):
+    """TC-V2-PARSE-001/002/005/006 功能测试用例输入应能生成场景草稿。"""
+    source_path = tmp_path / "functional_case.json"
+    source_path.write_text(
+        json.dumps(
+            {
+                "case_id": "fc-order-001",
+                "case_code": "create_order_and_query_order_detail",
+                "case_name": "创建订单后查询订单详情",
+                "priority": "high",
+                "preconditions": ["已完成登录"],
+                "steps": [
+                    {
+                        "step_name": "创建订单",
+                        "operation_id": "operation-create-order",
+                        "expected": {
+                            "status_code": 201,
+                            "extract": {"order_id": "data.id"},
+                        },
+                    },
+                    {
+                        "step_name": "查询订单详情",
+                        "operation_id": "operation-get-order",
+                        "uses": {"order_id": "$scenario.order_id"},
+                        "expected": {"status_code": 200},
+                    },
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    draft = FunctionalCaseDraftParser().parse(source_path)
+
+    assert draft.source_document.source_type == "functional_case"
+    assert draft.scenario.scenario_code == "create_order_and_query_order_detail"
+    assert [step.step_order for step in draft.steps] == [1, 2]
+    assert draft.bindings[0].variable_name == "order_id"
+    assert draft.bindings[0].target_operations == ["operation-get-order"]
+    assert draft.dependencies[0].upstream_operation_id == "operation-create-order"
+    assert draft.dependencies[0].downstream_operation_id == "operation-get-order"
+    assert draft.lifecycle.review_status == "pending"
+    assert draft.issues == []
+
+
+def test_functional_case_parser_records_structured_issue_for_unresolved_step(tmp_path):
+    """TC-V2-PARSE-004/008 歧义步骤应保留问题清单而不是直接确认为正式资产。"""
+    source_path = tmp_path / "functional_case_invalid.json"
+    source_path.write_text(
+        json.dumps(
+            {
+                "case_id": "fc-order-002",
+                "case_code": "query_order_without_operation",
+                "case_name": "缺少操作绑定的场景",
+                "steps": [
+                    {
+                        "step_name": "查询订单详情",
+                        "expected": {"status_code": 200},
+                    }
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    draft = FunctionalCaseDraftParser().parse(source_path)
+
+    assert draft.scenario.review_status == "pending"
+    assert len(draft.issues) == 1
+    assert draft.issues[0].issue_code == "missing_operation_id"
+    assert draft.issues[0].issue_message

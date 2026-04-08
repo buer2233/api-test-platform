@@ -5,7 +5,13 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from platform_core.models import ApiOperation, AssetManifest, AssertionCandidate, GenerationRecord
+from platform_core.models import (
+    ApiOperation,
+    AssetManifest,
+    AssertionCandidate,
+    GenerationRecord,
+    ScenarioLifecycleStatus,
+)
 
 
 class RuleValidator:
@@ -119,6 +125,21 @@ class RuleValidator:
                 violations.append(f"asset_record.source_ids 不能为空: {asset.asset_id}")
             if not asset.content_digest:
                 violations.append(f"asset_record.content_digest 不能为空: {asset.asset_id}")
+        return violations
+
+    @staticmethod
+    def validate_scenario_transition(
+        current_status: ScenarioLifecycleStatus,
+        target_status: ScenarioLifecycleStatus,
+    ) -> list[str]:
+        """校验场景生命周期状态流转是否合法。"""
+        violations: list[str] = []
+        if current_status.review_status != "approved" and target_status.execution_status in {"running", "passed", "failed"}:
+            violations.append("草稿态未确认前不得进入正式执行态")
+        if current_status.review_status == "rejected" and target_status.review_status == "approved":
+            violations.append("已驳回场景未修订前不得直接变为已确认")
+        if current_status.execution_status == "running" and target_status.review_status == "pending":
+            violations.append("执行中的场景不得回退为草稿态")
         return violations
 
 
