@@ -15,6 +15,7 @@
 - Django + DRF + MySQL 服务化正式落地；
 - 抓包驱动草稿化接入；
 - 可用型 Web / Windows 入口承接。
+- V2 详细测试用例说明书已建立，后续应按新的 TDD 轮次推进实现与回归。
 
 截至 2026-04-03，V1 阶段目标已完成，当前仓库已完成：
 
@@ -256,6 +257,7 @@ api-test-platform/
 
 - [AGENTS.md](/D:/AI/api-test-platform/AGENTS.md)
 - [V2阶段工作计划文档.md](/D:/AI/api-test-platform/product_document/阶段文档/V2阶段工作计划文档.md)
+- [详细测试用例说明书(V2).md](/D:/AI/api-test-platform/product_document/测试文档/详细测试用例说明书(V2).md)
 - [产品需求说明书(全局).md](/D:/AI/api-test-platform/product_document/产品需求说明书(全局).md)
 - [总体架构设计说明书.md](/D:/AI/api-test-platform/product_document/架构设计/总体架构设计说明书.md)
 - [中间模型设计说明书.md](/D:/AI/api-test-platform/product_document/架构设计/中间模型设计说明书.md)
