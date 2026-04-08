@@ -8,6 +8,14 @@
 
 ## 当前状态
 
+截至 2026-04-08，在 V1 正式验收完成后，仓库当前工作重点已切换到 V2 阶段正式规划，核心方向为：
+
+- 功能测试用例驱动优先；
+- 场景模型、变量绑定、依赖编排与审核确认能力；
+- Django + DRF + MySQL 服务化正式落地；
+- 抓包驱动草稿化接入；
+- 可用型 Web / Windows 入口承接。
+
 截至 2026-04-03，V1 阶段目标已完成，当前仓库已完成：
 
 - 重构设计说明与实施计划；
@@ -238,6 +246,7 @@ api-test-platform/
 
 - 公开接口测试基线统一使用 `https://jsonplaceholder.typicode.com/`
 - V1 当前只开放文档驱动最小闭环
+- V2 当前优先围绕功能测试用例驱动、场景编排、审核确认、服务化落地和可用型入口承接推进
 - `api_test/` 的目标是“通用 HTTP 测试底座 + JSON 配置驱动 + 公开示例适配”
 - 所有全局配置最终统一收口到 `api_test/api_config.json`
 
@@ -246,6 +255,7 @@ api-test-platform/
 开始任何需求、设计或开发前，优先查看：
 
 - [AGENTS.md](/D:/AI/api-test-platform/AGENTS.md)
+- [V2阶段工作计划文档.md](/D:/AI/api-test-platform/product_document/阶段文档/V2阶段工作计划文档.md)
 - [产品需求说明书(全局).md](/D:/AI/api-test-platform/product_document/产品需求说明书(全局).md)
 - [总体架构设计说明书.md](/D:/AI/api-test-platform/product_document/架构设计/总体架构设计说明书.md)
 - [中间模型设计说明书.md](/D:/AI/api-test-platform/product_document/架构设计/中间模型设计说明书.md)
@@ -269,6 +279,7 @@ api-test-platform/
 - [v1-business-rule-minimal-closure.md](/D:/AI/api-test-platform/docs/superpowers/plans/2026-04-02-v1-business-rule-minimal-closure.md)
 - [v1-final-closure-design.md](/D:/AI/api-test-platform/docs/superpowers/specs/2026-04-02-v1-final-closure-design.md)
 - [v1-final-closure.md](/D:/AI/api-test-platform/docs/superpowers/plans/2026-04-02-v1-final-closure.md)
+- [2026-04-08-v2-stage-plan-design.md](/D:/AI/api-test-platform/docs/superpowers/specs/2026-04-08-v2-stage-plan-design.md)
 
 ## 当前验证入口
 
@@ -290,5 +301,5 @@ cd api_test && python run_test.py --public-baseline
 
 ## 备注
 
-- 当前 README 已切换为“V1 阶段完成”视角，只记录当前分支已验证事实。
-- 后续新增能力应优先转入 V2 阶段文档，再按新的 TDD 轮次推进实现与回归。
+- 当前 README 以 V1 验收事实为基础，并已同步补记 V2 阶段正式规划状态。
+- 当前已进入 V2 阶段正式规划收口，后续新增能力应优先进入 V2 阶段文档和对应测试文档，再按新的 TDD 轮次推进实现与回归。
