@@ -28,6 +28,17 @@ class FunctionalCaseDraftParser:
         """读取 JSON 功能测试用例并生成场景草稿聚合对象。"""
         source = Path(source_path)
         raw_case = json.loads(source.read_text(encoding="utf-8-sig"))
+        return self.parse_payload(raw_case=raw_case, source_name=source.stem, source_path=source)
+
+    def parse_payload(
+        self,
+        raw_case: dict[str, Any],
+        source_name: str | None = None,
+        source_path: Path | None = None,
+    ) -> FunctionalCaseDraft:
+        """直接把功能测试用例请求体解析为场景草稿聚合对象。"""
+        resolved_source_name = source_name or raw_case.get("case_code") or raw_case.get("case_id") or "functional_case"
+        source = source_path or Path(f"{self._normalize_identifier(resolved_source_name)}.json")
         source_document = self._build_source_document(source=source, raw_case=raw_case)
         scenario = self._build_scenario(raw_case=raw_case, source_document=source_document)
 
@@ -84,6 +95,7 @@ class FunctionalCaseDraftParser:
     def _build_source_document(self, source: Path, raw_case: dict[str, Any]) -> SourceDocument:
         """构造功能测试用例来源对象。"""
         source_key = raw_case.get("case_code") or raw_case.get("case_id") or source.stem
+        raw_reference = str(source.resolve()) if source.exists() else str(source)
         return SourceDocument(
             source_id=f"source-{self._normalize_identifier(source_key)}",
             source_type="functional_case",
@@ -93,7 +105,7 @@ class FunctionalCaseDraftParser:
             source_summary=raw_case.get("case_desc") or raw_case.get("objective"),
             imported_at=datetime.now(UTC),
             imported_by="codex",
-            raw_reference=str(source.resolve()),
+            raw_reference=raw_reference,
         )
 
     def _build_scenario(self, raw_case: dict[str, Any], source_document: SourceDocument) -> TestScenario:

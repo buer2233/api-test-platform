@@ -15,7 +15,7 @@
 - Django + DRF + MySQL 服务化正式落地；
 - 抓包驱动草稿化接入；
 - 可用型 Web / Windows 入口承接。
-- V2 详细测试用例说明书已建立，并已进入第一实施子阶段的 TDD 开发。
+- V2 详细测试用例说明书已建立，并已进入第二实施子阶段的 TDD 开发。
 
 当前已完成的 V2 第一实施子阶段首批落地包括：
 
@@ -35,6 +35,24 @@
   - `python -m pytest tests -v --basetemp .pytest_tmp/v2_phase1_root_full`
     - `75 passed`
   - `python -m pytest api_test/tests -v --basetemp .pytest_tmp/v2_phase1_api_test_full`
+    - `39 passed`
+
+当前已完成的 V2 第二实施子阶段首批落地包括：
+
+- 已新增 `requirements-platform-service.txt` 与 `.venv_service` 独立服务测试环境，并将 Django、DRF、PyMySQL、PyYAML、pytest 及其关键传递依赖固定到 2025 年及以前版本；
+- 已新增 `manage.py`、`platform_service/` 与 `scenario_service/`，建立 Django + DRF 最小服务骨架、场景持久化模型和导入/详情/审核/执行/结果查询接口；
+- 已新增 `platform_service/migration_settings.py` 与 `scenario_service/migrations/0001_initial.py`，补齐场景服务模型的初始迁移骨架；
+- 已补齐 `platform_service/settings.py` 中的 PyMySQL MySQLdb 兼容补丁，避免 Django MySQL 后端在启动阶段因版本门槛直接失败；
+- 已完成第二批定向与回归验证：
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase2_service_tests`
+    - `4 passed`
+  - `.venv_service\\Scripts\\python.exe manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.migration_settings`
+    - `No changes detected`
+  - `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/v2_phase2_platform_core_regression`
+    - `68 passed`
+  - `python -m pytest tests -v --basetemp .pytest_tmp/v2_phase2_root_regression`
+    - `76 passed`
+  - `python -m pytest api_test/tests -v --basetemp .pytest_tmp/v2_phase2_api_test_regression`
     - `39 passed`
 
 截至 2026-04-03，V1 阶段目标已完成，当前仓库已完成：
@@ -329,7 +347,17 @@ python api_test/run_test.py --public-baseline
 cd api_test && python run_test.py --public-baseline
 ```
 
+V2 第二实施子阶段服务回归验证：
+
+```bash
+.venv_service\Scripts\python.exe -m pytest service_tests -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase2_service_tests
+.venv_service\Scripts\python.exe manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.migration_settings
+python -m pytest tests/platform_core -v --basetemp .pytest_tmp/v2_phase2_platform_core_regression
+python -m pytest tests -v --basetemp .pytest_tmp/v2_phase2_root_regression
+python -m pytest api_test/tests -v --basetemp .pytest_tmp/v2_phase2_api_test_regression
+```
+
 ## 备注
 
-- 当前 README 以 V1 验收事实为基础，并已同步补记 V2 阶段正式规划状态。
-- 当前已进入 V2 阶段正式规划收口，后续新增能力应优先进入 V2 阶段文档和对应测试文档，再按新的 TDD 轮次推进实现与回归。
+- 当前 README 以 V1 验收事实为基础，并已同步补记 V2 第一、第二实施子阶段的实际进展。
+- 当前已进入 V2 阶段正式实现与测试执行，后续新增能力应优先进入 V2 阶段文档和对应测试文档，再按新的 TDD 轮次推进实现与回归。

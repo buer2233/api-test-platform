@@ -194,3 +194,42 @@
 
 ### 下一步
 - 下一子阶段优先补正式服务化承载层，包括 Django + DRF + MySQL、结果查询摘要和 `TC-V2-SVC-011/012` 对应的 API 契约。
+
+## 2026-04-08 V2 第二实施子阶段开发
+
+### 已完成
+- 复核当前仓库的服务化缺口，确认尚无 Django 项目骨架、DRF 接口或数据库持久化实现。
+- 核对当前全局环境依赖，确认存在 `Django 6.0.1`，不符合仓库“禁止 2026+ 依赖”的规则。
+- 已新增第二实施子阶段计划文件 `docs/superpowers/plans/2026-04-08-v2-phase-2-service-contract.md`。
+- 已同步更新 `task_plan.md`、`findings.md`、`progress.md`，将工作重心切换到“服务化契约与持久化骨架”。
+
+### 当前判断
+- 第二子阶段不能直接使用当前全局 Python 环境中的 Django 版本，必须在仓库内独立虚拟环境里固定使用 2025 年及以前版本。
+- 当前最合适的最小落地顺序是：
+  1. 服务依赖文件与环境治理
+  2. Django/DRF 最小骨架与持久化模型
+  3. DRF API 契约
+  4. 文档与回归同步
+
+### 下一步
+- 先按 TDD 为服务层依赖文件写失败测试，再建立独立虚拟环境并开始 Django 骨架开发。
+
+### 已完成（补充）
+- 已完成服务层依赖治理红绿测试，并新增 `requirements-platform-service.txt`。
+- 已建立 `.venv_service`，并将 Django、DRF、PyYAML、pytest 及关键传递依赖固定到 2025 年及以前版本。
+- 已新增 `manage.py`、`platform_service/`、`scenario_service/` 与 `service_tests/`，完成 Django + DRF 最小骨架、场景持久化模型与导入/详情/审核/执行/结果查询接口。
+- 已新增 `platform_service/migration_settings.py` 并生成 `scenario_service/migrations/0001_initial.py`，补齐初始迁移骨架与迁移一致性检查入口。
+- 已补齐 `platform_service/settings.py` 的 PyMySQL MySQLdb 兼容补丁，并新增 `service_tests/test_service_bootstrap.py` 锁定该行为。
+- 已完成本轮回归：
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase2_service_tests` -> `4 passed`
+  - `.venv_service\\Scripts\\python.exe manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.migration_settings` -> `No changes detected in app 'scenario_service'`
+  - `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/v2_phase2_platform_core_regression` -> `68 passed`
+  - `python -m pytest tests -v --basetemp .pytest_tmp/v2_phase2_root_regression` -> `76 passed`
+  - `python -m pytest api_test/tests -v --basetemp .pytest_tmp/v2_phase2_api_test_regression` -> `39 passed`
+
+### 当前判断（补充）
+- 第二实施子阶段的首批服务化与持久化骨架已经落地，`TC-V2-SVC-001`、`TC-V2-SVC-011`、`TC-V2-SVC-012` 对应的最小测试闭环已成立。
+- 当前服务层自动化验证仍以 SQLite 测试设置为主；真实 MySQL 连通验收仍需在后续子阶段结合本地或目标库配置继续推进。
+
+### 下一步（补充）
+- 继续扩展真实 MySQL 验收、审核修订持久化、抓包草稿化接入和可用型入口能力。

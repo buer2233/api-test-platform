@@ -180,3 +180,32 @@
   - 还没有正式的 Django + DRF + MySQL 承载层
   - 还没有 `TC-V2-SVC-011`、`TC-V2-SVC-012` 对应的正式 API 契约实现
   - 还没有结构化修订持久化、抓包草稿化接入和可用型入口实现
+
+## 2026-04-08 V2 第二实施子阶段开发发现
+- 当前全局 Python 环境中安装的 `Django 6.0.1` 发布于 2026-01-06，按仓库依赖安全规则属于禁止直接使用的版本；第二子阶段必须改为仓库内独立虚拟环境，并固定到 2025 年及以前的版本。
+- 当前仓库没有任何 Django 项目骨架、`manage.py`、`settings.py`、`urls.py` 或 DRF 路由定义，说明 `TC-V2-SVC-011`、`TC-V2-SVC-012` 目前仍是纯文档状态。
+- 当前仓库也没有根级依赖文件来承载服务层依赖，只有 `api_test/requirements.txt`；第二子阶段需要新增独立的服务层依赖文件，并把版本治理纳入自动化测试。
+- 为避免影响现有根测试和 V1 底座回归，第二子阶段的 Django/DRF 接口测试更适合放在单独的 `service_tests/` 路径下，并使用独立虚拟环境执行。
+- 已新增第二子阶段实施计划文件 `docs/superpowers/plans/2026-04-08-v2-phase-2-service-contract.md`，当前计划范围聚焦：
+  - 服务层依赖与环境治理
+  - Django/DRF 最小骨架
+  - 场景草稿持久化
+  - 导入、详情、审核、执行请求与结果查询接口
+
+## 2026-04-08 V2 第二实施子阶段补充发现
+- `requirements-platform-service.txt` 仅锁定 Django/pytest 直系依赖还不够；`MarkupSafe`、`annotated-types`、`pydantic-core`、`typing-extensions` 和 `pytest-asyncio` 也需要显式固定版本，才能满足仓库的依赖安全规则并消除测试环境告警。
+- `PyYAML==6.0.0` 在当前 Python 3.12 Windows 服务环境下会退回源码构建并失败；服务层依赖已调整为 `PyYAML==6.0.1`，并通过依赖治理测试锁定。
+- `platform_service/settings.py` 中单纯调用 `pymysql.install_as_MySQLdb()` 仍不足以通过 Django 5.2.9 的 MySQL 后端版本门槛；需要进一步补齐 `version_info` / `__version__` 兼容补丁。
+- 当前第二子阶段的首批可运行范围已经成立：
+  - `service_tests/test_service_persistence.py` 覆盖场景草稿持久化；
+  - `service_tests/test_drf_contract.py` 覆盖导入、详情、审核、执行请求与结果查询接口；
+  - `service_tests/test_service_bootstrap.py` 覆盖 MySQL 启动兼容补丁。
+- 已新增 `platform_service/migration_settings.py` 并生成 `scenario_service/migrations/0001_initial.py`，当前可通过 `manage.py makemigrations --check --dry-run --settings=platform_service.migration_settings` 验证迁移文件与模型保持一致。
+- 已完成回归结果：
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase2_service_tests` -> `4 passed`
+  - `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/v2_phase2_platform_core_regression` -> `68 passed`
+  - `python -m pytest tests -v --basetemp .pytest_tmp/v2_phase2_root_regression` -> `76 passed`
+  - `python -m pytest api_test/tests -v --basetemp .pytest_tmp/v2_phase2_api_test_regression` -> `39 passed`
+- 当前仍需记录的后续问题：
+  - 默认 MySQL 认证链路在本地环境下仍未完成正式验收；
+  - 真实 MySQL 结果回写、审核修订持久化、抓包草稿化接入和可用型入口仍待下一子阶段继续实现。

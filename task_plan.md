@@ -113,3 +113,37 @@
 - 不一次性铺开完整 Django/DRF/MySQL、抓包驱动和 UI 入口。
 - 先把“功能测试用例输入 -> 场景草稿对象 -> 服务层最小摘要”做成稳定闭环。
 - 所有新增方法、注释和测试说明继续使用中文。
+
+## 2026-04-08 V2 第二实施子阶段开发
+
+### 目标
+- 在第一实施子阶段完成后，继续落地第二实施子阶段：服务化契约与持久化骨架。
+- 重点实现 Django + DRF 最小骨架、场景草稿持久化、审核/执行请求接口与结果查询接口。
+- 保持 MySQL 作为正式运行目标，测试环境采用独立虚拟环境和 Django 测试设置。
+
+### 当前阶段状态
+| 阶段 | 状态 | 说明 |
+| --- | --- | --- |
+| 第二实施子阶段计划编写 | 已完成 | 已新增 `docs/superpowers/plans/2026-04-08-v2-phase-2-service-contract.md` |
+| 服务层依赖与环境治理设计 | 已完成 | 已建立 `.venv_service`，并将 Django/DRF、PyYAML、pytest 及关键传递依赖固定到 2025 年及以前版本 |
+| 第二批失败测试编写 | 已完成 | 已补齐服务依赖治理、MySQL 启动兼容补丁、Django 持久化骨架与 DRF API 契约的失败测试，并确认红灯原因准确 |
+| 第二批最小实现 | 已完成（第一批） | 已新增 Django 项目骨架、服务 app、持久化模型、初始迁移文件、DRF 视图与 PyMySQL MySQLdb 兼容补丁 |
+| 文档与记录同步 | 已完成（本轮） | 已同步 README、V2 阶段文档、V2 测试文档与本地记录，并回写第二子阶段测试结果 |
+
+### 本轮约束
+- 不使用 2026 年及以后发布的 Django 版本；全程固定到 2025 年及以前版本。
+- 不直接依赖全局 Python 环境中的 `Django 6.0.1`。
+- 第二子阶段只做服务化契约与持久化骨架，不把真实场景执行器、抓包驱动和 UI 一起摊开。
+
+### 当前结果
+- 已完成 `requirements-platform-service.txt` 与 `tests/test_dependency_governance.py` 的红绿治理，并用 `.venv_service` 重建独立服务环境。
+- 已新增 `service_tests/test_service_persistence.py`、`service_tests/test_drf_contract.py`、`service_tests/test_service_bootstrap.py`，覆盖场景持久化、DRF 契约和 MySQL 启动兼容补丁。
+- 已新增 `platform_service/migration_settings.py` 并生成 `scenario_service/migrations/0001_initial.py`，可在 SQLite 迁移设置下执行迁移一致性检查。
+- 已完成本轮验证：
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase2_service_tests` -> `4 passed`
+  - `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/v2_phase2_platform_core_regression` -> `68 passed`
+  - `python -m pytest tests -v --basetemp .pytest_tmp/v2_phase2_root_regression` -> `76 passed`
+  - `python -m pytest api_test/tests -v --basetemp .pytest_tmp/v2_phase2_api_test_regression` -> `39 passed`
+
+### 下一步
+- 继续扩展真实 MySQL 验收、审核修订持久化、抓包草稿化接入和可用型入口测试。
