@@ -293,3 +293,38 @@
 
 ### 下一步
 - 继续推进审核修订持久化深化、抓包草稿化接入和可用型入口实现。
+
+## 2026-04-09 V2 第四实施子阶段开发
+
+### 已完成
+- 已补充 `service_tests/test_review_revision_flow.py` 红灯测试，覆盖：
+  - 驳回后结构化修订落库；
+  - `/revise/` 接口闭环；
+  - 未驳回场景禁止直接修订。
+- 已完成最小实现：
+  - `scenario_service/models.py` 新增 `ScenarioRevisionRecord`
+  - `scenario_service/services.py` 新增 `revise_scenario()` 和结构化补丁应用逻辑
+  - `scenario_service/serializers.py` 新增修订请求校验器
+  - `scenario_service/views.py` / `urls.py` 新增 `/revise/` 接口
+  - 场景详情接口新增 `revisions` 修订清单
+- 已生成迁移文件 `scenario_service/migrations/0002_scenariorevisionrecord.py`。
+- 已完成第四子阶段定向绿灯与回归：
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests\\test_review_revision_flow.py -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase4_revision_green1` -> `3 passed`
+  - `.venv_service\\Scripts\\python.exe manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.migration_settings` -> `No changes detected`
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase4_service_tests` -> `10 passed`
+- 已完成真实 MySQL 验证：
+  - `.venv_service\\Scripts\\python.exe manage.py migrate --settings=platform_service.settings` -> `Applying scenario_service.0002_scenariorevisionrecord... OK`
+  - `.venv_service\\Scripts\\python.exe manage.py showmigrations scenario_service --settings=platform_service.settings` -> `0001_initial/0002_scenariorevisionrecord` 均为 `[X]`
+  - 真实 MySQL 修订链路冒烟结果：
+    - `review_status=approved`
+    - `execution_status=passed`
+    - `revision_count=1`
+    - `report_exists=True`
+- 已同步更新 README、`V2阶段工作计划文档.md`、`详细测试用例说明书(V2).md`、`本地MySQL数据库信息.md` 与本地记录文件。
+
+### 当前判断
+- V2 当前已经具备“驳回 -> 结构化修订 -> 再审核 -> 执行”的最小正式生命周期闭环。
+- 审核修订链路的下一步不应继续横向扩张 AI 改写，而应转入抓包驱动草稿化接入，补齐 V2 第二条输入路线。
+
+### 下一步
+- 继续推进抓包驱动草稿化接入。

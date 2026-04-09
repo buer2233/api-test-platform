@@ -36,6 +36,7 @@
 - `scenario_service_scenarioexecutionrecord`
 - `scenario_service_scenariorecord`
 - `scenario_service_scenarioreviewrecord`
+- `scenario_service_scenariorevisionrecord`
 - `scenario_service_scenariosteprecord`
 
 ---

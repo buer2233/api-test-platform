@@ -74,6 +74,21 @@ class ScenarioReviewRecord(models.Model):
         ordering = ["reviewed_at", "id"]
 
 
+class ScenarioRevisionRecord(models.Model):
+    """场景结构化修订留痕记录。"""
+
+    scenario = models.ForeignKey(ScenarioRecord, related_name="revisions", on_delete=models.CASCADE)
+    revision_id = models.CharField(max_length=128, unique=True)
+    reviser = models.CharField(max_length=128)
+    revision_comment = models.TextField(null=True, blank=True)
+    applied_changes = models.JSONField(default=dict)
+    revised_at = models.DateTimeField()
+    metadata = models.JSONField(default=dict)
+
+    class Meta:
+        ordering = ["revised_at", "id"]
+
+
 class ScenarioExecutionRecord(models.Model):
     """场景执行请求与结果记录。"""
 

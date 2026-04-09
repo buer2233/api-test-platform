@@ -264,3 +264,18 @@
   - `manage.py showmigrations --settings=platform_service.settings` 全部为 `[X]`
   - 基于真实 MySQL 的 `FunctionalCaseScenarioService` 冒烟结果为 `execution_status=passed`
 - `V2-RISK-007` 不再是“本地真实 MySQL 完全未验收”的状态，当前应下调为“已缓解但仍需继续覆盖更复杂历史执行治理”。
+
+## 2026-04-09 审核修订持久化深化发现
+- 当前审核链路原先只有 `ScenarioReviewRecord`，虽然可以表达 `review_status=revised`，但没有独立的结构化修订事实记录，无法追溯修订内容本身。
+- 当前执行流水线读取的是 `ScenarioStepRecord.metadata.raw_step`，因此结构化修订如果只改顶层字段、不改 `raw_step`，执行链路仍会消费旧配置；修订实现必须同步更新步骤持久化字段和 `raw_step`。
+- 本轮最小闭环采用“修订事实表 + 修订接口 + 修订后补一条 `review_status=revised` 审核记录”的组合方式：
+  - `ScenarioRevisionRecord` 负责记录修订内容；
+  - `ScenarioReviewRecord` 继续表达状态流；
+  - 两者一起构成“修订事实 + 生命周期状态”。
+- 最小结构化修订当前支持：
+  - 场景级字段：`scenario_name`、`scenario_desc`、`priority`、`module_id`
+  - 步骤级字段：`step_name`、`operation_id`、`optional`、`retry_policy`、`request`、`expected`、`uses`
+- 当前修订门禁收口为：只有 `rejected` 或 `revised` 状态的场景允许继续进入结构化修订；未驳回场景直接修订会被阻断。
+- 这一轮能力已完成双环境验证：
+  - SQLite 测试环境：`service_tests=10 passed`
+  - 真实 MySQL 环境：`0002_scenariorevisionrecord` 已落库，修订链路冒烟 `passed`

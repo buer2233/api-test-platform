@@ -15,7 +15,7 @@
 - Django + DRF + MySQL 服务化正式落地；
 - 抓包驱动草稿化接入；
 - 可用型 Web / Windows 入口承接。
-- V2 详细测试用例说明书已建立，并已进入第三实施子阶段的 TDD 开发。
+- V2 详细测试用例说明书已建立，并已进入第四实施子阶段的 TDD 开发。
 
 当前已完成的 V2 第一实施子阶段首批落地包括：
 
@@ -88,6 +88,24 @@
 - 已初始化本地 `api_test_platform` 数据库，并建立 `platform_service` 专用账号用于服务层接入；
 - 已在设置 `PLATFORM_MYSQL_*` 环境变量后完成 `manage.py migrate` 与 `manage.py showmigrations` 验证，确认 `auth/contenttypes/scenario_service/sessions` 迁移全部落库；
 - 已完成一轮基于真实 MySQL 的 `FunctionalCaseScenarioService` 冒烟，最小 JSONPlaceholder 场景执行结果为 `passed`，并已验证工作区、报告文件和执行结果回写同时成立；
+
+当前已完成的 V2 第四实施子阶段首批落地包括：
+
+- 已新增 `ScenarioRevisionRecord` 持久化模型，并生成 `scenario_service/migrations/0002_scenariorevisionrecord.py`，补齐结构化修订留痕事实表；
+- 已在 `scenario_service/services.py` 中新增 `revise_scenario()`，支持被驳回场景执行结构化修订、写入修订记录，并同步补充 `review_status=revised` 的审核留痕；
+- 已新增 `/api/v2/scenarios/<scenario_id>/revise/` 接口，并让场景详情接口返回 `revisions` 修订清单；
+- 已打通“驳回 -> 结构化修订 -> 再审核通过 -> 正式执行”的最小生命周期闭环；
+- 已完成第四批定向与回归验证：
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests\\test_review_revision_flow.py -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase4_revision_green1`
+    - `3 passed`
+  - `.venv_service\\Scripts\\python.exe manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.migration_settings`
+    - `No changes detected`
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase4_service_tests`
+    - `10 passed`
+  - 本地真实 MySQL 修订链路冒烟
+    - `review_status=approved`
+    - `execution_status=passed`
+    - `revision_count=1`
 
 截至 2026-04-03，V1 阶段目标已完成，当前仓库已完成：
 
@@ -409,7 +427,15 @@ python -m pytest tests/test_dependency_governance.py -v --basetemp .pytest_tmp/m
 .venv_service\Scripts\python.exe -m pytest service_tests -v --ds=platform_service.test_settings --basetemp .pytest_tmp/mysql_service_regression
 ```
 
+V2 第四实施子阶段审核修订回归验证：
+
+```bash
+.venv_service\Scripts\python.exe -m pytest service_tests\test_review_revision_flow.py -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase4_revision_green1
+.venv_service\Scripts\python.exe manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.migration_settings
+.venv_service\Scripts\python.exe -m pytest service_tests -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase4_service_tests
+```
+
 ## 备注
 
-- 当前 README 以 V1 验收事实为基础，并已同步补记 V2 第一、第二、第三实施子阶段以及本地真实 MySQL 基线的实际进展。
+- 当前 README 以 V1 验收事实为基础，并已同步补记 V2 第一、第二、第三、第四实施子阶段以及本地真实 MySQL 基线的实际进展。
 - 当前已进入 V2 阶段正式实现与测试执行，后续新增能力应优先进入 V2 阶段文档和对应测试文档，再按新的 TDD 轮次推进实现与回归。

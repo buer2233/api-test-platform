@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 
 from scenario_service.serializers import (
     FunctionalCaseImportRequestSerializer,
+    ScenarioRevisionRequestSerializer,
     ScenarioReviewRequestSerializer,
 )
 from scenario_service.services import FunctionalCaseScenarioService, ScenarioServiceError
@@ -76,6 +77,30 @@ class ScenarioReviewView(APIView):
             return build_error_response(
                 ScenarioServiceError(code="invalid_transition", message=str(error), status_code=400)
             )
+        return Response({"success": True, "data": SCENARIO_SERVICE.build_scenario_summary(scenario)})
+
+
+class ScenarioRevisionView(APIView):
+    """处理场景结构化修订请求。"""
+
+    def post(self, request, scenario_id: str):
+        """处理结构化修订动作。"""
+        serializer = ScenarioRevisionRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        scenario_patch = {
+            key: value
+            for key, value in serializer.validated_data.items()
+            if key not in {"reviser", "revision_comment"}
+        }
+        try:
+            scenario = SCENARIO_SERVICE.revise_scenario(
+                scenario_id=scenario_id,
+                reviser=serializer.validated_data["reviser"],
+                revision_comment=serializer.validated_data.get("revision_comment", ""),
+                scenario_patch=scenario_patch,
+            )
+        except ScenarioServiceError as error:
+            return build_error_response(error)
         return Response({"success": True, "data": SCENARIO_SERVICE.build_scenario_summary(scenario)})
 
 

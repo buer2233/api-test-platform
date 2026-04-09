@@ -14,6 +14,7 @@ from platform_core.services import PlatformApplicationService
 from scenario_service.models import (
     ScenarioExecutionRecord,
     ScenarioRecord,
+    ScenarioRevisionRecord,
     ScenarioReviewRecord,
     ScenarioStepRecord,
 )
@@ -122,6 +123,16 @@ class FunctionalCaseScenarioService:
                 }
                 for review in scenario.reviews.all().order_by("reviewed_at", "id")
             ],
+            "revisions": [
+                {
+                    "revision_id": revision.revision_id,
+                    "reviser": revision.reviser,
+                    "revision_comment": revision.revision_comment,
+                    "applied_changes": revision.applied_changes,
+                    "revised_at": revision.revised_at.isoformat(),
+                }
+                for revision in scenario.revisions.all().order_by("revised_at", "id")
+            ],
         }
 
     @transaction.atomic
@@ -154,6 +165,56 @@ class FunctionalCaseScenarioService:
             review_status=review_status,
             reviewed_at=datetime.now(UTC),
             metadata={},
+        )
+        return scenario
+
+    @transaction.atomic
+    def revise_scenario(
+        self,
+        scenario_id: str,
+        reviser: str,
+        revision_comment: str | None,
+        scenario_patch: dict,
+    ) -> ScenarioRecord:
+        """执行场景结构化修订并写入修订与审核留痕。"""
+        scenario = self._get_scenario(scenario_id=scenario_id)
+        if scenario.review_status not in {"rejected", "revised"}:
+            raise ScenarioServiceError(
+                code="scenario_revision_not_allowed",
+                message="当前场景状态不允许直接修订。",
+                status_code=400,
+            )
+        if scenario.execution_status == "running":
+            raise ScenarioServiceError(
+                code="scenario_running_cannot_revise",
+                message="执行中的场景禁止进入结构化修订。",
+                status_code=400,
+            )
+
+        applied_changes = self._apply_scenario_patch(scenario=scenario, scenario_patch=scenario_patch)
+        scenario.review_status = "revised"
+        scenario.current_stage = self._derive_stage(
+            review_status=scenario.review_status,
+            execution_status=scenario.execution_status,
+        )
+        scenario.save(update_fields=["review_status", "current_stage", "updated_at"])
+        ScenarioRevisionRecord.objects.create(
+            scenario=scenario,
+            revision_id=f"revision-{uuid4().hex[:12]}",
+            reviser=reviser,
+            revision_comment=revision_comment or "",
+            applied_changes=applied_changes,
+            revised_at=datetime.now(UTC),
+            metadata={},
+        )
+        ScenarioReviewRecord.objects.create(
+            scenario=scenario,
+            review_id=f"review-{uuid4().hex[:12]}",
+            reviewer=reviser,
+            review_comment=revision_comment or "",
+            review_status="revised",
+            reviewed_at=datetime.now(UTC),
+            metadata={"applied_changes": applied_changes},
         )
         return scenario
 
@@ -297,3 +358,93 @@ class FunctionalCaseScenarioService:
             / "scenario_workspaces"
             / f"{scenario.scenario_code}_{uuid4().hex[:8]}"
         )
+
+    def _apply_scenario_patch(self, scenario: ScenarioRecord, scenario_patch: dict) -> dict:
+        """把结构化修订补丁应用到场景与步骤持久化对象。"""
+        applied_changes: dict[str, object] = {"scenario_fields": {}, "steps": []}
+        scenario_fields = {
+            "scenario_name",
+            "scenario_desc",
+            "priority",
+            "module_id",
+        }
+        changed_scenario_fields: list[str] = []
+        for field_name in scenario_fields:
+            if field_name not in scenario_patch:
+                continue
+            setattr(scenario, field_name, scenario_patch[field_name])
+            changed_scenario_fields.append(field_name)
+            applied_changes["scenario_fields"][field_name] = scenario_patch[field_name]
+
+        if changed_scenario_fields:
+            scenario.save(update_fields=[*changed_scenario_fields, "updated_at"])
+
+        step_patches = scenario_patch.get("steps") or []
+        if step_patches:
+            applied_changes["steps"] = self._apply_step_patches(scenario=scenario, step_patches=step_patches)
+        return applied_changes
+
+    @staticmethod
+    def _apply_step_patches(scenario: ScenarioRecord, step_patches: list[dict]) -> list[dict]:
+        """把结构化修订补丁应用到步骤及其原始载荷。"""
+        applied_step_changes: list[dict] = []
+        for step_patch in step_patches:
+            step_id = step_patch.get("step_id")
+            if not step_id:
+                raise ScenarioServiceError(
+                    code="scenario_step_patch_missing_step_id",
+                    message="步骤修订补丁缺少 step_id。",
+                    status_code=400,
+                )
+            try:
+                step = scenario.steps.get(step_id=step_id)
+            except ScenarioStepRecord.DoesNotExist as error:
+                raise ScenarioServiceError(
+                    code="scenario_step_not_found",
+                    message=f"未找到待修订步骤: {step_id}",
+                    status_code=404,
+                ) from error
+
+            raw_step = {}
+            if isinstance(step.metadata, dict):
+                raw_step = dict(step.metadata.get("raw_step") or {})
+            changed_fields: dict[str, object] = {"step_id": step_id}
+            update_fields: list[str] = []
+
+            if "step_name" in step_patch:
+                step.step_name = step_patch["step_name"]
+                raw_step["step_name"] = step_patch["step_name"]
+                update_fields.append("step_name")
+                changed_fields["step_name"] = step_patch["step_name"]
+            if "operation_id" in step_patch:
+                step.operation_id = step_patch["operation_id"]
+                raw_step["operation_id"] = step_patch["operation_id"]
+                update_fields.append("operation_id")
+                changed_fields["operation_id"] = step_patch["operation_id"]
+            if "optional" in step_patch:
+                step.optional = bool(step_patch["optional"])
+                raw_step["optional"] = step.optional
+                update_fields.append("optional")
+                changed_fields["optional"] = step.optional
+            if "retry_policy" in step_patch:
+                step.retry_policy = step_patch["retry_policy"] or {}
+                raw_step["retry_policy"] = step.retry_policy
+                update_fields.append("retry_policy")
+                changed_fields["retry_policy"] = step.retry_policy
+            if "request" in step_patch:
+                raw_step["request"] = step_patch["request"] or {}
+                changed_fields["request"] = raw_step["request"]
+            if "expected" in step_patch:
+                raw_step["expected"] = step_patch["expected"] or {}
+                changed_fields["expected"] = raw_step["expected"]
+            if "uses" in step_patch:
+                raw_step["uses"] = step_patch["uses"] or {}
+                changed_fields["uses"] = raw_step["uses"]
+
+            step.input_bindings = list((raw_step.get("uses") or {}).keys())
+            step.expected_bindings = list((raw_step.get("expected") or {}).keys())
+            step.metadata = {**(step.metadata or {}), "raw_step": raw_step}
+            update_fields.extend(["input_bindings", "expected_bindings", "metadata"])
+            step.save(update_fields=list(dict.fromkeys(update_fields)))
+            applied_step_changes.append(changed_fields)
+        return applied_step_changes
