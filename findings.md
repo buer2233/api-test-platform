@@ -209,3 +209,58 @@
 - 当前仍需记录的后续问题：
   - 默认 MySQL 认证链路在本地环境下仍未完成正式验收；
   - 真实 MySQL 结果回写、审核修订持久化、抓包草稿化接入和可用型入口仍待下一子阶段继续实现。
+
+## 2026-04-09 V2 第三实施子阶段启动发现
+- 当前第三子阶段的目标已经在 `docs/superpowers/plans/2026-04-08-v2-phase-3-execution-closure.md` 中收敛为最小执行闭环，不包含抓包驱动和正式前端实现。
+- `scenario_service/services.py` 中的 `request_execution()` 现状仍只是创建一条 `ScenarioExecutionRecord`，并把场景状态更新为 `not_started`；尚未接入工作区导出、pytest 执行和结果回写。
+- 工作区中已存在 `service_tests/test_execution_closure.py` 红灯测试草稿，覆盖：
+  - 已确认场景执行后导出工作区、生成测试文件、产出 `asset_manifest.json`、执行通过并回写 `report_path`；
+  - 不受支持的公开基线操作绑定在执行前被阻断。
+- 当前第三子阶段最适合复用的底座能力是：
+  - `platform_core/assets.py` 中的工作区与资产清单能力；
+  - `platform_core/executors.py` 中的 pytest 执行与 JUnit 统计能力；
+  - `platform_core/runtime/client.py` 中的最小 HTTP 客户端。
+- 当前未落地但必须补齐的能力包括：
+  - 面向场景步骤的最小测试模板；
+  - 场景步骤到 JSONPlaceholder 公开基线操作的绑定目录；
+  - 场景变量提取与下游路径/查询参数注入；
+  - 服务层对执行结果的数据库回写。
+- 第三子阶段首轮红灯测试已经确认失败原因准确：
+  - `service_tests/test_execution_closure.py` 失败于 `FunctionalCaseScenarioService.request_execution()` 还不接受 `workspace_root` 参数；
+  - `service_tests/test_drf_contract.py -k result_summary` 失败于结果接口仍返回 `execution_status=not_started`，说明执行闭环和结果回写尚未实现。
+- 这组红灯表明当前最小实现应优先补齐：
+  - 服务层执行请求签名扩展；
+  - 场景测试文件导出；
+  - pytest 执行；
+  - 结果统计与 `report_path` 回写；
+  - DRF 执行入口透传 `workspace_root`。
+- 第三子阶段实现过程中暴露出新的服务运行时依赖缺口：
+  - 生成测试在 `.venv_service` 子进程中导入 `platform_core.runtime.client.ApiClient` 时失败；
+  - 根因不是业务逻辑，而是 `.venv_service` 尚未安装 `requests` 及其运行依赖；
+  - 该问题已通过为 `requirements-platform-service.txt` 补齐固定版本的 `requests/urllib3/charset-normalizer/certifi/idna` 并重建环境口径解决。
+- 当前第三子阶段首批执行闭环已经成立：
+  - 已确认场景可导出为本地 pytest 工作区；
+  - 生成测试文件位于 `generated/tests/test_<scenario_code>.py`；
+  - 执行后会生成 `asset_manifest.json`、JUnit 报告和 `execution_record.json`；
+  - `ScenarioRecord` / `ScenarioExecutionRecord` 会回写 `workspace_root`、`report_path`、`execution_status`、`passed_count`、`failed_count`、`skipped_count` 与 `latest_execution_id`。
+- 当前最小公开基线操作目录已支持：
+  - `operation-get-user`
+  - `operation-list-user-todos`
+- 仍待后续子阶段继续补齐的执行侧能力包括：
+  - 更多公开基线操作目录；
+  - 更复杂的变量注入与依赖编排；
+  - 可选步骤、重试策略和执行历史增强；
+  - 数据库与真实 MySQL 环境的一致性正式验收。
+
+## 2026-04-09 本地 MySQL 初始化与正式验收发现
+- 本机 `MySQL84` 服务已存在且处于 `Running / Automatic` 状态，说明当前环境不需要重新安装 MySQL，只需完成服务化基线初始化。
+- `platform_service` 账号在 MySQL 8.4 中默认使用 `caching_sha2_password`，`.venv_service` 中的 `PyMySQL==1.0.2` 在缺少 `cryptography` 时无法完成该认证链路。
+- 直接切换到 `mysql_native_password` 不可作为当前环境的最小解，因为本机 MySQL 8.4 实例中该插件状态为 `DISABLED`，且当前用户态无法改写服务配置文件启用插件。
+- 更稳妥的收口方案是补齐 `cryptography==43.0.3`、`cffi==1.17.1`、`pycparser==2.22`，并把它们纳入 `requirements-platform-service.txt` 与依赖治理测试。
+- 本机 `pip` 默认配置指向清华镜像且超时为 `6000` 秒，会导致安装命令长时间挂起；改为一次性指定 `https://pypi.org/simple` 和较短超时后，依赖安装可稳定完成。
+- 真实 MySQL 验收已经成立：
+  - `platform_service@127.0.0.1` 可连接 `api_test_platform`
+  - `manage.py migrate --settings=platform_service.settings` 全部成功
+  - `manage.py showmigrations --settings=platform_service.settings` 全部为 `[X]`
+  - 基于真实 MySQL 的 `FunctionalCaseScenarioService` 冒烟结果为 `execution_status=passed`
+- `V2-RISK-007` 不再是“本地真实 MySQL 完全未验收”的状态，当前应下调为“已缓解但仍需继续覆盖更复杂历史执行治理”。

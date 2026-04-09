@@ -233,3 +233,63 @@
 
 ### 下一步（补充）
 - 继续扩展真实 MySQL 验收、审核修订持久化、抓包草稿化接入和可用型入口能力。
+
+## 2026-04-09 V2 第三实施子阶段开发
+
+### 已完成
+- 重新读取并核对 `task_plan.md`、`findings.md`、`progress.md`、`V2阶段工作计划文档.md`、`详细测试用例说明书(V2).md` 与 `docs/superpowers/plans/2026-04-08-v2-phase-3-execution-closure.md`。
+- 复核 `scenario_service/services.py`、`scenario_service/models.py`、`service_tests/test_drf_contract.py` 与 `service_tests/test_execution_closure.py`，确认第二子阶段已完成，第三子阶段尚未开始实现。
+- 确认第三子阶段当前真实缺口是：
+  - `request_execution()` 仍未导出工作区、执行 pytest 或回写结果；
+  - DRF 结果查询接口还没有覆盖报告路径和执行统计的真实返回；
+  - 场景执行模板与公开基线操作绑定目录尚不存在。
+- 已把本地记录切换到第三实施子阶段，准备进入严格 TDD 的红灯验证。
+- 已补充 `service_tests/test_drf_contract.py` 中的结果摘要红灯测试，锁定执行后 `report_path`、`passed_count`、`failed_count`、`skipped_count` 与最终 `execution_status` 的接口返回契约。
+- 已运行第三子阶段定向红灯测试：
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests\\test_execution_closure.py -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase3_execution_red`
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests\\test_drf_contract.py -k "result_summary" -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase3_drf_red`
+- 已完成第三子阶段最小实现：
+  - 新增 `platform_core/scenario_execution.py`
+  - 新增 `platform_core/templates/tests/test_scenario_module.py.j2`
+  - 扩展 `TemplateRenderer.render_scenario_test_module()`
+  - 升级 `scenario_service.services.request_execution()` 和 `scenario_service.views.ScenarioExecuteView`
+- 已补齐服务虚拟环境中的执行运行时依赖，并更新 `requirements-platform-service.txt` 与依赖治理测试。
+- 已完成第三子阶段定向绿灯与回归：
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests\\test_execution_closure.py -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase3_execution_green2` -> `2 passed`
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests\\test_drf_contract.py -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase3_drf_green2` -> `3 passed`
+  - `.venv_service\\Scripts\\python.exe -m pytest tests\\test_dependency_governance.py -v --basetemp .pytest_tmp/v2_phase3_dependency_green` -> `3 passed`
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase3_service_tests` -> `7 passed`
+  - `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/v2_phase3_platform_core_regression` -> `68 passed`
+  - `python -m pytest tests -v --basetemp .pytest_tmp/v2_phase3_root_regression` -> `76 passed`
+  - `python -m pytest api_test/tests -v --basetemp .pytest_tmp/v2_phase3_api_test_regression` -> `39 passed`
+
+### 当前判断（更新）
+- 第三实施子阶段首批目标已经完成，当前仓库已具备“已确认功能测试场景 -> 导出本地 pytest 工作区 -> 执行 JSONPlaceholder 公开基线场景 -> 结果回写数据库事实源”的最小能力。
+- 本轮新增能力没有打回第二子阶段服务回归、`platform_core` 回归、根治理测试和 `api_test` 公开基线回归。
+
+### 下一步
+- 继续推进真实 MySQL 正式验收、审核修订持久化深化、抓包草稿化接入和可用型入口实现。
+
+## 2026-04-09 本地 MySQL 初始化与正式验收
+
+### 已完成
+- 已确认本机 `MySQL84` 服务处于后台运行状态，且启动类型为 `Automatic`。
+- 已用 root 在本地初始化 `api_test_platform` 数据库与 `platform_service` 服务账号，并确认 `platform_service@127.0.0.1` 可成功登录数据库。
+- 已完成根因定位：真实 MySQL 迁移失败不是服务未启动，而是 MySQL 8.4 默认 `caching_sha2_password` 认证链路需要 `cryptography`，且当前实例中 `mysql_native_password` 插件为 `DISABLED`。
+- 已按 TDD 方式先修改 `tests/test_dependency_governance.py` 制造红灯，再将 `cryptography==43.0.3`、`cffi==1.17.1`、`pycparser==2.22` 固定到 `requirements-platform-service.txt` 并跑绿灯。
+- 已清理受清华镜像长超时影响的残留 `pip` 进程，并改用官方源将上述依赖安装进 `.venv_service`。
+- 已完成真实 MySQL 迁移与状态检查：
+  - `.venv_service\\Scripts\\python.exe manage.py migrate --settings=platform_service.settings`
+  - `.venv_service\\Scripts\\python.exe manage.py showmigrations --settings=platform_service.settings`
+- 已完成基于真实 MySQL 的服务层冒烟：通过 `FunctionalCaseScenarioService` 导入最小 JSONPlaceholder 场景、审核通过、触发执行，并验证 `execution_status=passed`、工作区存在、报告存在、执行记录回写成功。
+- 已完成本轮相关回归：
+  - `python -m pytest tests\\test_dependency_governance.py -v --basetemp .pytest_tmp/mysql_dependency_regression` -> `3 passed`
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests -v --ds=platform_service.test_settings --basetemp .pytest_tmp/mysql_service_regression` -> `7 passed`
+- 已同步更新 README、`V2阶段工作计划文档.md`、`详细测试用例说明书(V2).md` 与本地记录文件。
+
+### 当前判断
+- 本地真实 MySQL 服务已初始化并可持续后台使用，V2 服务化后续工作不再受“没有正式数据库基线”的阻塞。
+- 当前更合适的下一步不再是重复验证 MySQL，而是继续补审核修订持久化、抓包草稿化和可用型入口实现。
+
+### 下一步
+- 继续推进审核修订持久化深化、抓包草稿化接入和可用型入口实现。

@@ -54,6 +54,23 @@ class TemplateRenderer:
         }
         return template.render(**payload).removeprefix("\ufeff")
 
+    def render_scenario_test_module(
+        self,
+        scenario_code: str,
+        scenario_name: str,
+        base_url: str,
+        steps: list[dict[str, Any]],
+    ) -> str:
+        """渲染场景级 pytest 测试模块。"""
+        template = self.env.get_template("tests/test_scenario_module.py.j2")
+        payload = {
+            "scenario_code": scenario_code,
+            "scenario_name": scenario_name,
+            "base_url_literal": self._repr_default(base_url),
+            "scenario_steps_json_literal": self._repr_default(json.dumps(steps, ensure_ascii=False)),
+        }
+        return template.render(**payload).removeprefix("\ufeff")
+
     def render_assertions(self, assertions: list[AssertionCandidate]) -> str:
         """把断言候选列表渲染为测试断言代码。"""
         rendered: list[str] = []

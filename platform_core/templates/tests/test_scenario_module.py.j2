@@ -1,0 +1,58 @@
+import json
+
+from platform_core.runtime import ApiClient
+
+_SCENARIO_STEPS = json.loads({{ scenario_steps_json_literal }})
+
+
+def _resolve_payload(value, scenario_context):
+    """递归解析场景上下文引用。"""
+    if isinstance(value, dict):
+        return {key: _resolve_payload(item, scenario_context) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_resolve_payload(item, scenario_context) for item in value]
+    if isinstance(value, str) and value.startswith("$scenario."):
+        variable_name = value.removeprefix("$scenario.")
+        return scenario_context.get(variable_name)
+    return value
+
+
+def _extract_value(payload, field_path):
+    """按点分路径提取响应字段。"""
+    current = payload
+    for key in str(field_path).split("."):
+        if not isinstance(current, dict) or key not in current:
+            return None
+        current = current[key]
+    return current
+
+
+def _render_path(path_template, path_params):
+    """把路径参数渲染到目标路径模板中。"""
+    if not path_params:
+        return path_template
+    return path_template.format(**path_params)
+
+
+def test_{{ scenario_code }}():
+    """执行 {{ scenario_name }} 的最小场景回归。"""
+    client = ApiClient(base_url={{ base_url_literal }})
+    scenario_context = {}
+
+    for step in _SCENARIO_STEPS:
+        request_payload = step.get("request") or {}
+        path_params = _resolve_payload(request_payload.get("path_params") or {}, scenario_context)
+        query_params = _resolve_payload(request_payload.get("query_params") or {}, scenario_context)
+        json_payload = _resolve_payload(request_payload.get("json"), scenario_context)
+        response = client.request(
+            method=step["http_method"],
+            path=_render_path(step["path_template"], path_params),
+            params=query_params or None,
+            json=json_payload,
+        )
+
+        expected = step.get("expected") or {}
+        assert response["status_code"] == expected["status_code"], step["step_name"]
+
+        for variable_name, field_path in (expected.get("extract") or {}).items():
+            scenario_context[variable_name] = _extract_value(response["json"], field_path)

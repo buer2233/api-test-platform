@@ -147,3 +147,60 @@
 
 ### 下一步
 - 继续扩展真实 MySQL 验收、审核修订持久化、抓包草稿化接入和可用型入口测试。
+
+## 2026-04-09 V2 第三实施子阶段开发
+
+### 目标
+- 基于 `docs/superpowers/plans/2026-04-08-v2-phase-3-execution-closure.md`，补齐已确认场景的最小执行闭环。
+- 本轮聚焦“正式确认 -> 工作区导出 -> pytest 执行 -> 结果回写”四段链路，不扩张到抓包驱动和正式前端实现。
+- 严格按 TDD 推进，并同步 README、阶段文档、测试文档与本地记录。
+
+### 当前阶段状态
+| 阶段 | 状态 | 说明 |
+| --- | --- | --- |
+| 第三实施子阶段计划复核 | 已完成 | 已复核第三子阶段实施计划、V2 阶段文档、V2 测试文档与当前代码现状，确认目标聚焦执行闭环与结果回写 |
+| 执行闭环红灯测试准备 | 已完成 | `service_tests/test_execution_closure.py` 已存在，待运行并确认失败原因来自执行闭环缺失 |
+| 最小执行流水线实现 | 已完成 | 已新增场景执行流水线、场景级 pytest 模板、公开基线操作绑定目录，并接通服务层执行与结果回写 |
+| 文档与记录同步 | 已完成 | 已同步 README、V2 阶段文档、V2 测试文档、本地记录与第三子阶段实施计划 |
+
+### 本轮约束
+- 先跑红灯测试，再写实现代码。
+- 当前只支持最小一批 JSONPlaceholder 场景操作，不提前扩张场景 DSL。
+- 不改动用户已有的无关工作区内容，包括 `docs/ui-prototypes/`、`docs/superpowers/specs/2026-04-08-mobile-onboarding-design.md`、`.idea/` 与 `.bytro`。
+
+### 当前结果
+- 已完成第三子阶段定向新测：
+  - `service_tests/test_execution_closure.py` -> `2 passed`
+  - `service_tests/test_drf_contract.py` -> `3 passed`
+  - `tests/test_dependency_governance.py` -> `3 passed`
+- 已完成第三子阶段回归：
+  - `service_tests` -> `7 passed`
+  - `tests/platform_core` -> `68 passed`
+  - `tests` -> `76 passed`
+  - `api_test/tests` -> `39 passed`
+
+### 下一步
+- 继续推进真实 MySQL 正式验收、审核修订持久化深化、抓包草稿化接入和可用型入口实现。
+
+## 2026-04-09 本地 MySQL 初始化与正式验收
+
+### 目标
+- 初始化并在后台保持本地 MySQL 服务可用，打通 V2 服务层的真实 MySQL 基线。
+- 在不破坏既有 TDD 节奏的前提下，完成依赖治理、迁移、状态检查和场景执行冒烟。
+
+### 当前阶段状态
+| 阶段 | 状态 | 说明 |
+| --- | --- | --- |
+| MySQL 服务状态核对 | 已完成 | 已确认 `MySQL84` 服务处于 `Running`，启动类型为 `Automatic` |
+| 根因定位与方案收敛 | 已完成 | 已确认阻塞点为 MySQL 8.4 默认 `caching_sha2_password` 认证链路需要 `cryptography`，且本机无法直接改写服务配置启用 `mysql_native_password` |
+| 依赖治理红绿与环境补齐 | 已完成 | 已先写红灯治理测试，再将 `cryptography/cffi/pycparser` 固定到服务依赖文件并安装进 `.venv_service` |
+| 真实 MySQL 迁移与状态检查 | 已完成 | 已完成 `manage.py migrate --settings=platform_service.settings` 与 `showmigrations` 验证 |
+| 真实 MySQL 场景执行冒烟 | 已完成 | 已通过 `FunctionalCaseScenarioService` 完成导入、审核、执行、结果回写的最小冒烟 |
+| 文档与本地记录同步 | 已完成 | 已同步 README、V2 阶段文档、V2 测试文档与本地记录 |
+
+### 当前结果
+- 本地真实 MySQL 基线已经成立，后续 V2 服务化与执行能力可以直接在 `api_test_platform` 上继续验证。
+- `tests/test_dependency_governance.py` 与 `service_tests` 回归均保持通过，说明新增依赖没有打回现有服务层契约。
+
+### 下一步
+- 继续推进审核修订持久化深化、抓包草稿化接入和可用型入口实现。

@@ -85,7 +85,13 @@ class ScenarioExecuteView(APIView):
     def post(self, request, scenario_id: str):
         """处理执行触发动作。"""
         try:
-            execution = SCENARIO_SERVICE.request_execution(scenario_id=scenario_id)
+            workspace_root = None
+            if isinstance(request.data, dict):
+                workspace_root = request.data.get("workspace_root")
+            execution = SCENARIO_SERVICE.request_execution(
+                scenario_id=scenario_id,
+                workspace_root=workspace_root,
+            )
         except ScenarioServiceError as error:
             return build_error_response(error)
         return Response(

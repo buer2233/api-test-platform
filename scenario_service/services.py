@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import uuid4
 
 from django.db import transaction
 
 from platform_core.functional_cases import FunctionalCaseDraftParser
+from platform_core.scenario_execution import ScenarioExecutionBindingError, ScenarioExecutionPipeline
 from platform_core.services import PlatformApplicationService
 from scenario_service.models import (
     ScenarioExecutionRecord,
@@ -35,10 +37,12 @@ class FunctionalCaseScenarioService:
         self,
         parser: FunctionalCaseDraftParser | None = None,
         application_service: PlatformApplicationService | None = None,
+        scenario_execution_pipeline: ScenarioExecutionPipeline | None = None,
     ) -> None:
         """装配解析器与状态校验能力。"""
         self.parser = parser or FunctionalCaseDraftParser()
         self.application_service = application_service or PlatformApplicationService()
+        self.scenario_execution_pipeline = scenario_execution_pipeline or ScenarioExecutionPipeline()
 
     @transaction.atomic
     def import_functional_case(self, payload: dict) -> ScenarioRecord:
@@ -154,8 +158,12 @@ class FunctionalCaseScenarioService:
         return scenario
 
     @transaction.atomic
-    def request_execution(self, scenario_id: str) -> ScenarioExecutionRecord:
-        """创建场景执行请求记录。"""
+    def request_execution(
+        self,
+        scenario_id: str,
+        workspace_root: str | Path | None = None,
+    ) -> ScenarioExecutionRecord:
+        """执行场景并回写统一结果摘要。"""
         scenario = self._get_scenario(scenario_id=scenario_id)
         if scenario.review_status != "approved":
             raise ScenarioServiceError(
@@ -163,23 +171,56 @@ class FunctionalCaseScenarioService:
                 message="场景未确认，禁止触发正式执行。",
                 status_code=400,
             )
+        resolved_workspace_root = Path(workspace_root) if workspace_root else self._build_default_workspace_root(scenario)
+        try:
+            pipeline_result = self.scenario_execution_pipeline.run(
+                scenario=scenario,
+                steps=list(scenario.steps.all().order_by("step_order", "id")),
+                output_root=resolved_workspace_root,
+            )
+        except ScenarioExecutionBindingError as error:
+            raise ScenarioServiceError(
+                code="unsupported_public_baseline_operation",
+                message=str(error),
+                status_code=400,
+            ) from error
+
+        failed_count = pipeline_result.execution_record.failed_count + pipeline_result.execution_record.error_count
+        execution_status = "passed" if pipeline_result.execution_record.result_status == "passed" else "failed"
         execution = ScenarioExecutionRecord.objects.create(
             scenario=scenario,
-            execution_id=f"exec-{uuid4().hex[:12]}",
-            execution_status="not_started",
-            passed_count=0,
-            failed_count=0,
-            skipped_count=0,
-            report_path="",
-            failure_summary="",
+            execution_id=pipeline_result.execution_record.execution_id,
+            execution_status=execution_status,
+            passed_count=pipeline_result.execution_record.passed_count,
+            failed_count=failed_count,
+            skipped_count=pipeline_result.execution_record.skipped_count,
+            report_path=pipeline_result.execution_record.report_path or "",
+            failure_summary=pipeline_result.execution_record.error_summary or "",
         )
         scenario.latest_execution_id = execution.execution_id
         scenario.execution_status = execution.execution_status
+        scenario.workspace_root = pipeline_result.asset_manifest.workspace_root
+        scenario.report_path = execution.report_path
+        scenario.passed_count = execution.passed_count
+        scenario.failed_count = execution.failed_count
+        scenario.skipped_count = execution.skipped_count
         scenario.current_stage = self._derive_stage(
             review_status=scenario.review_status,
             execution_status=scenario.execution_status,
         )
-        scenario.save(update_fields=["latest_execution_id", "execution_status", "current_stage", "updated_at"])
+        scenario.save(
+            update_fields=[
+                "latest_execution_id",
+                "execution_status",
+                "workspace_root",
+                "report_path",
+                "passed_count",
+                "failed_count",
+                "skipped_count",
+                "current_stage",
+                "updated_at",
+            ]
+        )
         return execution
 
     def get_scenario_result(self, scenario_id: str) -> dict:
@@ -246,3 +287,13 @@ class FunctionalCaseScenarioService:
                 message=f"未找到场景: {scenario_id}",
                 status_code=404,
             ) from error
+
+    @staticmethod
+    def _build_default_workspace_root(scenario: ScenarioRecord) -> Path:
+        """为未显式指定路径的执行请求构造默认工作区目录。"""
+        return (
+            Path(__file__).resolve().parent.parent
+            / "report"
+            / "scenario_workspaces"
+            / f"{scenario.scenario_code}_{uuid4().hex[:8]}"
+        )

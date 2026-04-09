@@ -8,14 +8,14 @@
 
 ## 当前状态
 
-截至 2026-04-08，在 V1 正式验收完成后，仓库当前工作重点已切换到 V2 阶段正式开发，核心方向为：
+截至 2026-04-09，在 V1 正式验收完成后，仓库当前工作重点已切换到 V2 阶段正式开发，核心方向为：
 
 - 功能测试用例驱动优先；
 - 场景模型、变量绑定、依赖编排与审核确认能力；
 - Django + DRF + MySQL 服务化正式落地；
 - 抓包驱动草稿化接入；
 - 可用型 Web / Windows 入口承接。
-- V2 详细测试用例说明书已建立，并已进入第二实施子阶段的 TDD 开发。
+- V2 详细测试用例说明书已建立，并已进入第三实施子阶段的 TDD 开发。
 
 当前已完成的 V2 第一实施子阶段首批落地包括：
 
@@ -43,6 +43,7 @@
 - 已新增 `manage.py`、`platform_service/` 与 `scenario_service/`，建立 Django + DRF 最小服务骨架、场景持久化模型和导入/详情/审核/执行/结果查询接口；
 - 已新增 `platform_service/migration_settings.py` 与 `scenario_service/migrations/0001_initial.py`，补齐场景服务模型的初始迁移骨架；
 - 已补齐 `platform_service/settings.py` 中的 PyMySQL MySQLdb 兼容补丁，避免 Django MySQL 后端在启动阶段因版本门槛直接失败；
+- 已补齐 MySQL 8.4 默认认证链路所需的 `cryptography`、`cffi` 与 `pycparser` 固定版本依赖，为真实 MySQL 环境接入建立稳定基础；
 - 已完成第二批定向与回归验证：
   - `.venv_service\\Scripts\\python.exe -m pytest service_tests -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase2_service_tests`
     - `4 passed`
@@ -54,6 +55,39 @@
     - `76 passed`
   - `python -m pytest api_test/tests -v --basetemp .pytest_tmp/v2_phase2_api_test_regression`
     - `39 passed`
+
+当前已完成的 V2 第三实施子阶段首批落地包括：
+
+- 已新增 `platform_core/scenario_execution.py` 与 `platform_core/templates/tests/test_scenario_module.py.j2`，补齐“已确认场景 -> 工作区导出 -> pytest 执行 -> 结果回写”的最小执行流水线；
+- 已扩展 `TemplateRenderer` 的场景级测试模块渲染能力，并在服务层接入最小公开基线操作目录，当前首批支持：
+  - `operation-get-user`
+  - `operation-list-user-todos`
+- 已完成 `scenario_service/services.py` 的执行入口升级：
+  - `request_execution()` 支持 `workspace_root`；
+  - 执行前阻断未绑定可执行公开基线操作的场景；
+  - 执行后回写 `workspace_root`、`report_path`、`execution_status`、`passed_count`、`failed_count`、`skipped_count` 与 `latest_execution_id`；
+- 已补充 `service_tests/test_execution_closure.py` 与 DRF 结果摘要契约测试，锁定导出工作区、生成测试文件、结果查询摘要和阻断错误返回；
+- 已将 `requests` 及其关键运行依赖固定到 2025 年及以前版本并纳入服务层依赖治理；
+- 已完成第三批定向与回归验证：
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests\\test_execution_closure.py -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase3_execution_green2`
+    - `2 passed`
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests\\test_drf_contract.py -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase3_drf_green2`
+    - `3 passed`
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase3_service_tests`
+    - `7 passed`
+  - `python -m pytest tests/platform_core -v --basetemp .pytest_tmp/v2_phase3_platform_core_regression`
+    - `68 passed`
+  - `python -m pytest tests -v --basetemp .pytest_tmp/v2_phase3_root_regression`
+    - `76 passed`
+  - `python -m pytest api_test/tests -v --basetemp .pytest_tmp/v2_phase3_api_test_regression`
+    - `39 passed`
+
+当前已完成的 V2 真实 MySQL 本地基线包括：
+
+- 已确认本机 `MySQL84` 服务处于后台运行状态，且启动类型为 `Automatic`；
+- 已初始化本地 `api_test_platform` 数据库，并建立 `platform_service` 专用账号用于服务层接入；
+- 已在设置 `PLATFORM_MYSQL_*` 环境变量后完成 `manage.py migrate` 与 `manage.py showmigrations` 验证，确认 `auth/contenttypes/scenario_service/sessions` 迁移全部落库；
+- 已完成一轮基于真实 MySQL 的 `FunctionalCaseScenarioService` 冒烟，最小 JSONPlaceholder 场景执行结果为 `passed`，并已验证工作区、报告文件和执行结果回写同时成立；
 
 截至 2026-04-03，V1 阶段目标已完成，当前仓库已完成：
 
@@ -357,7 +391,25 @@ python -m pytest tests -v --basetemp .pytest_tmp/v2_phase2_root_regression
 python -m pytest api_test/tests -v --basetemp .pytest_tmp/v2_phase2_api_test_regression
 ```
 
+V2 第三实施子阶段执行闭环回归验证：
+
+```bash
+.venv_service\Scripts\python.exe -m pytest service_tests\test_execution_closure.py -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase3_execution_green2
+.venv_service\Scripts\python.exe -m pytest service_tests\test_drf_contract.py -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase3_drf_green2
+.venv_service\Scripts\python.exe -m pytest service_tests -v --ds=platform_service.test_settings --basetemp .pytest_tmp/v2_phase3_service_tests
+python -m pytest tests/platform_core -v --basetemp .pytest_tmp/v2_phase3_platform_core_regression
+python -m pytest tests -v --basetemp .pytest_tmp/v2_phase3_root_regression
+python -m pytest api_test/tests -v --basetemp .pytest_tmp/v2_phase3_api_test_regression
+```
+
+V2 本地真实 MySQL 基线验证：
+
+```bash
+python -m pytest tests/test_dependency_governance.py -v --basetemp .pytest_tmp/mysql_dependency_regression
+.venv_service\Scripts\python.exe -m pytest service_tests -v --ds=platform_service.test_settings --basetemp .pytest_tmp/mysql_service_regression
+```
+
 ## 备注
 
-- 当前 README 以 V1 验收事实为基础，并已同步补记 V2 第一、第二实施子阶段的实际进展。
+- 当前 README 以 V1 验收事实为基础，并已同步补记 V2 第一、第二、第三实施子阶段以及本地真实 MySQL 基线的实际进展。
 - 当前已进入 V2 阶段正式实现与测试执行，后续新增能力应优先进入 V2 阶段文档和对应测试文档，再按新的 TDD 轮次推进实现与回归。
