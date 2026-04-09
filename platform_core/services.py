@@ -18,6 +18,7 @@ from platform_core.models import (
 )
 from platform_core.pipeline import DocumentDrivenPipeline
 from platform_core.rules import RuleValidator
+from platform_core.traffic_capture import TrafficCaptureDraftParser
 
 
 class PlatformApplicationService:
@@ -28,12 +29,14 @@ class PlatformApplicationService:
         project_root: str | Path | None = None,
         document_pipeline: DocumentDrivenPipeline | None = None,
         functional_case_parser: FunctionalCaseDraftParser | None = None,
+        traffic_capture_parser: TrafficCaptureDraftParser | None = None,
         validator: RuleValidator | None = None,
     ) -> None:
         """装配平台当前阶段可用的流水线与治理能力。"""
         self.project_root = Path(project_root or Path(__file__).resolve().parent.parent)
         self.document_pipeline = document_pipeline or DocumentDrivenPipeline(project_root=self.project_root)
         self.functional_case_parser = functional_case_parser or FunctionalCaseDraftParser()
+        self.traffic_capture_parser = traffic_capture_parser or TrafficCaptureDraftParser()
         self.validator = validator or RuleValidator()
 
     @staticmethod
@@ -42,13 +45,13 @@ class PlatformApplicationService:
         return {
             "document": True,
             "functional_case": True,
-            "traffic_capture": False,
+            "traffic_capture": True,
         }
 
     def describe_capabilities(self) -> ServiceCapabilitySnapshot:
         """返回当前阶段可直接暴露给外部入口的能力快照。"""
         return ServiceCapabilitySnapshot(
-            service_stage="v2_phase1",
+            service_stage="v2_phase5",
             local_mode_only=True,
             available_commands=["run", "inspect"],
             routes=[
@@ -66,9 +69,9 @@ class PlatformApplicationService:
                 ),
                 RouteCapabilitySummary(
                     route_code="traffic_capture",
-                    enabled=False,
-                    stage="v2_phase1_blocked",
-                    detail="V2 当前子阶段暂不支持抓包驱动，后续阶段再开放草稿化接入。",
+                    enabled=True,
+                    stage="v2_phase5_active",
+                    detail="V2 第五子阶段已开放抓包驱动草稿化接入，支持清洗、去重、动态值候选提取和草稿生成。",
                 ),
             ],
         )
@@ -201,12 +204,42 @@ class PlatformApplicationService:
         draft = self.run_functional_case_pipeline(source_path=source_path, output_root=output_root)
         return self.build_functional_case_pipeline_summary(draft=draft, output_root=output_root)
 
+    def run_traffic_capture_pipeline(self, source_path: str | Path, output_root: str | Path):
+        """执行抓包驱动草稿解析。"""
+        return self.traffic_capture_parser.parse(source_path=source_path)
+
     @staticmethod
-    def run_traffic_capture_pipeline(source_path: str | Path, output_root: str | Path):
-        """显式阻断当前子阶段尚未支持的抓包驱动路线。"""
-        raise NotImplementedError(
-            f"V2 当前子阶段暂不支持抓包驱动: {source_path} -> {output_root}"
+    def build_traffic_capture_pipeline_summary(
+        draft,
+        output_root: str | Path,
+    ) -> ScenarioServiceSummary:
+        """把抓包草稿转换为服务层稳定摘要。"""
+        return ScenarioServiceSummary(
+            route_code="traffic_capture",
+            service_stage="v2_phase5",
+            scenario_id=draft.scenario.scenario_id,
+            scenario_code=draft.scenario.scenario_code,
+            scenario_name=draft.scenario.scenario_name,
+            review_status=draft.lifecycle.review_status,
+            execution_status=draft.lifecycle.execution_status,
+            step_count=len(draft.steps),
+            issue_count=len(draft.issues),
+            workspace_root=str(output_root),
+            report_path=None,
+            latest_execution_id=None,
+            passed_count=0,
+            failed_count=0,
+            skipped_count=0,
         )
+
+    def run_traffic_capture_pipeline_summary(
+        self,
+        source_path: str | Path,
+        output_root: str | Path,
+    ) -> ScenarioServiceSummary:
+        """执行抓包草稿解析并返回稳定摘要。"""
+        draft = self.run_traffic_capture_pipeline(source_path=source_path, output_root=output_root)
+        return self.build_traffic_capture_pipeline_summary(draft=draft, output_root=output_root)
 
     def validate_scenario_transition(
         self,

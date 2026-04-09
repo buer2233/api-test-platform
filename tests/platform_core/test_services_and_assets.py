@@ -143,6 +143,69 @@ def build_module() -> ApiModule:
     )
 
 
+def build_traffic_capture_payload() -> dict:
+    """构造抓包草稿化测试使用的最小 HAR 样例。"""
+    return {
+        "log": {
+            "entries": [
+                {
+                    "startedDateTime": "2026-04-09T10:00:00.000Z",
+                    "request": {
+                        "method": "GET",
+                        "url": "https://cdn.example.com/assets/app.js",
+                    },
+                    "response": {
+                        "status": 200,
+                        "content": {"mimeType": "application/javascript"},
+                    },
+                },
+                {
+                    "startedDateTime": "2026-04-09T10:00:02.000Z",
+                    "request": {
+                        "method": "POST",
+                        "url": "https://api.example.com/v1/login",
+                        "headers": [
+                            {"name": "Content-Type", "value": "application/json"},
+                        ],
+                        "postData": {
+                            "mimeType": "application/json",
+                            "text": "{\"username\": \"demo\", \"password\": \"demo\"}",
+                        },
+                    },
+                    "response": {
+                        "status": 200,
+                        "content": {
+                            "mimeType": "application/json",
+                            "text": "{\"token\": \"token-001\", \"user_id\": 7}",
+                        },
+                    },
+                },
+                {
+                    "startedDateTime": "2026-04-09T10:00:03.000Z",
+                    "request": {
+                        "method": "GET",
+                        "url": "https://api.example.com/v1/users/7?b=2&a=1",
+                        "headers": [
+                            {"name": "Authorization", "value": "Bearer token-001"},
+                        ],
+                        "queryString": [
+                            {"name": "b", "value": "2"},
+                            {"name": "a", "value": "1"},
+                        ],
+                    },
+                    "response": {
+                        "status": 200,
+                        "content": {
+                            "mimeType": "application/json",
+                            "text": "{\"id\": 7, \"name\": \"Alice\"}",
+                        },
+                    },
+                },
+            ]
+        }
+    }
+
+
 def test_parser_creates_json_field_equals_assertion_from_response_examples(tmp_path):
     """解析器应从响应示例中生成 json_field_equals 断言。"""
     source_path = tmp_path / "user_openapi.json"
@@ -568,15 +631,16 @@ def test_platform_application_service_describes_current_capabilities():
     snapshot = service.describe_capabilities()
     routes = {route.route_code: route for route in snapshot.routes}
 
-    assert snapshot.service_stage == "v2_phase1"
+    assert snapshot.service_stage == "v2_phase5"
     assert snapshot.local_mode_only is True
     assert snapshot.available_commands == ["run", "inspect"]
     assert routes["document"].enabled is True
     assert routes["document"].stage == "v1_active"
     assert routes["functional_case"].enabled is True
     assert routes["functional_case"].stage == "v2_phase1_active"
-    assert routes["traffic_capture"].enabled is False
-    assert "V2" in routes["functional_case"].detail
+    assert routes["traffic_capture"].enabled is True
+    assert routes["traffic_capture"].stage == "v2_phase5_active"
+    assert "草稿" in routes["traffic_capture"].detail
 
 
 def test_platform_application_service_returns_document_pipeline_summary(tmp_path):
@@ -718,7 +782,7 @@ def test_platform_application_service_supports_functional_case_draft_summary(tmp
 
     assert service.supported_routes()["document"] is True
     assert service.supported_routes()["functional_case"] is True
-    assert service.supported_routes()["traffic_capture"] is False
+    assert service.supported_routes()["traffic_capture"] is True
     summary = service.run_functional_case_pipeline_summary(
         source_path=source_path,
         output_root=tmp_path / "workspace",
@@ -732,8 +796,29 @@ def test_platform_application_service_supports_functional_case_draft_summary(tmp
     assert summary.execution_status == "not_started"
     assert summary.step_count == 1
 
-    with pytest.raises(NotImplementedError, match="暂不支持抓包驱动"):
-        service.run_traffic_capture_pipeline(source_path=tmp_path / "capture.har", output_root=tmp_path / "out")
+
+def test_platform_application_service_supports_traffic_capture_draft_summary(tmp_path):
+    """应用服务应支持 V2 第五子阶段的抓包草稿摘要。"""
+    source_path = tmp_path / "traffic_capture.har.json"
+    source_path.write_text(
+        json.dumps(build_traffic_capture_payload(), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    service = PlatformApplicationService(project_root=Path.cwd())
+    summary = service.run_traffic_capture_pipeline_summary(
+        source_path=source_path,
+        output_root=tmp_path / "workspace",
+    )
+
+    assert isinstance(summary, ScenarioServiceSummary)
+    assert summary.route_code == "traffic_capture"
+    assert summary.service_stage == "v2_phase5"
+    assert summary.scenario_name
+    assert summary.review_status == "pending"
+    assert summary.execution_status == "not_started"
+    assert summary.step_count == 2
+    assert summary.issue_count >= 1
 
 
 def test_platform_application_service_blocks_invalid_scenario_status_transition():

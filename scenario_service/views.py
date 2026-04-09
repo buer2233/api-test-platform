@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from django.views.generic import TemplateView
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -10,6 +11,7 @@ from scenario_service.serializers import (
     FunctionalCaseImportRequestSerializer,
     ScenarioRevisionRequestSerializer,
     ScenarioReviewRequestSerializer,
+    TrafficCaptureImportRequestSerializer,
 )
 from scenario_service.services import FunctionalCaseScenarioService, ScenarioServiceError
 
@@ -38,11 +40,42 @@ class FunctionalCaseImportView(APIView):
         """处理导入请求。"""
         serializer = FunctionalCaseImportRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        scenario = SCENARIO_SERVICE.import_functional_case(serializer.validated_data)
+        try:
+            scenario = SCENARIO_SERVICE.import_functional_case(serializer.validated_data)
+        except ScenarioServiceError as error:
+            return build_error_response(error)
         return Response(
             {"success": True, "data": SCENARIO_SERVICE.build_scenario_summary(scenario)},
             status=status.HTTP_201_CREATED,
         )
+
+
+class TrafficCaptureImportView(APIView):
+    """导入抓包数据并创建场景草稿。"""
+
+    def post(self, request):
+        """处理抓包导入请求。"""
+        serializer = TrafficCaptureImportRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            scenario = SCENARIO_SERVICE.import_traffic_capture(
+                capture_name=serializer.validated_data["capture_name"],
+                capture_payload=serializer.validated_data["capture_payload"],
+            )
+        except ScenarioServiceError as error:
+            return build_error_response(error)
+        return Response(
+            {"success": True, "data": SCENARIO_SERVICE.build_scenario_summary(scenario)},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ScenarioListView(APIView):
+    """返回可用型入口消费的场景摘要列表。"""
+
+    def get(self, request):
+        """处理场景列表查询。"""
+        return Response({"success": True, "data": SCENARIO_SERVICE.list_scenarios()})
 
 
 class ScenarioDetailView(APIView):
@@ -142,3 +175,9 @@ class ScenarioResultView(APIView):
         except ScenarioServiceError as error:
             return build_error_response(error)
         return Response({"success": True, "data": result})
+
+
+class ScenarioWorkbenchView(TemplateView):
+    """返回 V2 可用型入口工作台页面。"""
+
+    template_name = "scenario_service/workbench.html"

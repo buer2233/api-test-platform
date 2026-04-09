@@ -279,3 +279,34 @@
 - 这一轮能力已完成双环境验证：
   - SQLite 测试环境：`service_tests=10 passed`
   - 真实 MySQL 环境：`0002_scenariorevisionrecord` 已落库，修订链路冒烟 `passed`
+
+## 2026-04-09 抓包草稿化接入与工作台入口收口发现
+- `platform_core/traffic_capture.py` 已独立承载抓包解析，不再把 HAR 处理硬塞回既有文档解析器；当前已支持：
+  - 静态资源与 `OPTIONS` 噪声过滤
+  - 重复请求折叠
+  - 查询参数归一化
+  - 响应字段动态值候选提取
+  - 基于已识别变量的依赖候选生成
+- `scenario_service/services.py` 已把“功能测试用例草稿”和“抓包草稿”统一收口到 `_persist_scenario_draft()`，说明两条输入路线当前已共享同一事实落点和摘要契约。
+- 抓包导入服务接口已经成立：
+  - `POST /api/v2/scenarios/import-traffic-capture/`
+  - 导入结果默认进入 `pending / not_started`，保持“只做草稿接入、不直接执行”的阶段边界。
+- V2 可用型入口当前采用 Django 模板工作台页而非新建 React 工程，这是符合阶段约束的更稳妥选择：
+  - 已新增 `GET /api/v2/scenarios/` 列表接口
+  - 已新增 `GET /ui/v2/workbench/` 工作台页
+  - 页面仅消费服务层 API，没有把核心逻辑前移到前端
+- 工作台浏览器冒烟已验证以下真实链路：
+  - 功能测试用例导入成功
+  - 审核通过成功
+  - 执行成功且结果区显示 `passed`
+  - 列表状态在执行后可同步刷新为 `passed`
+  - 抓包导入成功并在列表中展示 `pending / not_started / steps 2 / issues 2`
+- 当前 V2 文档需要同步修正的关键口径有两个：
+  - 抓包驱动草稿化接入与工作台入口不再是“待开始”，而是已完成
+  - AI 辅助改写虽然在早期设计中被保留，但当前应明确降为 P1/V3，不能继续写成 V2 完成阻断项
+- 当前 V2 的非阻断剩余项已收敛为：
+  - AI 辅助改写与多轮确认
+  - Windows 独立壳分发与完整客户端体验
+  - 更复杂执行历史治理、更多公开基线操作目录和复杂变量编排
+- 浏览器冒烟期间还额外发现了一个入口可用性问题：工作台默认功能用例示例在数据库中已存在时，重复导入会把 `ScenarioRecord.scenario_id` 唯一键冲突直接抛成 `500`。
+- 根因已确认在服务层：`_persist_scenario_draft()` 直接写库，没有在业务层把重复场景标识转换成结构化错误；当前已补齐重复导入检查，并通过 `service_tests/test_workbench_ui.py` 新增用例锁定为 `400 + scenario_already_exists`。

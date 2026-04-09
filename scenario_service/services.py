@@ -9,8 +9,10 @@ from uuid import uuid4
 from django.db import transaction
 
 from platform_core.functional_cases import FunctionalCaseDraftParser
+from platform_core.models import FunctionalCaseDraft
 from platform_core.scenario_execution import ScenarioExecutionBindingError, ScenarioExecutionPipeline
 from platform_core.services import PlatformApplicationService
+from platform_core.traffic_capture import TrafficCaptureDraftParser
 from scenario_service.models import (
     ScenarioExecutionRecord,
     ScenarioRecord,
@@ -32,16 +34,18 @@ class ScenarioServiceError(Exception):
 
 
 class FunctionalCaseScenarioService:
-    """把功能测试用例草稿接入 Django 持久化层。"""
+    """把多来源场景草稿接入 Django 持久化层。"""
 
     def __init__(
         self,
         parser: FunctionalCaseDraftParser | None = None,
+        traffic_capture_parser: TrafficCaptureDraftParser | None = None,
         application_service: PlatformApplicationService | None = None,
         scenario_execution_pipeline: ScenarioExecutionPipeline | None = None,
     ) -> None:
         """装配解析器与状态校验能力。"""
         self.parser = parser or FunctionalCaseDraftParser()
+        self.traffic_capture_parser = traffic_capture_parser or TrafficCaptureDraftParser()
         self.application_service = application_service or PlatformApplicationService()
         self.scenario_execution_pipeline = scenario_execution_pipeline or ScenarioExecutionPipeline()
 
@@ -52,6 +56,26 @@ class FunctionalCaseScenarioService:
             raw_case=payload,
             source_name=payload.get("case_code") or payload.get("case_id") or "api_request",
         )
+        return self._persist_scenario_draft(draft=draft)
+
+    @transaction.atomic
+    def import_traffic_capture(self, capture_name: str, capture_payload: dict) -> ScenarioRecord:
+        """导入抓包数据并持久化为场景草稿。"""
+        draft = self.traffic_capture_parser.parse_payload(
+            raw_capture=capture_payload,
+            source_name=capture_name or "traffic_capture",
+        )
+        return self._persist_scenario_draft(draft=draft)
+
+    @staticmethod
+    def _persist_scenario_draft(draft: FunctionalCaseDraft) -> ScenarioRecord:
+        """把统一场景草稿对象持久化为场景与步骤记录。"""
+        if ScenarioRecord.objects.filter(scenario_id=draft.scenario.scenario_id).exists():
+            raise ScenarioServiceError(
+                code="scenario_already_exists",
+                message="场景已存在，请修改场景标识后再导入。",
+                status_code=400,
+            )
         scenario = ScenarioRecord.objects.create(
             scenario_id=draft.scenario.scenario_id,
             scenario_code=draft.scenario.scenario_code,
@@ -72,7 +96,11 @@ class FunctionalCaseScenarioService:
             failed_count=0,
             skipped_count=0,
             issues=[issue.model_dump() for issue in draft.issues],
-            metadata=draft.scenario.metadata,
+            metadata={
+                **draft.scenario.metadata,
+                "source_type": draft.source_document.source_type,
+                "source_name": draft.source_document.source_name,
+            },
         )
         ScenarioStepRecord.objects.bulk_create(
             [
@@ -134,6 +162,13 @@ class FunctionalCaseScenarioService:
                 for revision in scenario.revisions.all().order_by("revised_at", "id")
             ],
         }
+
+    def list_scenarios(self) -> list[dict]:
+        """返回供入口页消费的场景摘要列表。"""
+        return [
+            self.build_scenario_summary(scenario)
+            for scenario in ScenarioRecord.objects.all().order_by("-updated_at", "-id")
+        ]
 
     @transaction.atomic
     def review_scenario(

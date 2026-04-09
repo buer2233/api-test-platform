@@ -5,6 +5,7 @@ from pathlib import Path
 
 from platform_core.functional_cases import FunctionalCaseDraftParser
 from platform_core.parsers import OpenAPIDocumentParser
+from platform_core.traffic_capture import TrafficCaptureDraftParser
 
 
 def test_parser_supports_yaml_openapi_documents(tmp_path):
@@ -187,3 +188,126 @@ def test_functional_case_parser_records_structured_issue_for_unresolved_step(tmp
     assert len(draft.issues) == 1
     assert draft.issues[0].issue_code == "missing_operation_id"
     assert draft.issues[0].issue_message
+
+
+def test_traffic_capture_parser_filters_noise_and_builds_reviewable_draft(tmp_path):
+    """TC-V2-PARSE-009/010/011 抓包导入应完成清洗、去重和动态值候选提取。"""
+    source_path = tmp_path / "traffic_capture.har.json"
+    source_path.write_text(
+        json.dumps(
+            {
+                "log": {
+                    "entries": [
+                        {
+                            "startedDateTime": "2026-04-09T10:00:00.000Z",
+                            "request": {
+                                "method": "GET",
+                                "url": "https://cdn.example.com/assets/app.js",
+                            },
+                            "response": {
+                                "status": 200,
+                                "content": {"mimeType": "application/javascript"},
+                            },
+                        },
+                        {
+                            "startedDateTime": "2026-04-09T10:00:01.000Z",
+                            "request": {
+                                "method": "OPTIONS",
+                                "url": "https://api.example.com/v1/users/7?b=2&a=1",
+                                "queryString": [
+                                    {"name": "b", "value": "2"},
+                                    {"name": "a", "value": "1"},
+                                ],
+                            },
+                            "response": {
+                                "status": 204,
+                                "content": {"mimeType": "text/plain"},
+                            },
+                        },
+                        {
+                            "startedDateTime": "2026-04-09T10:00:02.000Z",
+                            "request": {
+                                "method": "POST",
+                                "url": "https://api.example.com/v1/login",
+                                "headers": [
+                                    {"name": "Content-Type", "value": "application/json"},
+                                ],
+                                "postData": {
+                                    "mimeType": "application/json",
+                                    "text": "{\"username\": \"demo\", \"password\": \"demo\"}",
+                                },
+                            },
+                            "response": {
+                                "status": 200,
+                                "content": {
+                                    "mimeType": "application/json",
+                                    "text": "{\"token\": \"token-001\", \"user_id\": 7}",
+                                },
+                            },
+                        },
+                        {
+                            "startedDateTime": "2026-04-09T10:00:03.000Z",
+                            "request": {
+                                "method": "GET",
+                                "url": "https://api.example.com/v1/users/7?b=2&a=1",
+                                "headers": [
+                                    {"name": "Authorization", "value": "Bearer token-001"},
+                                ],
+                                "queryString": [
+                                    {"name": "b", "value": "2"},
+                                    {"name": "a", "value": "1"},
+                                ],
+                            },
+                            "response": {
+                                "status": 200,
+                                "content": {
+                                    "mimeType": "application/json",
+                                    "text": "{\"id\": 7, \"name\": \"Alice\"}",
+                                },
+                            },
+                        },
+                        {
+                            "startedDateTime": "2026-04-09T10:00:04.000Z",
+                            "request": {
+                                "method": "GET",
+                                "url": "https://api.example.com/v1/users/7?a=1&b=2",
+                                "headers": [
+                                    {"name": "Authorization", "value": "Bearer token-001"},
+                                ],
+                                "queryString": [
+                                    {"name": "a", "value": "1"},
+                                    {"name": "b", "value": "2"},
+                                ],
+                            },
+                            "response": {
+                                "status": 200,
+                                "content": {
+                                    "mimeType": "application/json",
+                                    "text": "{\"id\": 7, \"name\": \"Alice\"}",
+                                },
+                            },
+                        },
+                    ]
+                }
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    draft = TrafficCaptureDraftParser().parse(source_path)
+
+    assert draft.source_document.source_type == "traffic_capture"
+    assert draft.scenario.review_status == "pending"
+    assert len(draft.steps) == 2
+    assert [step.step_order for step in draft.steps] == [1, 2]
+    assert draft.steps[1].metadata["raw_step"]["request"]["path_template"] == "/v1/users/{user_id}"
+    assert draft.steps[1].metadata["raw_step"]["request"]["query_params"] == {"a": "1", "b": "2"}
+    assert {binding.variable_name for binding in draft.bindings} >= {"token", "user_id"}
+    assert any(
+        dependency.upstream_operation_id == draft.steps[0].operation_id
+        and dependency.downstream_operation_id == draft.steps[1].operation_id
+        for dependency in draft.dependencies
+    )
+    assert {issue.issue_code for issue in draft.issues} >= {"capture_operation_needs_review"}

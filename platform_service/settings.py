@@ -35,7 +35,16 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "platform_service.urls"
-TEMPLATES: list[dict] = []
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [],
+        },
+    }
+]
 WSGI_APPLICATION = "platform_service.wsgi.application"
 ASGI_APPLICATION = "platform_service.asgi.application"
 

@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>V2 场景工作台</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23081017'/%3E%3Cpath d='M16 42V22h8c7 0 12 4 12 10s-5 10-12 10h-8Zm8-6c3.5 0 6-1.5 6-4s-2.5-4-6-4h-2v8h2Zm16 6V22h6v20h-6Z' fill='%23f2ba68'/%3E%3C/svg%3E">
+    <style>
+        :root {
+            --bg: #0a1017;
+            --panel: rgba(14, 22, 34, 0.9);
+            --line: rgba(116, 150, 194, 0.18);
+            --text: #eef4ff;
+            --muted: #97a7bc;
+            --gold: #f2ba68;
+            --cyan: #68d6ff;
+            --green: #6fd7ae;
+            --red: #ff9188;
+            --mono: "Cascadia Code", "Consolas", monospace;
+            --sans: "Bahnschrift", "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--text);
+            font-family: var(--sans);
+            background:
+                radial-gradient(circle at top right, rgba(104, 214, 255, 0.08), transparent 28%),
+                radial-gradient(circle at bottom left, rgba(242, 186, 104, 0.08), transparent 30%),
+                linear-gradient(180deg, #081017 0%, #0b131d 100%);
+        }
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 20px 20px;
+            pointer-events: none;
+        }
+        .shell { width: min(100%, 1500px); margin: 0 auto; padding: 24px; display: grid; gap: 18px; }
+        .hero, .panel {
+            border-radius: 24px;
+            border: 1px solid var(--line);
+            background: linear-gradient(180deg, rgba(18, 27, 41, 0.96), rgba(10, 17, 25, 0.98));
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+        }
+        .hero { padding: 26px; display: grid; gap: 18px; }
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            width: fit-content;
+            padding: 7px 12px;
+            border-radius: 999px;
+            border: 1px solid rgba(104, 214, 255, 0.22);
+            background: rgba(104, 214, 255, 0.08);
+            color: var(--cyan);
+            font-size: 12px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+        h1 { margin: 0; font-size: clamp(30px, 4vw, 50px); line-height: 1.05; }
+        .hero p { margin: 0; color: var(--muted); line-height: 1.75; max-width: 900px; }
+        .hero-grid, .workspace { display: grid; gap: 18px; }
+        .hero-grid { grid-template-columns: 1.4fr 1fr; }
+        .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .metric, .step, .card, .result-box, .import-box, .summary-cell {
+            border-radius: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: rgba(7, 12, 18, 0.72);
+        }
+        .metric { padding: 16px; }
+        .metric strong { display: block; margin-top: 8px; font-size: 28px; font-family: var(--mono); }
+        .workflow { display: grid; gap: 12px; }
+        .step { display: grid; grid-template-columns: 44px 1fr; gap: 14px; padding: 14px; }
+        .step-index {
+            width: 44px; height: 44px; display: grid; place-items: center;
+            border-radius: 16px; font-family: var(--mono); color: #081017;
+            background: linear-gradient(135deg, var(--gold), #ffd07a);
+        }
+        .workspace { grid-template-columns: 1.05fr 0.75fr 0.95fr; align-items: start; }
+        .panel { overflow: hidden; }
+        .panel-header { padding: 18px 20px 0; }
+        .panel-header h2 { margin: 0; font-size: 16px; letter-spacing: 0.08em; text-transform: uppercase; }
+        .panel-header p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+        .panel-body { padding: 18px 20px 20px; display: grid; gap: 16px; }
+        .import-box, .card, .result-box { padding: 16px; }
+        .field-label { color: var(--muted); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; }
+        input, textarea, button { font: inherit; }
+        input, textarea {
+            width: 100%; margin-top: 10px; padding: 14px; color: var(--text);
+            border-radius: 14px; border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(4, 9, 14, 0.82); outline: none;
+        }
+        textarea { min-height: 200px; resize: vertical; font-family: var(--mono); font-size: 13px; line-height: 1.55; }
+        .button-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+        .button {
+            padding: 11px 18px; border-radius: 999px; border: none; cursor: pointer; transition: transform .18s ease;
+        }
+        .button:hover { transform: translateY(-1px); }
+        .primary { background: linear-gradient(135deg, var(--gold), #ffd07a); color: #081017; }
+        .secondary { background: rgba(104, 214, 255, 0.12); color: var(--text); border: 1px solid rgba(104,214,255,0.16); }
+        .danger { background: rgba(255, 145, 136, 0.12); color: var(--text); border: 1px solid rgba(255,145,136,0.16); }
+        .scenario-list, .stack { display: grid; gap: 10px; }
+        .scenario-button {
+            width: 100%; text-align: left; padding: 14px; color: inherit; cursor: pointer;
+            border-radius: 16px; border: 1px solid rgba(255,255,255,0.06); background: rgba(7,12,18,0.76);
+        }
+        .scenario-button.active { border-color: rgba(104,214,255,0.32); background: rgba(14,22,34,0.96); }
+        .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .tag { padding: 6px 10px; border-radius: 999px; font-size: 12px; background: rgba(255,255,255,0.06); color: var(--muted); }
+        .approved, .passed { color: var(--green); background: rgba(111, 215, 174, 0.12); }
+        .rejected, .failed { color: var(--red); background: rgba(255, 145, 136, 0.12); }
+        .pending, .not_started, .revised { color: var(--gold); background: rgba(242, 186, 104, 0.12); }
+        .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .summary-cell { padding: 14px; }
+        .summary-key { display: block; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+        .summary-value { display: block; margin-top: 8px; font-family: var(--mono); word-break: break-all; }
+        pre {
+            margin: 10px 0 0; padding: 12px; overflow: auto; border-radius: 14px;
+            background: rgba(2, 6, 10, 0.86); border: 1px solid rgba(255,255,255,0.05); color: #cfe8ff;
+            font-family: var(--mono); font-size: 12px;
+        }
+        .empty { padding: 18px; text-align: center; color: var(--muted); border: 1px dashed rgba(255,255,255,0.14); border-radius: 18px; }
+        .toast {
+            position: fixed; right: 24px; bottom: 24px; max-width: 360px; padding: 14px 16px;
+            border-radius: 18px; background: rgba(10, 18, 28, 0.96); border: 1px solid rgba(104,214,255,0.18);
+            color: var(--text); opacity: 0; transform: translateY(12px); pointer-events: none; transition: .18s ease;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.error { border-color: rgba(255,145,136,0.24); }
+        @media (max-width: 1320px) {
+            .hero-grid, .workspace, .metric-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<main class="shell" data-testid="workbench-root">
+    <section class="hero">
+        <span class="eyebrow">V2 Scenario Console</span>
+        <h1>导入事实，保留门禁，执行回写。</h1>
+        <p>入口页只消费稳定服务摘要。功能用例与抓包草稿都进入统一场景链路，审核确认和执行结果继续由服务层与 MySQL 事实源承担。</p>
+        <div class="hero-grid">
+            <div class="metric-grid">
+                <div class="metric"><span class="field-label">事实源</span><strong>MySQL</strong></div>
+                <div class="metric"><span class="field-label">导入路线</span><strong>CASE / HAR</strong></div>
+                <div class="metric"><span class="field-label">执行载体</span><strong>pytest</strong></div>
+            </div>
+            <div class="workflow">
+                <div class="step"><div class="step-index">01</div><div><strong>导入结构化事实</strong><p>支持功能测试用例 JSON 与抓包 HAR JSON 两条入口。</p></div></div>
+                <div class="step"><div class="step-index">02</div><div><strong>预览与审核确认</strong><p>查看步骤、问题清单和状态摘要，确认后再执行。</p></div></div>
+                <div class="step"><div class="step-index">03</div><div><strong>执行与结果回看</strong><p>统一显示统计摘要、报告路径和最新执行状态。</p></div></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="workspace">
+        <article class="panel">
+            <div class="panel-header">
+                <h2>数据导入</h2>
+                <p>把功能用例或抓包数据送入草稿链路。</p>
+            </div>
+            <div class="panel-body">
+                <section class="import-box" data-testid="functional-case-import">
+                    <span class="field-label">功能测试用例</span>
+                    <textarea id="functional-case-editor">{
+  "case_id": "fc-ui-demo-001",
+  "case_code": "ui_console_query_user_profile",
+  "case_name": "入口页示例：查询用户详情",
+  "steps": [
+    {
+      "step_name": "查询用户详情",
+      "operation_id": "operation-get-user",
+      "request": { "path_params": { "user_id": 1 } },
+      "expected": { "status_code": 200 }
+    }
+  ]
+}</textarea>
+                    <div class="button-row">
+                        <button class="button primary" id="import-functional-case-button">导入功能用例</button>
+                    </div>
+                </section>
+                <section class="import-box" data-testid="traffic-capture-import">
+                    <span class="field-label">抓包草稿</span>
+                    <input id="traffic-capture-name" value="入口页示例：登录后查询用户详情">
+                    <textarea id="traffic-capture-editor">{
+  "log": {
+    "entries": [
+      {
+        "startedDateTime": "2026-04-09T10:00:02.000Z",
+        "request": {
+          "method": "POST",
+          "url": "https://api.example.com/v1/login",
+          "headers": [{ "name": "Content-Type", "value": "application/json" }],
+          "postData": {
+            "mimeType": "application/json",
+            "text": "{\"username\":\"demo\",\"password\":\"demo\"}"
+          }
+        },
+        "response": {
+          "status": 200,
+          "content": {
+            "mimeType": "application/json",
+            "text": "{\"token\":\"token-001\",\"user_id\":7}"
+          }
+        }
+      },
+      {
+        "startedDateTime": "2026-04-09T10:00:03.000Z",
+        "request": {
+          "method": "GET",
+          "url": "https://api.example.com/v1/users/7?b=2&a=1",
+          "headers": [{ "name": "Authorization", "value": "Bearer token-001" }],
+          "queryString": [{ "name": "b", "value": "2" }, { "name": "a", "value": "1" }]
+        },
+        "response": {
+          "status": 200,
+          "content": {
+            "mimeType": "application/json",
+            "text": "{\"id\":7,\"name\":\"Alice\"}"
+          }
+        }
+      }
+    ]
+  }
+}</textarea>
+                    <div class="button-row">
+                        <button class="button secondary" id="import-traffic-capture-button">导入抓包草稿</button>
+                    </div>
+                </section>
+            </div>
+        </article>
+
+        <article class="panel">
+            <div class="panel-header">
+                <h2>场景队列</h2>
+                <p>展示最近更新的场景摘要。</p>
+            </div>
+            <div class="panel-body">
+                <div class="button-row"><button class="button secondary" id="refresh-list-button">刷新列表</button></div>
+                <div class="scenario-list" id="scenario-list"></div>
+            </div>
+        </article>
+
+        <article class="panel">
+            <div class="panel-header">
+                <h2>预览与结果</h2>
+                <p>查看步骤结构、问题清单和执行摘要。</p>
+            </div>
+            <div class="panel-body">
+                <section class="result-box" data-testid="scenario-preview">
+                    <div class="button-row">
+                        <button class="button secondary" id="approve-button">审核通过</button>
+                        <button class="button danger" id="reject-button">驳回</button>
+                        <button class="button primary" id="execute-button">触发执行</button>
+                    </div>
+                    <h3 id="preview-title">尚未选择场景</h3>
+                    <div class="summary-grid" id="summary-grid">
+                        <div class="summary-cell"><span class="summary-key">提示</span><span class="summary-value">请先导入或选择场景。</span></div>
+                    </div>
+                    <div class="stack" id="step-list"><div class="empty">当前没有步骤预览。</div></div>
+                    <div class="stack" id="issue-list"><div class="empty">当前没有问题清单。</div></div>
+                </section>
+
+                <section class="result-box" data-testid="execution-result">
+                    <div class="button-row"><button class="button secondary" id="refresh-result-button">刷新结果</button></div>
+                    <div id="result-panel"><div class="empty">等待场景执行后展示结果。</div></div>
+                </section>
+            </div>
+        </article>
+    </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+window.SCENARIO_ENDPOINTS = {
+    list: "/api/v2/scenarios/",
+    importFunctionalCase: "/api/v2/scenarios/import-functional-case/",
+    importTrafficCapture: "/api/v2/scenarios/import-traffic-capture/",
+    detail: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/"; },
+    review: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/review/"; },
+    execute: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/execute/"; },
+    result: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/result/"; }
+};
+
+(function () {
+    const api = window.SCENARIO_ENDPOINTS;
+    const state = { selectedScenarioId: null, scenarios: [] };
+    const toast = document.getElementById("toast");
+    const summaryGrid = document.getElementById("summary-grid");
+    const stepList = document.getElementById("step-list");
+    const issueList = document.getElementById("issue-list");
+    const resultPanel = document.getElementById("result-panel");
+    const previewTitle = document.getElementById("preview-title");
+    const scenarioList = document.getElementById("scenario-list");
+
+    function showToast(message, isError) {
+        toast.textContent = message;
+        toast.classList.add("show");
+        toast.classList.toggle("error", Boolean(isError));
+        window.clearTimeout(showToast.timer);
+        showToast.timer = window.setTimeout(function () { toast.classList.remove("show"); }, 2600);
+    }
+
+    function parseEditor(editorId, label) {
+        try { return JSON.parse(document.getElementById(editorId).value); }
+        catch (error) {
+            showToast(label + " 不是合法 JSON：" + error.message, true);
+            throw error;
+        }
+    }
+
+    async function request(url, options) {
+        const response = await fetch(url, Object.assign({
+            headers: { "Content-Type": "application/json" }
+        }, options || {}));
+        const payload = await response.json().catch(function () { return { success: false, error: { message: "服务返回不可解析内容。" } }; });
+        if (!response.ok || payload.success === false) {
+            throw new Error(payload && payload.error ? payload.error.message : "请求失败");
+        }
+        return payload.data;
+    }
+
+    function renderSummary(detail) {
+        summaryGrid.innerHTML = [
+            ["审核状态", detail.review_status],
+            ["执行状态", detail.execution_status],
+            ["步骤数量", String(detail.step_count)],
+            ["问题数量", String(detail.issue_count)]
+        ].map(function (item) {
+            return '<div class="summary-cell"><span class="summary-key">' + item[0] + '</span><span class="summary-value">' + item[1] + '</span></div>';
+        }).join("");
+    }
+
+    function renderScenarioList() {
+        if (!state.scenarios.length) {
+            scenarioList.innerHTML = '<div class="empty">当前还没有场景，请先导入。</div>';
+            return;
+        }
+        scenarioList.innerHTML = state.scenarios.map(function (item) {
+            const active = item.scenario_id === state.selectedScenarioId ? "active" : "";
+            return [
+                '<button class="scenario-button ' + active + '" data-scenario-id="' + item.scenario_id + '">',
+                '<strong>' + item.scenario_name + '</strong>',
+                '<div class="meta">',
+                '<span class="tag ' + item.review_status + '">' + item.review_status + '</span>',
+                '<span class="tag ' + item.execution_status + '">' + item.execution_status + '</span>',
+                '<span class="tag">steps ' + item.step_count + '</span>',
+                '<span class="tag">issues ' + item.issue_count + '</span>',
+                '</div>',
+                '</button>'
+            ].join("");
+        }).join("");
+        scenarioList.querySelectorAll("[data-scenario-id]").forEach(function (button) {
+            button.addEventListener("click", function () {
+                loadScenario(button.getAttribute("data-scenario-id"), false).catch(function (error) {
+                    showToast(error.message, true);
+                });
+            });
+        });
+    }
+
+    function renderDetails(detail) {
+        previewTitle.textContent = detail.scenario_name + " / " + detail.scenario_code;
+        renderSummary(detail);
+        stepList.innerHTML = detail.steps.length ? detail.steps.map(function (step) {
+            return '<div class="card"><strong>#' + step.step_order + " " + step.step_name + '</strong><pre>' + JSON.stringify(step, null, 2) + '</pre></div>';
+        }).join("") : '<div class="empty">当前没有步骤预览。</div>';
+        issueList.innerHTML = detail.issues.length ? detail.issues.map(function (issue) {
+            return '<div class="card"><strong>' + issue.issue_code + '</strong><p>' + issue.issue_message + '</p></div>';
+        }).join("") : '<div class="empty">当前没有问题清单。</div>';
+    }
+
+    function renderResult(result) {
+        resultPanel.innerHTML = [
+            '<div class="summary-grid">',
+            '<div class="summary-cell"><span class="summary-key">执行状态</span><span class="summary-value">' + result.execution_status + '</span></div>',
+            '<div class="summary-cell"><span class="summary-key">最新执行</span><span class="summary-value">' + (result.latest_execution_id || "未执行") + '</span></div>',
+            '<div class="summary-cell"><span class="summary-key">通过 / 失败 / 跳过</span><span class="summary-value">' + [result.passed_count, result.failed_count, result.skipped_count].join(" / ") + '</span></div>',
+            '<div class="summary-cell"><span class="summary-key">报告路径</span><span class="summary-value">' + (result.report_path || "暂无") + '</span></div>',
+            '</div>',
+            '<pre>' + JSON.stringify(result, null, 2) + '</pre>'
+        ].join("");
+    }
+
+    async function loadScenarioList(preferredScenarioId) {
+        state.scenarios = await request(api.list);
+        if (preferredScenarioId) {
+            state.selectedScenarioId = preferredScenarioId;
+        } else if (!state.selectedScenarioId && state.scenarios.length) {
+            state.selectedScenarioId = state.scenarios[0].scenario_id;
+        }
+        renderScenarioList();
+        if (state.selectedScenarioId) {
+            await loadScenario(state.selectedScenarioId, true);
+        }
+    }
+
+    async function loadScenario(scenarioId, keepList) {
+        state.selectedScenarioId = scenarioId;
+        if (!keepList) { renderScenarioList(); }
+        const detail = await request(api.detail(scenarioId));
+        const result = await request(api.result(scenarioId));
+        renderDetails(detail);
+        renderResult(result);
+    }
+
+    async function importFunctionalCase() {
+        const data = await request(api.importFunctionalCase, {
+            method: "POST",
+            body: JSON.stringify(parseEditor("functional-case-editor", "功能测试用例"))
+        });
+        showToast("功能测试用例已导入。");
+        await loadScenarioList(data.scenario_id);
+    }
+
+    async function importTrafficCapture() {
+        const data = await request(api.importTrafficCapture, {
+            method: "POST",
+            body: JSON.stringify({
+                capture_name: document.getElementById("traffic-capture-name").value || "抓包草稿",
+                capture_payload: parseEditor("traffic-capture-editor", "抓包数据")
+            })
+        });
+        showToast("抓包草稿已导入。");
+        await loadScenarioList(data.scenario_id);
+    }
+
+    async function reviewScenario(reviewStatus) {
+        if (!state.selectedScenarioId) { showToast("请先选择场景。", true); return; }
+        await request(api.review(state.selectedScenarioId), {
+            method: "POST",
+            body: JSON.stringify({
+                review_status: reviewStatus,
+                reviewer: "ui-workbench",
+                review_comment: reviewStatus === "approved" ? "入口页确认通过" : "入口页驳回"
+            })
+        });
+        showToast(reviewStatus === "approved" ? "场景已审核通过。" : "场景已驳回。");
+        await loadScenarioList(state.selectedScenarioId);
+    }
+
+    async function executeScenario() {
+        if (!state.selectedScenarioId) { showToast("请先选择场景。", true); return; }
+        await request(api.execute(state.selectedScenarioId), { method: "POST", body: JSON.stringify({}) });
+        showToast("已触发执行。");
+        await loadScenarioList(state.selectedScenarioId);
+    }
+
+    document.getElementById("import-functional-case-button").addEventListener("click", function () { importFunctionalCase().catch(function (error) { showToast(error.message, true); }); });
+    document.getElementById("import-traffic-capture-button").addEventListener("click", function () { importTrafficCapture().catch(function (error) { showToast(error.message, true); }); });
+    document.getElementById("refresh-list-button").addEventListener("click", function () { loadScenarioList(state.selectedScenarioId).catch(function (error) { showToast(error.message, true); }); });
+    document.getElementById("refresh-result-button").addEventListener("click", function () { if (!state.selectedScenarioId) { showToast("请先选择场景。", true); return; } loadScenario(state.selectedScenarioId, true).catch(function (error) { showToast(error.message, true); }); });
+    document.getElementById("approve-button").addEventListener("click", function () { reviewScenario("approved").catch(function (error) { showToast(error.message, true); }); });
+    document.getElementById("reject-button").addEventListener("click", function () { reviewScenario("rejected").catch(function (error) { showToast(error.message, true); }); });
+    document.getElementById("execute-button").addEventListener("click", function () { executeScenario().catch(function (error) { showToast(error.message, true); }); });
+
+    loadScenarioList().catch(function (error) { showToast(error.message, true); });
+}());
+</script>
+</body>
+</html>

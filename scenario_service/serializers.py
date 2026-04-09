@@ -18,6 +18,13 @@ class FunctionalCaseImportRequestSerializer(serializers.Serializer):
     cleanup_required = serializers.BooleanField(required=False)
 
 
+class TrafficCaptureImportRequestSerializer(serializers.Serializer):
+    """抓包导入请求校验器。"""
+
+    capture_name = serializers.CharField()
+    capture_payload = serializers.JSONField()
+
+
 class ScenarioReviewRequestSerializer(serializers.Serializer):
     """场景审核请求校验器。"""
 

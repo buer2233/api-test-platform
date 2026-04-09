@@ -343,7 +343,7 @@ class ScenarioLifecycleStatus(PlatformBaseModel):
 class ScenarioServiceSummary(PlatformBaseModel):
     """场景路线对外暴露的稳定服务摘要。"""
 
-    route_code: Literal["functional_case"]
+    route_code: Literal["functional_case", "traffic_capture"]
     service_stage: str
     scenario_id: str
     scenario_code: str

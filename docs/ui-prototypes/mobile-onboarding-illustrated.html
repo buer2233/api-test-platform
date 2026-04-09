@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>移动端引导页原型</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%2307111f'/%3E%3Cpath d='M19 44 29 18h6l10 26h-6l-2-5H27l-2 5Zm10-10h6l-3-9-3 9Z' fill='%237dd3fc'/%3E%3C/svg%3E" />
+  <style>
+    :root {
+      --bg: #07111f;
+      --bg-accent: #10233b;
+      --panel: rgba(10, 22, 39, 0.78);
+      --panel-strong: rgba(15, 29, 49, 0.94);
+      --line: rgba(144, 182, 231, 0.18);
+      --text: #f2f7ff;
+      --muted: #9db2cb;
+      --highlight: #7dd3fc;
+      --warm: #ffbf69;
+      --mint: #6ee7b7;
+      --rose: #fda4af;
+      --shadow: 0 28px 70px rgba(2, 8, 18, 0.55);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      overflow-x: hidden;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(125, 211, 252, 0.18), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(255, 191, 105, 0.12), transparent 28%),
+        linear-gradient(160deg, #06101c 0%, #091727 44%, #07111f 100%);
+      color: var(--text);
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      inset: auto;
+      border-radius: 999px;
+      filter: blur(12px);
+      opacity: 0.35;
+      pointer-events: none;
+    }
+
+    body::before {
+      width: 18rem;
+      height: 18rem;
+      top: 4rem;
+      left: -4rem;
+      background: rgba(125, 211, 252, 0.24);
+    }
+
+    body::after {
+      width: 16rem;
+      height: 16rem;
+      right: -3rem;
+      bottom: 5rem;
+      background: rgba(253, 164, 175, 0.18);
+    }
+
+    .stage {
+      width: min(100%, 76rem);
+      padding: 2rem 1.25rem;
+      display: grid;
+      gap: 1.5rem;
+      justify-items: center;
+    }
+
+    .title-block {
+      width: 100%;
+      max-width: 24rem;
+      text-align: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.42rem 0.8rem;
+      border: 1px solid rgba(125, 211, 252, 0.18);
+      border-radius: 999px;
+      background: rgba(125, 211, 252, 0.08);
+      color: var(--highlight);
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+    }
+
+    h1 {
+      margin: 1rem 0 0.7rem;
+      font-size: clamp(1.85rem, 6vw, 2.5rem);
+      line-height: 1.1;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.98rem;
+      line-height: 1.7;
+    }
+
+    .phone {
+      position: relative;
+      width: min(100%, 23rem);
+      padding: 0.9rem;
+      border-radius: 2.4rem;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .phone::before {
+      content: "";
+      position: absolute;
+      top: 0.8rem;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 7rem;
+      height: 0.55rem;
+      border-radius: 999px;
+      background: rgba(223, 234, 247, 0.18);
+    }
+
+    .screen {
+      min-height: 46rem;
+      border-radius: 1.9rem;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top, rgba(125, 211, 252, 0.12), transparent 34%),
+        linear-gradient(180deg, rgba(10, 23, 39, 0.92), rgba(7, 17, 31, 0.98));
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 1.5rem 1.15rem 1.25rem;
+      display: grid;
+      grid-template-rows: auto auto auto 1fr auto auto;
+      gap: 1rem;
+    }
+
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: rgba(242, 247, 255, 0.76);
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+    }
+
+    .signal {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .signal span {
+      display: inline-block;
+      border-radius: 999px;
+      background: rgba(242, 247, 255, 0.76);
+    }
+
+    .signal span:nth-child(1) { width: 0.3rem; height: 0.45rem; opacity: 0.5; }
+    .signal span:nth-child(2) { width: 0.3rem; height: 0.62rem; opacity: 0.7; }
+    .signal span:nth-child(3) { width: 0.3rem; height: 0.82rem; }
+    .signal span:nth-child(4) {
+      width: 1.35rem;
+      height: 0.62rem;
+      margin-left: 0.25rem;
+      background: transparent;
+      border: 1px solid rgba(242, 247, 255, 0.45);
+      position: relative;
+    }
+
+    .signal span:nth-child(4)::after {
+      content: "";
+      position: absolute;
+      inset: 0.08rem;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--mint), var(--highlight));
+    }
+
+    .hero-card,
+    .step-card,
+    .summary-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(18px);
+    }
+
+    .hero-card {
+      position: relative;
+      padding: 1.05rem;
+      border-radius: 1.6rem;
+      overflow: hidden;
+    }
+
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(135deg, rgba(125, 211, 252, 0.08), transparent 30%),
+        linear-gradient(300deg, rgba(255, 191, 105, 0.1), transparent 34%);
+      pointer-events: none;
+    }
+
+    .hero-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.9rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .brand-mark {
+      width: 2.25rem;
+      height: 2.25rem;
+      display: grid;
+      place-items: center;
+      border-radius: 0.95rem;
+      color: #06111d;
+      font-weight: 700;
+      background: linear-gradient(140deg, var(--highlight), #d0f3ff);
+    }
+
+    .badge {
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+      background: rgba(110, 231, 183, 0.12);
+      color: var(--mint);
+      font-size: 0.75rem;
+    }
+
+    .hero-copy h2 {
+      margin: 0 0 0.55rem;
+      font-size: 1.55rem;
+      line-height: 1.2;
+    }
+
+    .hero-copy p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.7;
+      max-width: 15rem;
+    }
+
+    .hero-illustration {
+      margin-top: 1rem;
+      border-radius: 1.25rem;
+      background: linear-gradient(180deg, rgba(5, 16, 30, 0.65), rgba(9, 22, 38, 0.2));
+      border: 1px solid rgba(136, 170, 214, 0.12);
+      padding: 0.8rem;
+    }
+
+    .progress-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.55rem;
+    }
+
+    .progress-item {
+      padding: 0.8rem 0.55rem;
+      border-radius: 1rem;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      text-align: center;
+    }
+
+    .progress-item strong {
+      display: block;
+      font-size: 0.95rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .progress-item span {
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .step-list {
+      display: grid;
+      gap: 0.8rem;
+    }
+
+    .step-card {
+      position: relative;
+      padding: 0.9rem 0.9rem 0.9rem 3.55rem;
+      border-radius: 1.3rem;
+    }
+
+    .step-index {
+      position: absolute;
+      left: 0.95rem;
+      top: 0.95rem;
+      width: 1.9rem;
+      height: 1.9rem;
+      display: grid;
+      place-items: center;
+      border-radius: 0.75rem;
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: #06111d;
+      background: linear-gradient(135deg, var(--warm), #ffe6c2);
+      box-shadow: 0 10px 24px rgba(255, 191, 105, 0.2);
+    }
+
+    .step-card:nth-child(2) .step-index {
+      background: linear-gradient(135deg, var(--highlight), #dff7ff);
+      box-shadow: 0 10px 24px rgba(125, 211, 252, 0.22);
+    }
+
+    .step-card:nth-child(3) .step-index {
+      background: linear-gradient(135deg, var(--rose), #ffd7de);
+      box-shadow: 0 10px 24px rgba(253, 164, 175, 0.2);
+    }
+
+    .step-card strong {
+      display: block;
+      margin-bottom: 0.35rem;
+      font-size: 0.98rem;
+    }
+
+    .step-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.6;
+    }
+
+    .mini-tags {
+      margin-top: 0.6rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .mini-tags span {
+      padding: 0.28rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      color: rgba(242, 247, 255, 0.8);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    .summary-card {
+      border-radius: 1.45rem;
+      padding: 0.95rem;
+    }
+
+    .summary-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+
+    .summary-title {
+      font-size: 0.95rem;
+    }
+
+    .summary-value {
+      color: var(--highlight);
+      font-size: 0.8rem;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.7rem;
+    }
+
+    .summary-box {
+      padding: 0.8rem;
+      border-radius: 1rem;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .summary-box strong {
+      display: block;
+      margin-bottom: 0.25rem;
+      font-size: 0.86rem;
+    }
+
+    .summary-box span {
+      color: var(--muted);
+      font-size: 0.75rem;
+      line-height: 1.5;
+    }
+
+    .cta-group {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .primary-button,
+    .ghost-button {
+      width: 100%;
+      border: 0;
+      border-radius: 1rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+    }
+
+    .primary-button {
+      padding: 1rem;
+      color: #07111f;
+      background: linear-gradient(135deg, var(--highlight), #dff6ff);
+      box-shadow: 0 18px 36px rgba(125, 211, 252, 0.22);
+    }
+
+    .ghost-button {
+      padding: 0.9rem;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .primary-button:hover,
+    .ghost-button:hover {
+      transform: translateY(-2px);
+    }
+
+    .pager {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+    }
+
+    .pager span {
+      width: 0.42rem;
+      height: 0.42rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .pager span.is-active {
+      width: 1.65rem;
+      background: linear-gradient(90deg, var(--highlight), var(--mint));
+    }
+
+    .canvas-note {
+      width: 100%;
+      max-width: 24rem;
+      color: rgba(157, 178, 203, 0.9);
+      font-size: 0.84rem;
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    @media (max-width: 420px) {
+      .stage {
+        padding-inline: 0.8rem;
+      }
+
+      .phone {
+        width: 100%;
+        border-radius: 2rem;
+        padding: 0.72rem;
+      }
+
+      .screen {
+        min-height: 43rem;
+        padding-inline: 0.95rem;
+      }
+
+      .hero-copy h2 {
+        font-size: 1.4rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <section class="title-block">
+      <div class="eyebrow">移动端引导页 · 插图风格 · 步骤式流程</div>
+      <h1>让新用户在 30 秒内完成首次上手</h1>
+      <p class="subtitle">
+        这个原型采用深色平台感底色，加入柔和插图块、步骤卡片和结果预告区，适合作为 App 首次启动引导页的视觉方向。
+      </p>
+    </section>
+
+    <section class="phone" aria-label="移动端引导页原型画布">
+      <div class="screen">
+        <div class="status-bar">
+          <span>9:41</span>
+          <div class="signal">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+
+        <section class="hero-card">
+          <div class="hero-top">
+            <div class="brand">
+              <div class="brand-mark">A</div>
+              <span>Atlas Flow</span>
+            </div>
+            <span class="badge">首次引导</span>
+          </div>
+
+          <div class="hero-copy">
+            <h2>把灵感、计划与执行节奏，整理进一条清晰路线。</h2>
+            <p>插图式引导不直接堆功能说明，而是先用轻量场景让用户理解这款 App 的工作方式。</p>
+          </div>
+
+          <div class="hero-illustration" aria-hidden="true">
+            <svg viewBox="0 0 300 180" width="100%" height="180" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="blobSky" x1="0%" x2="100%" y1="0%" y2="100%">
+                  <stop offset="0%" stop-color="#7dd3fc" stop-opacity="0.95"/>
+                  <stop offset="100%" stop-color="#93c5fd" stop-opacity="0.55"/>
+                </linearGradient>
+                <linearGradient id="blobWarm" x1="0%" x2="100%" y1="0%" y2="100%">
+                  <stop offset="0%" stop-color="#ffbf69" stop-opacity="0.9"/>
+                  <stop offset="100%" stop-color="#fb7185" stop-opacity="0.65"/>
+                </linearGradient>
+              </defs>
+              <rect x="12" y="18" width="276" height="144" rx="24" fill="rgba(7,17,31,0.42)" stroke="rgba(157,178,203,0.12)"/>
+              <circle cx="60" cy="42" r="24" fill="url(#blobSky)" opacity="0.75"/>
+              <path d="M194 18c26 0 48 20 48 46s-19 44-50 44-58-20-58-46 34-44 60-44Z" fill="url(#blobWarm)" opacity="0.72"/>
+              <path d="M64 134c18-42 44-62 76-62 26 0 42 12 62 40" fill="none" stroke="#dff7ff" stroke-opacity="0.6" stroke-width="7" stroke-linecap="round"/>
+              <path d="M82 140c12-16 26-24 42-24s30 8 44 24" fill="none" stroke="#7dd3fc" stroke-opacity="0.9" stroke-width="8" stroke-linecap="round"/>
+              <rect x="48" y="84" width="44" height="52" rx="18" fill="#0e2237" stroke="rgba(125,211,252,0.22)"/>
+              <rect x="104" y="62" width="44" height="74" rx="18" fill="#112942" stroke="rgba(255,191,105,0.22)"/>
+              <rect x="160" y="74" width="44" height="62" rx="18" fill="#10243a" stroke="rgba(253,164,175,0.22)"/>
+              <circle cx="70" cy="102" r="10" fill="#7dd3fc"/>
+              <circle cx="126" cy="88" r="10" fill="#ffbf69"/>
+              <circle cx="182" cy="96" r="10" fill="#fda4af"/>
+              <path d="M234 56h28" stroke="#dff7ff" stroke-opacity="0.42" stroke-width="6" stroke-linecap="round"/>
+              <path d="M224 84h38" stroke="#dff7ff" stroke-opacity="0.28" stroke-width="6" stroke-linecap="round"/>
+              <path d="M214 112h48" stroke="#dff7ff" stroke-opacity="0.18" stroke-width="6" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </section>
+
+        <section class="progress-strip" aria-label="引导价值概览">
+          <div class="progress-item">
+            <strong>3 步</strong>
+            <span>完成首次设置</span>
+          </div>
+          <div class="progress-item">
+            <strong>1 分钟</strong>
+            <span>建立初始偏好</span>
+          </div>
+          <div class="progress-item">
+            <strong>即刻</strong>
+            <span>进入核心页面</span>
+          </div>
+        </section>
+
+        <section class="step-list" aria-label="步骤式引导流程">
+          <article class="step-card">
+            <div class="step-index">01</div>
+            <strong>选择你的使用节奏</strong>
+            <p>先从晨间整理、目标推进、晚间复盘中选择一个起始场景，让引导内容更贴近用户真实使用方式。</p>
+            <div class="mini-tags">
+              <span>个性化起步</span>
+              <span>轻决策</span>
+            </div>
+          </article>
+
+          <article class="step-card">
+            <div class="step-index">02</div>
+            <strong>建立视觉化任务板</strong>
+            <p>用插图和色块先解释“板块”而不是“表单”，帮助用户理解任务、提醒和日程之间的关系。</p>
+            <div class="mini-tags">
+              <span>插图提示</span>
+              <span>结构预览</span>
+            </div>
+          </article>
+
+          <article class="step-card">
+            <div class="step-index">03</div>
+            <strong>生成你的第一份今日计划</strong>
+            <p>完成引导后直接落到可执行页面，不让用户停在说明里，而是立刻看到第一份可操作结果。</p>
+            <div class="mini-tags">
+              <span>立即可用</span>
+              <span>低跳失</span>
+            </div>
+          </article>
+        </section>
+
+        <section class="summary-card" aria-label="结果预告">
+          <div class="summary-top">
+            <strong class="summary-title">完成后你将获得</strong>
+            <span class="summary-value">预览态</span>
+          </div>
+          <div class="summary-grid">
+            <div class="summary-box">
+              <strong>专属仪表板</strong>
+              <span>自动整理今日任务与提醒优先级。</span>
+            </div>
+            <div class="summary-box">
+              <strong>习惯提醒</strong>
+              <span>按选择的节奏推送适配通知。</span>
+            </div>
+          </div>
+        </section>
+
+        <div class="cta-group">
+          <button class="primary-button" type="button">开始 3 步引导</button>
+          <button class="ghost-button" type="button">先看看核心页面</button>
+        </div>
+
+        <div class="pager" aria-label="分页指示">
+          <span class="is-active"></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+    </section>
+
+    <p class="canvas-note">
+      预览方式：直接在浏览器中打开本文件即可查看移动端画布。后续若要接入 React，可将 `hero-card`、`step-card`、`summary-card` 拆为独立组件。
+    </p>
+  </main>
+</body>
+</html>
