@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 
 from scenario_service.serializers import (
     FunctionalCaseImportRequestSerializer,
+    ScenarioListQuerySerializer,
     ScenarioRevisionRequestSerializer,
     ScenarioReviewRequestSerializer,
     TrafficCaptureImportRequestSerializer,
@@ -75,7 +76,9 @@ class ScenarioListView(APIView):
 
     def get(self, request):
         """处理场景列表查询。"""
-        return Response({"success": True, "data": SCENARIO_SERVICE.list_scenarios()})
+        serializer = ScenarioListQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        return Response({"success": True, "data": SCENARIO_SERVICE.list_scenarios(serializer.validated_data)})
 
 
 class ScenarioDetailView(APIView):

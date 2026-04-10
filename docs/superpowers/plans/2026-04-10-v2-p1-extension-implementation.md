@@ -64,7 +64,7 @@
 - Modify: `D:\AI\api-test-platform\scenario_service\services.py`
 - Modify: `D:\AI\api-test-platform\platform_core\models.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 """V2 P1 来源追溯与执行历史测试。"""
@@ -117,12 +117,12 @@ def test_import_and_repeated_execution_preserve_source_traces_and_history(tmp_pa
     assert result["execution_history"][0]["trigger_source"] == "manual"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `.venv_service\Scripts\python.exe -m pytest service_tests/test_traceability_history_flow.py::test_import_and_repeated_execution_preserve_source_traces_and_history -q`
 Expected: FAIL，报错点应落在 `source_traces`、`execution_history` 或新增字段缺失，证明现有持久化模型还不能承接这组事实。
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 class ScenarioSourceRecord(models.Model):
@@ -228,12 +228,12 @@ def _persist_source_traces(self, scenario: ScenarioRecord, draft: FunctionalCase
     ScenarioSourceRecord.objects.bulk_create(source_records)
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `.venv_service\Scripts\python.exe -m pytest service_tests/test_traceability_history_flow.py::test_import_and_repeated_execution_preserve_source_traces_and_history -q`
 Expected: PASS，且 `ScenarioSourceRecord`、扩展后的 `ScenarioExecutionRecord` 和服务返回历史结构已经可用。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add service_tests/test_traceability_history_flow.py scenario_service/models.py scenario_service/services.py scenario_service/migrations/0003_scenariosourcerecord_scenariosuggestionrecord_and_more.py platform_core/models.py
@@ -249,7 +249,7 @@ git commit -m "V2开发：补齐场景来源追溯与执行历史持久化基础
 - Modify: `D:\AI\api-test-platform\scenario_service\views.py`
 - Modify: `D:\AI\api-test-platform\service_tests\test_drf_contract.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 """V2 P1 查询契约增强测试。"""
@@ -305,12 +305,12 @@ def test_list_and_result_contract_support_filters_history_and_diff(tmp_path):
     assert "status_changed" in result_response.json()["data"]["latest_diff_summary"]
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `.venv_service\Scripts\python.exe -m pytest service_tests/test_scenario_query_contract.py::test_list_and_result_contract_support_filters_history_and_diff -q`
 Expected: FAIL，报错应集中在列表接口不接受筛选条件，或结果接口尚未返回 `execution_history` / `latest_diff_summary`。
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 class ScenarioListQuerySerializer(serializers.Serializer):
@@ -394,12 +394,12 @@ class ScenarioListView(APIView):
         return Response({"success": True, "data": SCENARIO_SERVICE.list_scenarios(serializer.validated_data)})
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `.venv_service\Scripts\python.exe -m pytest service_tests/test_scenario_query_contract.py::test_list_and_result_contract_support_filters_history_and_diff -q`
 Expected: PASS，且列表、详情、结果契约已能稳定返回来源聚合、问题列表、执行历史和最近差异摘要。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add service_tests/test_scenario_query_contract.py scenario_service/serializers.py scenario_service/services.py scenario_service/views.py service_tests/test_drf_contract.py

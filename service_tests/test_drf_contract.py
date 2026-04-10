@@ -38,6 +38,8 @@ def test_drf_contract_covers_import_detail_review_execute_and_result(tmp_path):
     detail_response = client.get(f"/api/v2/scenarios/{scenario_id}/")
     assert detail_response.status_code == 200
     assert detail_response.json()["data"]["scenario_id"] == scenario_id
+    assert detail_response.json()["data"]["source_summary"]["functional_case"] == 1
+    assert detail_response.json()["data"]["issue_codes"] == []
 
     review_response = client.post(
         f"/api/v2/scenarios/{scenario_id}/review/",
@@ -58,6 +60,8 @@ def test_drf_contract_covers_import_detail_review_execute_and_result(tmp_path):
     assert result_response.status_code == 200
     assert result_response.json()["data"]["review_status"] == "approved"
     assert "execution_status" in result_response.json()["data"]
+    assert len(result_response.json()["data"]["execution_history"]) == 1
+    assert "latest_diff_summary" in result_response.json()["data"]
 
 
 def test_result_summary_returns_report_path_and_statistics_after_execution(tmp_path):
@@ -122,6 +126,8 @@ def test_result_summary_returns_report_path_and_statistics_after_execution(tmp_p
     assert data["failed_count"] == 0
     assert data["skipped_count"] == 0
     assert data["report_path"]
+    assert len(data["execution_history"]) == 1
+    assert data["latest_diff_summary"]["status_changed"] is False
 
 
 def test_execute_endpoint_blocks_unapproved_scenario_with_structured_error():

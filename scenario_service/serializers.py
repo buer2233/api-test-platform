@@ -25,6 +25,29 @@ class TrafficCaptureImportRequestSerializer(serializers.Serializer):
     capture_payload = serializers.JSONField()
 
 
+class ScenarioListQuerySerializer(serializers.Serializer):
+    """场景列表筛选查询参数校验器。"""
+
+    source_type = serializers.ChoiceField(
+        choices=["functional_case", "traffic_capture", "ai_suggestion"],
+        required=False,
+    )
+    review_status = serializers.ChoiceField(
+        choices=["pending", "approved", "rejected", "revised"],
+        required=False,
+    )
+    execution_status = serializers.ChoiceField(
+        choices=["not_started", "running", "passed", "failed"],
+        required=False,
+    )
+    issue_code = serializers.CharField(required=False, allow_blank=True)
+    ordering = serializers.ChoiceField(
+        choices=["updated_desc", "updated_asc"],
+        required=False,
+        default="updated_desc",
+    )
+
+
 class ScenarioReviewRequestSerializer(serializers.Serializer):
     """场景审核请求校验器。"""
 

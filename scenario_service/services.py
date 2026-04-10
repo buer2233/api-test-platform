@@ -192,6 +192,70 @@ class FunctionalCaseScenarioService:
             for execution in scenario.executions.all().order_by("-created_at", "-id")
         ]
 
+    @staticmethod
+    def _build_source_summary(scenario: ScenarioRecord) -> dict[str, int]:
+        """按场景级来源记录构造来源类型聚合摘要。"""
+        source_summary: dict[str, int] = {}
+        for source in scenario.sources.all().order_by("id"):
+            if source.entity_type != "scenario":
+                continue
+            source_summary[source.source_type] = source_summary.get(source.source_type, 0) + 1
+        return source_summary
+
+    @staticmethod
+    def _build_issue_codes(scenario: ScenarioRecord) -> list[str]:
+        """提取场景当前聚合的问题编码列表。"""
+        issue_codes: list[str] = []
+        for issue in scenario.issues:
+            issue_code = issue.get("issue_code")
+            if not issue_code or issue_code in issue_codes:
+                continue
+            issue_codes.append(issue_code)
+        return issue_codes
+
+    @staticmethod
+    def _build_empty_diff_summary() -> dict:
+        """返回无历史对比时使用的默认差异摘要。"""
+        return {
+            "status_changed": False,
+            "passed_count_delta": 0,
+            "failed_count_delta": 0,
+            "skipped_count_delta": 0,
+            "failure_summary_changed": False,
+        }
+
+    @classmethod
+    def _build_execution_diff_summary(
+        cls,
+        *,
+        execution_status: str,
+        passed_count: int,
+        failed_count: int,
+        skipped_count: int,
+        failure_summary: str,
+        previous_execution: ScenarioExecutionRecord | None,
+    ) -> dict:
+        """构造当前执行与上一次执行之间的轻量差异摘要。"""
+        if previous_execution is None:
+            return cls._build_empty_diff_summary()
+        return {
+            "status_changed": execution_status != previous_execution.execution_status,
+            "passed_count_delta": passed_count - previous_execution.passed_count,
+            "failed_count_delta": failed_count - previous_execution.failed_count,
+            "skipped_count_delta": skipped_count - previous_execution.skipped_count,
+            "failure_summary_changed": failure_summary != (previous_execution.failure_summary or ""),
+        }
+
+    @classmethod
+    def _build_latest_diff_summary(cls, scenario: ScenarioRecord) -> dict:
+        """返回场景最近一次执行的差异摘要。"""
+        latest_execution = scenario.executions.first()
+        if latest_execution is None:
+            return cls._build_empty_diff_summary()
+        if latest_execution.diff_summary:
+            return latest_execution.diff_summary
+        return cls._build_empty_diff_summary()
+
     def get_scenario_detail(self, scenario_id: str) -> dict:
         """返回场景详情结构。"""
         scenario = self._get_scenario(scenario_id=scenario_id)
@@ -234,12 +298,38 @@ class FunctionalCaseScenarioService:
             "source_traces": self._build_source_traces(scenario),
         }
 
-    def list_scenarios(self) -> list[dict]:
-        """返回供入口页消费的场景摘要列表。"""
-        return [
-            self.build_scenario_summary(scenario)
-            for scenario in ScenarioRecord.objects.all().order_by("-updated_at", "-id")
-        ]
+    def list_scenarios(self, filters: dict | None = None) -> list[dict]:
+        """按筛选条件返回供入口页消费的场景摘要列表。"""
+        filters = filters or {}
+        queryset = ScenarioRecord.objects.all()
+
+        source_type = filters.get("source_type")
+        if source_type:
+            queryset = queryset.filter(sources__source_type=source_type).distinct()
+
+        review_status = filters.get("review_status")
+        if review_status:
+            queryset = queryset.filter(review_status=review_status)
+
+        execution_status = filters.get("execution_status")
+        if execution_status:
+            queryset = queryset.filter(execution_status=execution_status)
+
+        ordering = filters.get("ordering", "updated_desc")
+        if ordering == "updated_asc":
+            queryset = queryset.order_by("updated_at", "id")
+        else:
+            queryset = queryset.order_by("-updated_at", "-id")
+
+        scenarios = list(queryset)
+        issue_code = filters.get("issue_code")
+        if issue_code:
+            scenarios = [
+                scenario
+                for scenario in scenarios
+                if issue_code in self._build_issue_codes(scenario)
+            ]
+        return [self.build_scenario_summary(scenario) for scenario in scenarios]
 
     @transaction.atomic
     def review_scenario(
@@ -355,6 +445,16 @@ class FunctionalCaseScenarioService:
         failed_count = pipeline_result.execution_record.failed_count + pipeline_result.execution_record.error_count
         execution_status = "passed" if pipeline_result.execution_record.result_status == "passed" else "failed"
         execution_id = self._build_execution_id(pipeline_result.execution_record.execution_id)
+        previous_execution = scenario.executions.first()
+        failure_summary = pipeline_result.execution_record.error_summary or ""
+        diff_summary = self._build_execution_diff_summary(
+            execution_status=execution_status,
+            passed_count=pipeline_result.execution_record.passed_count,
+            failed_count=failed_count,
+            skipped_count=pipeline_result.execution_record.skipped_count,
+            failure_summary=failure_summary,
+            previous_execution=previous_execution,
+        )
         execution = ScenarioExecutionRecord.objects.create(
             scenario=scenario,
             execution_id=execution_id,
@@ -363,12 +463,12 @@ class FunctionalCaseScenarioService:
             failed_count=failed_count,
             skipped_count=pipeline_result.execution_record.skipped_count,
             report_path=pipeline_result.execution_record.report_path or "",
-            failure_summary=pipeline_result.execution_record.error_summary or "",
+            failure_summary=failure_summary,
             trigger_source="manual",
             based_on_revision_id=self._get_latest_revision_id(scenario),
             based_on_suggestion_id=None,
             change_summary={},
-            diff_summary={},
+            diff_summary=diff_summary,
         )
         scenario.latest_execution_id = execution.execution_id
         scenario.execution_status = execution.execution_status
@@ -417,6 +517,7 @@ class FunctionalCaseScenarioService:
             "report_path": execution.report_path if execution and execution.report_path else scenario.report_path,
             "failure_summary": execution.failure_summary if execution else "",
             "execution_history": execution_history,
+            "latest_diff_summary": self._build_latest_diff_summary(scenario),
         }
 
     def build_scenario_summary(self, scenario: ScenarioRecord) -> dict:
@@ -436,6 +537,9 @@ class FunctionalCaseScenarioService:
             "passed_count": scenario.passed_count,
             "failed_count": scenario.failed_count,
             "skipped_count": scenario.skipped_count,
+            "source_summary": self._build_source_summary(scenario),
+            "issue_codes": self._build_issue_codes(scenario),
+            "latest_diff_summary": self._build_latest_diff_summary(scenario),
         }
 
     @staticmethod
