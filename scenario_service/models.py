@@ -105,6 +105,26 @@ class ScenarioSourceRecord(models.Model):
         ordering = ["id"]
 
 
+class ScenarioSuggestionRecord(models.Model):
+    """场景建议记录。"""
+
+    scenario = models.ForeignKey(ScenarioRecord, related_name="suggestions", on_delete=models.CASCADE)
+    suggestion_id = models.CharField(max_length=128, unique=True)
+    suggestion_type = models.CharField(max_length=64)
+    target_type = models.CharField(max_length=32)
+    target_id = models.CharField(max_length=128, blank=True, default="")
+    baseline_revision_id = models.CharField(max_length=128, blank=True, default="")
+    patch_payload = models.JSONField(default=dict)
+    diff_summary = models.JSONField(default=dict)
+    confidence = models.CharField(max_length=16, default="medium")
+    apply_status = models.CharField(max_length=32, default="pending")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+
 class ScenarioExecutionRecord(models.Model):
     """场景执行请求与结果记录。"""
 

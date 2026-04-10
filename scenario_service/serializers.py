@@ -48,6 +48,22 @@ class ScenarioListQuerySerializer(serializers.Serializer):
     )
 
 
+class ScenarioSuggestionRequestSerializer(serializers.Serializer):
+    """建议创建请求校验器。"""
+
+    requester = serializers.CharField()
+    suggestion_type = serializers.ChoiceField(
+        choices=["assertion_completion", "low_confidence_repair", "step_patch"],
+    )
+
+
+class ScenarioSuggestionApplyRequestSerializer(serializers.Serializer):
+    """建议采纳请求校验器。"""
+
+    reviser = serializers.CharField()
+    revision_comment = serializers.CharField(required=False, allow_blank=True)
+
+
 class ScenarioReviewRequestSerializer(serializers.Serializer):
     """场景审核请求校验器。"""
 

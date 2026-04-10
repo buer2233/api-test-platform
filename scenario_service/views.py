@@ -12,6 +12,8 @@ from scenario_service.serializers import (
     ScenarioListQuerySerializer,
     ScenarioRevisionRequestSerializer,
     ScenarioReviewRequestSerializer,
+    ScenarioSuggestionApplyRequestSerializer,
+    ScenarioSuggestionRequestSerializer,
     TrafficCaptureImportRequestSerializer,
 )
 from scenario_service.services import FunctionalCaseScenarioService, ScenarioServiceError
@@ -175,6 +177,51 @@ class ScenarioResultView(APIView):
         """处理结果查询请求。"""
         try:
             result = SCENARIO_SERVICE.get_scenario_result(scenario_id=scenario_id)
+        except ScenarioServiceError as error:
+            return build_error_response(error)
+        return Response({"success": True, "data": result})
+
+
+class ScenarioSuggestionListView(APIView):
+    """处理场景建议的查询与创建请求。"""
+
+    def get(self, request, scenario_id: str):
+        """返回指定场景的建议列表。"""
+        try:
+            suggestions = SCENARIO_SERVICE.list_suggestions(scenario_id=scenario_id)
+        except ScenarioServiceError as error:
+            return build_error_response(error)
+        return Response({"success": True, "data": suggestions})
+
+    def post(self, request, scenario_id: str):
+        """生成指定场景的建议记录。"""
+        serializer = ScenarioSuggestionRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            suggestions = SCENARIO_SERVICE.create_suggestions(
+                scenario_id=scenario_id,
+                requester=serializer.validated_data["requester"],
+                suggestion_type=serializer.validated_data["suggestion_type"],
+            )
+        except ScenarioServiceError as error:
+            return build_error_response(error)
+        return Response({"success": True, "data": suggestions}, status=status.HTTP_201_CREATED)
+
+
+class ScenarioSuggestionApplyView(APIView):
+    """处理场景建议采纳请求。"""
+
+    def post(self, request, scenario_id: str, suggestion_id: str):
+        """采纳建议并生成标准修订记录。"""
+        serializer = ScenarioSuggestionApplyRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            result = SCENARIO_SERVICE.apply_suggestion(
+                scenario_id=scenario_id,
+                suggestion_id=suggestion_id,
+                reviser=serializer.validated_data["reviser"],
+                revision_comment=serializer.validated_data.get("revision_comment", ""),
+            )
         except ScenarioServiceError as error:
             return build_error_response(error)
         return Response({"success": True, "data": result})

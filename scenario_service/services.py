@@ -19,8 +19,10 @@ from scenario_service.models import (
     ScenarioRevisionRecord,
     ScenarioReviewRecord,
     ScenarioSourceRecord,
+    ScenarioSuggestionRecord,
     ScenarioStepRecord,
 )
+from scenario_service.suggestion_providers import BaseSuggestionProvider, RuleBasedSuggestionProvider
 
 
 class ScenarioServiceError(Exception):
@@ -43,12 +45,14 @@ class FunctionalCaseScenarioService:
         traffic_capture_parser: TrafficCaptureDraftParser | None = None,
         application_service: PlatformApplicationService | None = None,
         scenario_execution_pipeline: ScenarioExecutionPipeline | None = None,
+        suggestion_provider: BaseSuggestionProvider | None = None,
     ) -> None:
         """装配解析器与状态校验能力。"""
         self.parser = parser or FunctionalCaseDraftParser()
         self.traffic_capture_parser = traffic_capture_parser or TrafficCaptureDraftParser()
         self.application_service = application_service or PlatformApplicationService()
         self.scenario_execution_pipeline = scenario_execution_pipeline or ScenarioExecutionPipeline()
+        self.suggestion_provider = suggestion_provider or RuleBasedSuggestionProvider()
 
     @transaction.atomic
     def import_functional_case(self, payload: dict) -> ScenarioRecord:
@@ -197,6 +201,25 @@ class FunctionalCaseScenarioService:
         ]
 
     @staticmethod
+    def _build_suggestion_records(scenario: ScenarioRecord) -> list[dict]:
+        """构造场景详情和建议查询使用的建议记录摘要。"""
+        return [
+            {
+                "suggestion_id": suggestion.suggestion_id,
+                "suggestion_type": suggestion.suggestion_type,
+                "target_type": suggestion.target_type,
+                "target_id": suggestion.target_id,
+                "baseline_revision_id": suggestion.baseline_revision_id,
+                "patch_payload": suggestion.patch_payload,
+                "diff_summary": suggestion.diff_summary,
+                "confidence": suggestion.confidence,
+                "apply_status": suggestion.apply_status,
+                "created_at": suggestion.created_at.isoformat(),
+            }
+            for suggestion in scenario.suggestions.all().order_by("-created_at", "-id")
+        ]
+
+    @staticmethod
     def _build_source_summary(scenario: ScenarioRecord) -> dict[str, int]:
         """按场景级来源记录构造来源类型聚合摘要。"""
         source_summary: dict[str, int] = {}
@@ -299,6 +322,7 @@ class FunctionalCaseScenarioService:
                 }
                 for revision in scenario.revisions.all().order_by("revised_at", "id")
             ],
+            "suggestions": self._build_suggestion_records(scenario),
             "source_traces": self._build_source_traces(scenario),
         }
 
@@ -334,6 +358,44 @@ class FunctionalCaseScenarioService:
                 if issue_code in self._build_issue_codes(scenario)
             ]
         return [self.build_scenario_summary(scenario) for scenario in scenarios]
+
+    @transaction.atomic
+    def create_suggestions(self, scenario_id: str, requester: str, suggestion_type: str) -> list[dict]:
+        """为指定场景生成并持久化建议记录。"""
+        scenario = self._get_scenario(scenario_id=scenario_id)
+        suggestion_payloads = self.suggestion_provider.generate(scenario, suggestion_type)
+        if not suggestion_payloads:
+            raise ScenarioServiceError(
+                code="scenario_suggestion_empty",
+                message="当前场景暂无可生成的建议。",
+                status_code=400,
+            )
+
+        baseline_revision_id = self._get_latest_revision_id(scenario) or ""
+        records = [
+            ScenarioSuggestionRecord.objects.create(
+                scenario=scenario,
+                suggestion_id=f"suggestion-{uuid4().hex[:12]}",
+                suggestion_type=suggestion_type,
+                target_type=payload["target_type"],
+                target_id=payload.get("target_id", ""),
+                baseline_revision_id=baseline_revision_id,
+                patch_payload=payload["patch_payload"],
+                diff_summary={
+                    **payload.get("diff_summary", {}),
+                    "requester": requester,
+                },
+                confidence=payload.get("confidence", "medium"),
+                apply_status="pending",
+            )
+            for payload in suggestion_payloads
+        ]
+        return self._build_suggestion_records(scenario)
+
+    def list_suggestions(self, scenario_id: str) -> list[dict]:
+        """返回指定场景的建议记录列表。"""
+        scenario = self._get_scenario(scenario_id=scenario_id)
+        return self._build_suggestion_records(scenario)
 
     @transaction.atomic
     def review_scenario(
@@ -390,33 +452,61 @@ class FunctionalCaseScenarioService:
                 message="执行中的场景禁止进入结构化修订。",
                 status_code=400,
             )
-
-        applied_changes = self._apply_scenario_patch(scenario=scenario, scenario_patch=scenario_patch)
-        scenario.review_status = "revised"
-        scenario.current_stage = self._derive_stage(
-            review_status=scenario.review_status,
-            execution_status=scenario.execution_status,
-        )
-        scenario.save(update_fields=["review_status", "current_stage", "updated_at"])
-        ScenarioRevisionRecord.objects.create(
+        return self._apply_revision_patch(
             scenario=scenario,
-            revision_id=f"revision-{uuid4().hex[:12]}",
             reviser=reviser,
             revision_comment=revision_comment or "",
-            applied_changes=applied_changes,
-            revised_at=datetime.now(UTC),
-            metadata={},
+            scenario_patch=scenario_patch,
+            suggestion_id=None,
         )
-        ScenarioReviewRecord.objects.create(
+
+    @transaction.atomic
+    def apply_suggestion(
+        self,
+        scenario_id: str,
+        suggestion_id: str,
+        reviser: str,
+        revision_comment: str | None = None,
+    ) -> dict:
+        """采纳建议并转成标准修订记录。"""
+        scenario = self._get_scenario(scenario_id=scenario_id)
+        if scenario.execution_status == "running":
+            raise ScenarioServiceError(
+                code="scenario_running_cannot_apply_suggestion",
+                message="执行中的场景禁止采纳建议。",
+                status_code=400,
+            )
+        try:
+            suggestion = scenario.suggestions.get(suggestion_id=suggestion_id)
+        except ScenarioSuggestionRecord.DoesNotExist as error:
+            raise ScenarioServiceError(
+                code="scenario_suggestion_not_found",
+                message=f"未找到建议: {suggestion_id}",
+                status_code=404,
+            ) from error
+
+        if suggestion.apply_status == "applied":
+            raise ScenarioServiceError(
+                code="scenario_suggestion_already_applied",
+                message="该建议已采纳，无需重复处理。",
+                status_code=400,
+            )
+
+        patched_scenario = self._apply_revision_patch(
             scenario=scenario,
-            review_id=f"review-{uuid4().hex[:12]}",
-            reviewer=reviser,
-            review_comment=revision_comment or "",
-            review_status="revised",
-            reviewed_at=datetime.now(UTC),
-            metadata={"applied_changes": applied_changes},
+            reviser=reviser,
+            revision_comment=revision_comment or "采纳建议",
+            scenario_patch=suggestion.patch_payload,
+            suggestion_id=suggestion.suggestion_id,
         )
-        return scenario
+        latest_revision = patched_scenario.revisions.order_by("-revised_at", "-id").first()
+        suggestion.apply_status = "applied"
+        suggestion.save(update_fields=["apply_status", "updated_at"])
+        return {
+            "suggestion_id": suggestion.suggestion_id,
+            "apply_status": suggestion.apply_status,
+            "revision_id": latest_revision.revision_id if latest_revision else "",
+        }
 
     @transaction.atomic
     def request_execution(
@@ -470,7 +560,7 @@ class FunctionalCaseScenarioService:
             failure_summary=failure_summary,
             trigger_source="manual",
             based_on_revision_id=self._get_latest_revision_id(scenario),
-            based_on_suggestion_id=None,
+            based_on_suggestion_id=self._get_latest_applied_suggestion_id(scenario),
             change_summary={},
             diff_summary=diff_summary,
         )
@@ -591,6 +681,55 @@ class FunctionalCaseScenarioService:
         """获取当前场景最近一次修订标识。"""
         latest_revision = scenario.revisions.order_by("-revised_at", "-id").first()
         return latest_revision.revision_id if latest_revision else None
+
+    @staticmethod
+    def _get_latest_applied_suggestion_id(scenario: ScenarioRecord) -> str | None:
+        """获取当前场景最近一次已采纳建议标识。"""
+        latest_suggestion = scenario.suggestions.filter(apply_status="applied").order_by("-updated_at", "-id").first()
+        return latest_suggestion.suggestion_id if latest_suggestion else None
+
+    def _apply_revision_patch(
+        self,
+        scenario: ScenarioRecord,
+        reviser: str,
+        revision_comment: str,
+        scenario_patch: dict,
+        suggestion_id: str | None,
+    ) -> ScenarioRecord:
+        """应用修订补丁并写入标准修订/审核留痕。"""
+        applied_changes = self._apply_scenario_patch(scenario=scenario, scenario_patch=scenario_patch)
+        scenario.review_status = "revised"
+        scenario.current_stage = self._derive_stage(
+            review_status=scenario.review_status,
+            execution_status=scenario.execution_status,
+        )
+        scenario.save(update_fields=["review_status", "current_stage", "updated_at"])
+        revision_metadata = {}
+        if suggestion_id:
+            revision_metadata["suggestion_id"] = suggestion_id
+        revision_record = ScenarioRevisionRecord.objects.create(
+            scenario=scenario,
+            revision_id=f"revision-{uuid4().hex[:12]}",
+            reviser=reviser,
+            revision_comment=revision_comment,
+            applied_changes=applied_changes,
+            revised_at=datetime.now(UTC),
+            metadata=revision_metadata,
+        )
+        ScenarioReviewRecord.objects.create(
+            scenario=scenario,
+            review_id=f"review-{uuid4().hex[:12]}",
+            reviewer=reviser,
+            review_comment=revision_comment,
+            review_status="revised",
+            reviewed_at=datetime.now(UTC),
+            metadata={
+                "applied_changes": applied_changes,
+                "suggestion_id": suggestion_id,
+                "revision_id": revision_record.revision_id,
+            },
+        )
+        return scenario
 
     def _apply_scenario_patch(self, scenario: ScenarioRecord, scenario_patch: dict) -> dict:
         """把结构化修订补丁应用到场景与步骤持久化对象。"""

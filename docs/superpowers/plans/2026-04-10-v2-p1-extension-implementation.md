@@ -635,7 +635,7 @@ git commit -m "V2开发：增强抓包低置信问题分类与来源元数据"
 - Modify: `D:\AI\api-test-platform\scenario_service\views.py`
 - Modify: `D:\AI\api-test-platform\scenario_service\urls.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 """V2 P1 场景建议治理测试。"""
@@ -692,12 +692,12 @@ def test_suggestion_creation_and_apply_flow_requires_revision_record():
     assert apply_response.json()["data"]["revision_id"].startswith("revision-")
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `.venv_service\Scripts\python.exe -m pytest service_tests/test_scenario_suggestions.py::test_suggestion_creation_and_apply_flow_requires_revision_record -q`
 Expected: FAIL，报错应集中在建议接口不存在、建议模型缺失，或采纳建议后没有生成 `ScenarioRevisionRecord`。
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 class BaseSuggestionProvider:
@@ -795,7 +795,7 @@ def apply_suggestion(
     }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `.venv_service\Scripts\python.exe -m pytest service_tests/test_scenario_suggestions.py::test_suggestion_creation_and_apply_flow_requires_revision_record -q`
 Expected: PASS，且建议创建、查询、采纳、转修订的治理链路已经建立。

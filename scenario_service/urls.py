@@ -12,6 +12,8 @@ from scenario_service.views import (
     ScenarioRevisionView,
     ScenarioResultView,
     ScenarioReviewView,
+    ScenarioSuggestionApplyView,
+    ScenarioSuggestionListView,
     TrafficCaptureImportView,
 )
 
@@ -25,4 +27,10 @@ urlpatterns = [
     path("<str:scenario_id>/revise/", ScenarioRevisionView.as_view(), name="scenario-revise"),
     path("<str:scenario_id>/execute/", ScenarioExecuteView.as_view(), name="scenario-execute"),
     path("<str:scenario_id>/result/", ScenarioResultView.as_view(), name="scenario-result"),
+    path("<str:scenario_id>/suggestions/", ScenarioSuggestionListView.as_view(), name="scenario-suggestion-list"),
+    path(
+        "<str:scenario_id>/suggestions/<str:suggestion_id>/apply/",
+        ScenarioSuggestionApplyView.as_view(),
+        name="scenario-suggestion-apply",
+    ),
 ]

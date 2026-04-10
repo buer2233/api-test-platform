@@ -38,6 +38,7 @@
 - `scenario_service_scenarioreviewrecord`
 - `scenario_service_scenariorevisionrecord`
 - `scenario_service_scenariosourcerecord`
+- `scenario_service_scenariosuggestionrecord`
 - `scenario_service_scenariosteprecord`
 
 ---
@@ -45,4 +46,5 @@
 - 当前数据库为本地开发与测试使用的 MySQL 实例。
 - 当前表结构主要来自 Django 内置认证/会话表，以及 `scenario_service` 场景服务相关业务表。
 - 2026-04-10 已新增 `scenario_service_scenariosourcerecord`，用于承接场景与步骤的来源追溯事实。
+- 2026-04-10 已新增 `scenario_service_scenariosuggestionrecord`，用于承接 AI/规则建议记录与采纳治理留痕。
 - 如后续执行新的 Django migration，本文件中的表清单需要同步更新。
