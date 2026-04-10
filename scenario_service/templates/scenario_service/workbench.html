@@ -239,7 +239,23 @@
                 <p>展示最近更新的场景摘要。</p>
             </div>
             <div class="panel-body">
-                <div class="button-row"><button class="button secondary" id="refresh-list-button">刷新列表</button></div>
+                <section class="result-box" data-testid="scenario-filter-panel">
+                    <span class="field-label">场景筛选</span>
+                    <div class="summary-grid">
+                        <div class="summary-cell">
+                            <span class="summary-key">来源类型</span>
+                            <input id="filter-source-type" name="source_type" placeholder="functional_case / traffic_capture">
+                        </div>
+                        <div class="summary-cell">
+                            <span class="summary-key">问题标签</span>
+                            <input id="filter-issue-code" name="issue_code" placeholder="capture_operation_needs_review">
+                        </div>
+                    </div>
+                    <div class="button-row">
+                        <button class="button secondary" id="apply-filter-button">应用筛选</button>
+                        <button class="button secondary" id="refresh-list-button">刷新列表</button>
+                    </div>
+                </section>
                 <div class="scenario-list" id="scenario-list"></div>
             </div>
         </article>
@@ -268,6 +284,24 @@
                     <div class="button-row"><button class="button secondary" id="refresh-result-button">刷新结果</button></div>
                     <div id="result-panel"><div class="empty">等待场景执行后展示结果。</div></div>
                 </section>
+
+                <section class="result-box" data-testid="execution-history-panel">
+                    <span class="field-label">执行历史</span>
+                    <div id="execution-history-list"><div class="empty">等待加载历史记录。</div></div>
+                </section>
+
+                <section class="result-box" data-testid="diff-summary-panel">
+                    <span class="field-label">最近差异</span>
+                    <div id="diff-summary"><div class="empty">等待加载差异摘要。</div></div>
+                </section>
+
+                <section class="result-box" data-testid="suggestion-panel">
+                    <span class="field-label">建议与修订</span>
+                    <div class="button-row">
+                        <button class="button secondary" id="load-suggestions-button">查看 AI 建议</button>
+                    </div>
+                    <div id="suggestion-list"><div class="empty">等待加载建议记录。</div></div>
+                </section>
             </div>
         </article>
     </section>
@@ -283,7 +317,8 @@ window.SCENARIO_ENDPOINTS = {
     detail: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/"; },
     review: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/review/"; },
     execute: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/execute/"; },
-    result: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/result/"; }
+    result: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/result/"; },
+    suggestions: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/suggestions/"; }
 };
 
 (function () {
@@ -294,8 +329,13 @@ window.SCENARIO_ENDPOINTS = {
     const stepList = document.getElementById("step-list");
     const issueList = document.getElementById("issue-list");
     const resultPanel = document.getElementById("result-panel");
+    const executionHistoryList = document.getElementById("execution-history-list");
+    const diffSummary = document.getElementById("diff-summary");
+    const suggestionList = document.getElementById("suggestion-list");
     const previewTitle = document.getElementById("preview-title");
     const scenarioList = document.getElementById("scenario-list");
+    const filterSourceType = document.getElementById("filter-source-type");
+    const filterIssueCode = document.getElementById("filter-issue-code");
 
     function showToast(message, isError) {
         toast.textContent = message;
@@ -372,6 +412,7 @@ window.SCENARIO_ENDPOINTS = {
         issueList.innerHTML = detail.issues.length ? detail.issues.map(function (issue) {
             return '<div class="card"><strong>' + issue.issue_code + '</strong><p>' + issue.issue_message + '</p></div>';
         }).join("") : '<div class="empty">当前没有问题清单。</div>';
+        renderSuggestions(detail.suggestions || []);
     }
 
     function renderResult(result) {
@@ -384,18 +425,55 @@ window.SCENARIO_ENDPOINTS = {
             '</div>',
             '<pre>' + JSON.stringify(result, null, 2) + '</pre>'
         ].join("");
+        renderExecutionHistory(result.execution_history || []);
+        renderDiffSummary(result.latest_diff_summary || {});
+    }
+
+    function renderExecutionHistory(history) {
+        executionHistoryList.innerHTML = history.length ? history.map(function (item) {
+            return '<div class="card"><strong>' + item.execution_id + '</strong><pre>' + JSON.stringify(item, null, 2) + '</pre></div>';
+        }).join("") : '<div class="empty">等待加载历史记录。</div>';
+    }
+
+    function renderDiffSummary(diff) {
+        diffSummary.innerHTML = Object.keys(diff).length
+            ? '<pre>' + JSON.stringify(diff, null, 2) + '</pre>'
+            : '<div class="empty">等待加载差异摘要。</div>';
+    }
+
+    function renderSuggestions(suggestions) {
+        suggestionList.innerHTML = suggestions.length ? suggestions.map(function (item) {
+            return '<div class="card"><strong>' + item.suggestion_id + '</strong><pre>' + JSON.stringify(item, null, 2) + '</pre></div>';
+        }).join("") : '<div class="empty">等待加载建议记录。</div>';
+    }
+
+    function buildListQuery() {
+        const params = new URLSearchParams();
+        if (filterSourceType.value) { params.set("source_type", filterSourceType.value); }
+        if (filterIssueCode.value) { params.set("issue_code", filterIssueCode.value); }
+        return params.toString();
     }
 
     async function loadScenarioList(preferredScenarioId) {
-        state.scenarios = await request(api.list);
+        const query = buildListQuery();
+        state.scenarios = await request(query ? api.list + "?" + query : api.list);
         if (preferredScenarioId) {
             state.selectedScenarioId = preferredScenarioId;
+        } else if (state.selectedScenarioId && !state.scenarios.some(function (item) { return item.scenario_id === state.selectedScenarioId; })) {
+            state.selectedScenarioId = null;
         } else if (!state.selectedScenarioId && state.scenarios.length) {
             state.selectedScenarioId = state.scenarios[0].scenario_id;
         }
         renderScenarioList();
         if (state.selectedScenarioId) {
             await loadScenario(state.selectedScenarioId, true);
+        } else {
+            previewTitle.textContent = "尚未选择场景";
+            summaryGrid.innerHTML = '<div class="summary-cell"><span class="summary-key">提示</span><span class="summary-value">请先导入或调整筛选条件。</span></div>';
+            stepList.innerHTML = '<div class="empty">当前没有步骤预览。</div>';
+            issueList.innerHTML = '<div class="empty">当前没有问题清单。</div>';
+            renderResult({});
+            renderSuggestions([]);
         }
     }
 
@@ -406,6 +484,13 @@ window.SCENARIO_ENDPOINTS = {
         const result = await request(api.result(scenarioId));
         renderDetails(detail);
         renderResult(result);
+    }
+
+    async function loadSuggestions() {
+        if (!state.selectedScenarioId) { showToast("请先选择场景。", true); return; }
+        const suggestions = await request(api.suggestions(state.selectedScenarioId));
+        renderSuggestions(suggestions);
+        showToast("建议记录已刷新。");
     }
 
     async function importFunctionalCase() {
@@ -452,8 +537,10 @@ window.SCENARIO_ENDPOINTS = {
 
     document.getElementById("import-functional-case-button").addEventListener("click", function () { importFunctionalCase().catch(function (error) { showToast(error.message, true); }); });
     document.getElementById("import-traffic-capture-button").addEventListener("click", function () { importTrafficCapture().catch(function (error) { showToast(error.message, true); }); });
+    document.getElementById("apply-filter-button").addEventListener("click", function () { loadScenarioList(null).catch(function (error) { showToast(error.message, true); }); });
     document.getElementById("refresh-list-button").addEventListener("click", function () { loadScenarioList(state.selectedScenarioId).catch(function (error) { showToast(error.message, true); }); });
     document.getElementById("refresh-result-button").addEventListener("click", function () { if (!state.selectedScenarioId) { showToast("请先选择场景。", true); return; } loadScenario(state.selectedScenarioId, true).catch(function (error) { showToast(error.message, true); }); });
+    document.getElementById("load-suggestions-button").addEventListener("click", function () { loadSuggestions().catch(function (error) { showToast(error.message, true); }); });
     document.getElementById("approve-button").addEventListener("click", function () { reviewScenario("approved").catch(function (error) { showToast(error.message, true); }); });
     document.getElementById("reject-button").addEventListener("click", function () { reviewScenario("rejected").catch(function (error) { showToast(error.message, true); }); });
     document.getElementById("execute-button").addEventListener("click", function () { executeScenario().catch(function (error) { showToast(error.message, true); }); });

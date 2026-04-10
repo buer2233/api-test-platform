@@ -816,7 +816,7 @@ git commit -m "V2开发：接入场景建议对象与采纳转修订治理链路
 - Modify: `D:\AI\api-test-platform\product_document\测试文档\详细测试用例说明书(V2).md`
 - Modify: `D:\AI\api-test-platform\README.md`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 """V2 P1 工作台增强测试。"""
@@ -846,12 +846,12 @@ def test_workbench_renders_filter_history_diff_and_suggestion_regions():
     assert "issue_code" in content
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `.venv_service\Scripts\python.exe -m pytest service_tests/test_workbench_ui.py::test_workbench_renders_filter_history_diff_and_suggestion_regions -q`
 Expected: FAIL，因为当前工作台还没有筛选、历史、差异和建议区域。
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```html
 <section class="result-box" data-testid="scenario-filter-panel">
@@ -895,7 +895,7 @@ Expected: FAIL，因为当前工作台还没有筛选、历史、差异和建议
 - 场景结果摘要模板、场景列表筛选和差异检查服务增强验证：已完成并通过自动化回归。
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `.venv_service\Scripts\python.exe -m pytest service_tests/test_workbench_ui.py -q && .venv_service\Scripts\python.exe -m pytest service_tests/test_drf_contract.py service_tests/test_scenario_query_contract.py service_tests/test_scenario_suggestions.py service_tests/test_traceability_history_flow.py tests/platform_core/test_traffic_capture_traceability.py -q`
 Expected: PASS，且工作台结构、DRF 契约、建议治理、来源追溯和抓包质量分类均通过回归。

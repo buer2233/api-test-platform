@@ -108,7 +108,7 @@
     - `execution_status=passed`
     - `revision_count=1`
 
-当前已启动的 V2 P1 扩展轮 Task 1/Task 2/Task 3/Task 4 首批落地包括：
+当前已完成的 V2 P1 扩展轮 Task 1/Task 2/Task 3/Task 4/Task 5 包括：
 
 - 已将 `platform_service/settings.py` 的默认 MySQL 连接参数收口为仓库文档中的本地基线：`127.0.0.1:3306 / api_test_platform / platform_service / PlatformService_2025!`；
 - 已新增 `service_tests/conftest.py`，让服务测试复用当前本地 MySQL 基线库，并在每个测试前后清理 `scenario_service` 业务表，绕开 `platform_service` 账号无建库权限的问题；
@@ -121,6 +121,7 @@
 - 已让抓包导入后的场景来源追溯保留步骤级 `issue_tags` 与 `confidence=low`，避免抓包草稿在服务层落库后丢失来源质量标签；
 - 已新增 `ScenarioSuggestionRecord` 与规则型建议提供者，当前已支持生成 `assertion_completion` 建议、查询建议列表，并在采纳时自动转成标准 `ScenarioRevisionRecord`；
 - 已开放 `/api/v2/scenarios/<scenario_id>/suggestions/` 与 `/api/v2/scenarios/<scenario_id>/suggestions/<suggestion_id>/apply/`，让建议治理继续复用现有修订留痕与再审核机制；
+- 已完成工作台入口增强，当前页面已承接场景筛选、执行历史、最近差异和建议区域，并把列表筛选与建议查询接入统一服务契约；
 - 当前服务测试执行约束：
   - 服务测试统一使用本地 MySQL 基线配置，并需设置 `DJANGO_SETTINGS_MODULE=platform_service.settings`
   - 由于根 `pytest.ini` 的默认 `.pytest_tmp` 下存在历史锁文件，当前服务测试命令统一追加 `--basetemp=.pytest_tmp_service`
@@ -137,8 +138,16 @@
     - `3 passed`
   - `.venv_service\\Scripts\\python.exe -m pytest --basetemp=.pytest_tmp_service service_tests\\test_scenario_suggestions.py::test_suggestion_creation_and_apply_flow_requires_revision_record -q`
     - `1 passed`
+  - `.venv_service\\Scripts\\python.exe -m pytest --basetemp=.pytest_tmp_service service_tests\\test_workbench_ui.py -q`
+    - `4 passed`
   - `$env:DJANGO_SETTINGS_MODULE='platform_service.settings'; .\\.venv_service\\Scripts\\python.exe -m pytest service_tests -q --basetemp=.pytest_tmp_service`
-    - `18 passed`
+    - `19 passed`
+  - `python -m pytest tests\\platform_core -q --basetemp=.pytest_tmp\\v2_p1_platform_core_regression`
+    - `71 passed`
+  - `python -m pytest tests -q --basetemp=.pytest_tmp\\v2_p1_root_regression`
+    - `79 passed`
+  - `python -m pytest api_test\\tests -q --basetemp=.pytest_tmp\\v2_p1_api_test_regression`
+    - `39 passed`
   - `.venv_service\\Scripts\\python.exe manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.migration_settings`
     - `No changes detected`
 
@@ -209,7 +218,7 @@
 
 当前分支最新已验证结果：
 
-- 2026-04-10 V2 P1 扩展轮 Task 1/Task 2/Task 3/Task 4：
+- 2026-04-10 V2 P1 扩展轮 Task 1/Task 2/Task 3/Task 4/Task 5：
   - `.venv_service\\Scripts\\python.exe -m pytest service_tests\\test_service_bootstrap.py::test_platform_service_defaults_follow_documented_local_mysql_baseline -q`
     - `1 passed`
   - `$env:DJANGO_SETTINGS_MODULE='platform_service.settings'; .\\.venv_service\\Scripts\\python.exe -m pytest --basetemp=.pytest_tmp_service service_tests\\test_traceability_history_flow.py::test_import_and_repeated_execution_preserve_source_traces_and_history -q`
@@ -222,8 +231,16 @@
     - `3 passed`
   - `$env:DJANGO_SETTINGS_MODULE='platform_service.settings'; .\\.venv_service\\Scripts\\python.exe -m pytest --basetemp=.pytest_tmp_service service_tests\\test_scenario_suggestions.py::test_suggestion_creation_and_apply_flow_requires_revision_record -q`
     - `1 passed`
+  - `$env:DJANGO_SETTINGS_MODULE='platform_service.settings'; .\\.venv_service\\Scripts\\python.exe -m pytest --basetemp=.pytest_tmp_service service_tests\\test_workbench_ui.py -q`
+    - `4 passed`
   - `$env:DJANGO_SETTINGS_MODULE='platform_service.settings'; .\\.venv_service\\Scripts\\python.exe -m pytest service_tests -q --basetemp=.pytest_tmp_service`
-    - `18 passed`
+    - `19 passed`
+  - `python -m pytest tests\\platform_core -q --basetemp=.pytest_tmp\\v2_p1_platform_core_regression`
+    - `71 passed`
+  - `python -m pytest tests -q --basetemp=.pytest_tmp\\v2_p1_root_regression`
+    - `79 passed`
+  - `python -m pytest api_test\\tests -q --basetemp=.pytest_tmp\\v2_p1_api_test_regression`
+    - `39 passed`
   - `.venv_service\\Scripts\\python.exe manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.migration_settings`
     - `No changes detected`
 - 2026-04-03 V1 正式验收复验：

@@ -53,6 +53,23 @@ def test_workbench_page_renders_import_preview_and_result_regions():
     assert "/api/v2/scenarios/import-traffic-capture/" in content
 
 
+def test_workbench_renders_filter_history_diff_and_suggestion_regions():
+    """工作台应展示筛选、历史、差异和建议区域。"""
+    client = APIClient()
+
+    response = client.get("/ui/v2/workbench/")
+
+    assert response.status_code == 200
+    content = response.content.decode("utf-8")
+    assert 'data-testid="scenario-filter-panel"' in content
+    assert 'data-testid="execution-history-panel"' in content
+    assert 'data-testid="diff-summary-panel"' in content
+    assert 'data-testid="suggestion-panel"' in content
+    assert "source_type" in content
+    assert "issue_code" in content
+    assert "suggestions" in content
+
+
 def test_workbench_duplicate_functional_case_import_returns_structured_error():
     """TC-V2-UI-001 重复导入默认示例时不应抛出 500。"""
     client = APIClient()
