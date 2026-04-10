@@ -18,6 +18,7 @@ from scenario_service.models import (
     ScenarioRecord,
     ScenarioRevisionRecord,
     ScenarioReviewRecord,
+    ScenarioSourceRecord,
     ScenarioStepRecord,
 )
 
@@ -120,7 +121,76 @@ class FunctionalCaseScenarioService:
                 for step in draft.steps
             ]
         )
+        FunctionalCaseScenarioService._persist_source_traces(scenario=scenario, draft=draft)
         return scenario
+
+    @staticmethod
+    def _persist_source_traces(scenario: ScenarioRecord, draft: FunctionalCaseDraft) -> None:
+        """把场景和步骤的来源事实写入追溯表。"""
+        source_records = [
+            ScenarioSourceRecord(
+                scenario=scenario,
+                entity_type="scenario",
+                entity_id=scenario.scenario_id,
+                source_type=draft.source_document.source_type,
+                source_ref=draft.source_document.source_id,
+                confidence="high",
+                issue_tags=[issue.issue_code for issue in draft.issues],
+                metadata={"source_name": draft.source_document.source_name},
+            )
+        ]
+        for step in draft.steps:
+            source_records.append(
+                ScenarioSourceRecord(
+                    scenario=scenario,
+                    entity_type="step",
+                    entity_id=step.step_id,
+                    source_type=draft.source_document.source_type,
+                    source_ref=draft.source_document.source_id,
+                    confidence=step.metadata.get("capture_confidence", "high"),
+                    issue_tags=[],
+                    metadata=step.metadata,
+                )
+            )
+        ScenarioSourceRecord.objects.bulk_create(source_records)
+
+    @staticmethod
+    def _build_source_traces(scenario: ScenarioRecord) -> list[dict]:
+        """构造场景详情返回使用的来源追溯摘要。"""
+        return [
+            {
+                "entity_type": source.entity_type,
+                "entity_id": source.entity_id,
+                "source_type": source.source_type,
+                "source_ref": source.source_ref,
+                "confidence": source.confidence,
+                "issue_tags": source.issue_tags,
+                "metadata": source.metadata,
+            }
+            for source in scenario.sources.all().order_by("id")
+        ]
+
+    @staticmethod
+    def _build_execution_history(scenario: ScenarioRecord) -> list[dict]:
+        """构造结果查询使用的执行历史摘要。"""
+        return [
+            {
+                "execution_id": execution.execution_id,
+                "execution_status": execution.execution_status,
+                "passed_count": execution.passed_count,
+                "failed_count": execution.failed_count,
+                "skipped_count": execution.skipped_count,
+                "report_path": execution.report_path,
+                "failure_summary": execution.failure_summary,
+                "trigger_source": execution.trigger_source,
+                "based_on_revision_id": execution.based_on_revision_id,
+                "based_on_suggestion_id": execution.based_on_suggestion_id,
+                "change_summary": execution.change_summary,
+                "diff_summary": execution.diff_summary,
+                "created_at": execution.created_at.isoformat(),
+            }
+            for execution in scenario.executions.all().order_by("-created_at", "-id")
+        ]
 
     def get_scenario_detail(self, scenario_id: str) -> dict:
         """返回场景详情结构。"""
@@ -161,6 +231,7 @@ class FunctionalCaseScenarioService:
                 }
                 for revision in scenario.revisions.all().order_by("revised_at", "id")
             ],
+            "source_traces": self._build_source_traces(scenario),
         }
 
     def list_scenarios(self) -> list[dict]:
@@ -283,15 +354,21 @@ class FunctionalCaseScenarioService:
 
         failed_count = pipeline_result.execution_record.failed_count + pipeline_result.execution_record.error_count
         execution_status = "passed" if pipeline_result.execution_record.result_status == "passed" else "failed"
+        execution_id = self._build_execution_id(pipeline_result.execution_record.execution_id)
         execution = ScenarioExecutionRecord.objects.create(
             scenario=scenario,
-            execution_id=pipeline_result.execution_record.execution_id,
+            execution_id=execution_id,
             execution_status=execution_status,
             passed_count=pipeline_result.execution_record.passed_count,
             failed_count=failed_count,
             skipped_count=pipeline_result.execution_record.skipped_count,
             report_path=pipeline_result.execution_record.report_path or "",
             failure_summary=pipeline_result.execution_record.error_summary or "",
+            trigger_source="manual",
+            based_on_revision_id=self._get_latest_revision_id(scenario),
+            based_on_suggestion_id=None,
+            change_summary={},
+            diff_summary={},
         )
         scenario.latest_execution_id = execution.execution_id
         scenario.execution_status = execution.execution_status
@@ -324,6 +401,7 @@ class FunctionalCaseScenarioService:
         scenario = self._get_scenario(scenario_id=scenario_id)
         execution = scenario.executions.first()
         execution_status = execution.execution_status if execution else scenario.execution_status
+        execution_history = self._build_execution_history(scenario)
         return {
             "scenario_id": scenario.scenario_id,
             "scenario_code": scenario.scenario_code,
@@ -338,6 +416,7 @@ class FunctionalCaseScenarioService:
             "skipped_count": execution.skipped_count if execution else scenario.skipped_count,
             "report_path": execution.report_path if execution and execution.report_path else scenario.report_path,
             "failure_summary": execution.failure_summary if execution else "",
+            "execution_history": execution_history,
         }
 
     def build_scenario_summary(self, scenario: ScenarioRecord) -> dict:
@@ -393,6 +472,17 @@ class FunctionalCaseScenarioService:
             / "scenario_workspaces"
             / f"{scenario.scenario_code}_{uuid4().hex[:8]}"
         )
+
+    @staticmethod
+    def _build_execution_id(base_execution_id: str) -> str:
+        """为重复执行场景生成唯一的执行记录标识。"""
+        return f"{base_execution_id}_{uuid4().hex[:8]}"
+
+    @staticmethod
+    def _get_latest_revision_id(scenario: ScenarioRecord) -> str | None:
+        """获取当前场景最近一次修订标识。"""
+        latest_revision = scenario.revisions.order_by("-revised_at", "-id").first()
+        return latest_revision.revision_id if latest_revision else None
 
     def _apply_scenario_patch(self, scenario: ScenarioRecord, scenario_patch: dict) -> dict:
         """把结构化修订补丁应用到场景与步骤持久化对象。"""

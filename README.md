@@ -8,14 +8,15 @@
 
 ## 当前状态
 
-截至 2026-04-09，在 V1 正式验收完成后，仓库当前工作重点已切换到 V2 阶段正式开发，核心方向为：
+截至 2026-04-10，在 V1 正式验收完成、V2 P0 主线闭环通过后，仓库当前工作重点已切换到 V2 P1 扩展轮开发，核心方向为：
 
 - 功能测试用例驱动优先；
 - 场景模型、变量绑定、依赖编排与审核确认能力；
 - Django + DRF + MySQL 服务化正式落地；
 - 抓包驱动草稿化接入；
-- 可用型 Web / Windows 入口承接。
-- V2 详细测试用例说明书已建立，并已进入第四实施子阶段的 TDD 开发。
+- 可用型 Web / Windows 入口承接；
+- 来源追溯、执行历史、差异摘要与 AI 建议治理等 P1 核心事实层增强；
+- V2 详细测试用例说明书已建立，当前正在按扩展实施计划继续执行 TDD。
 
 当前已完成的 V2 第一实施子阶段首批落地包括：
 
@@ -107,6 +108,24 @@
     - `execution_status=passed`
     - `revision_count=1`
 
+当前已启动的 V2 P1 扩展轮 Task 1 落地包括：
+
+- 已将 `platform_service/settings.py` 的默认 MySQL 连接参数收口为仓库文档中的本地基线：`127.0.0.1:3306 / api_test_platform / platform_service / PlatformService_2025!`；
+- 已新增 `service_tests/conftest.py`，让服务测试复用当前本地 MySQL 基线库，并在每个测试前后清理 `scenario_service` 业务表，绕开 `platform_service` 账号无建库权限的问题；
+- 已新增 `ScenarioSourceRecord` 来源追溯事实表，并扩展 `ScenarioExecutionRecord` 的触发来源、修订关联、建议关联、变更摘要和差异摘要字段；
+- 已在 `FunctionalCaseScenarioService` 中补齐来源追溯持久化、执行历史构造与重复执行唯一 `execution_id` 生成逻辑；
+- 已让场景详情返回 `source_traces`，让结果查询返回 `execution_history`，为后续列表筛选、差异摘要与 AI 建议治理打下事实层基础；
+- 当前服务测试执行约束：
+  - 服务测试统一使用本地 MySQL 基线配置，并需设置 `DJANGO_SETTINGS_MODULE=platform_service.settings`
+  - 由于根 `pytest.ini` 的默认 `.pytest_tmp` 下存在历史锁文件，当前服务测试命令统一追加 `--basetemp=.pytest_tmp_service`
+- 已完成当前轮定向与回归验证：
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests\\test_service_bootstrap.py::test_platform_service_defaults_follow_documented_local_mysql_baseline -q`
+    - `1 passed`
+  - `.venv_service\\Scripts\\python.exe -m pytest --basetemp=.pytest_tmp_service service_tests\\test_traceability_history_flow.py::test_import_and_repeated_execution_preserve_source_traces_and_history -q`
+    - `1 passed`
+  - `.venv_service\\Scripts\\python.exe -m pytest --basetemp=.pytest_tmp_service service_tests\\test_service_persistence.py service_tests\\test_execution_closure.py service_tests\\test_review_revision_flow.py -q`
+    - `6 passed`
+
 截至 2026-04-03，V1 阶段目标已完成，当前仓库已完成：
 
 - 重构设计说明与实施计划；
@@ -174,6 +193,15 @@
 
 当前分支最新已验证结果：
 
+- 2026-04-10 V2 P1 扩展轮 Task 1：
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests\\test_service_bootstrap.py::test_platform_service_defaults_follow_documented_local_mysql_baseline -q`
+    - `1 passed`
+  - `$env:DJANGO_SETTINGS_MODULE='platform_service.settings'; .\\.venv_service\\Scripts\\python.exe -m pytest --basetemp=.pytest_tmp_service service_tests\\test_traceability_history_flow.py::test_import_and_repeated_execution_preserve_source_traces_and_history -q`
+    - `1 passed`
+  - `$env:DJANGO_SETTINGS_MODULE='platform_service.settings'; .\\.venv_service\\Scripts\\python.exe -m pytest --basetemp=.pytest_tmp_service service_tests\\test_service_persistence.py service_tests\\test_execution_closure.py service_tests\\test_review_revision_flow.py -q`
+    - `6 passed`
+  - `.venv_service\\Scripts\\python.exe manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.migration_settings`
+    - `No changes detected`
 - 2026-04-03 V1 正式验收复验：
   - `cd api_test && python -m pytest tests -m jsonplaceholder -v --basetemp ..\.pytest_tmp\api_test_jsonplaceholder_acceptance`
     - `12 passed, 27 deselected`

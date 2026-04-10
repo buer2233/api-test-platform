@@ -89,6 +89,22 @@ class ScenarioRevisionRecord(models.Model):
         ordering = ["revised_at", "id"]
 
 
+class ScenarioSourceRecord(models.Model):
+    """场景来源追溯记录。"""
+
+    scenario = models.ForeignKey(ScenarioRecord, related_name="sources", on_delete=models.CASCADE)
+    entity_type = models.CharField(max_length=32, default="scenario")
+    entity_id = models.CharField(max_length=128, blank=True, default="")
+    source_type = models.CharField(max_length=32)
+    source_ref = models.CharField(max_length=255)
+    confidence = models.CharField(max_length=16, default="high")
+    issue_tags = models.JSONField(default=list)
+    metadata = models.JSONField(default=dict)
+
+    class Meta:
+        ordering = ["id"]
+
+
 class ScenarioExecutionRecord(models.Model):
     """场景执行请求与结果记录。"""
 
@@ -100,6 +116,11 @@ class ScenarioExecutionRecord(models.Model):
     skipped_count = models.PositiveIntegerField(default=0)
     report_path = models.CharField(max_length=255, null=True, blank=True)
     failure_summary = models.TextField(null=True, blank=True)
+    trigger_source = models.CharField(max_length=32, default="manual")
+    based_on_revision_id = models.CharField(max_length=128, null=True, blank=True)
+    based_on_suggestion_id = models.CharField(max_length=128, null=True, blank=True)
+    change_summary = models.JSONField(default=dict)
+    diff_summary = models.JSONField(default=dict)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
