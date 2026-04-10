@@ -413,7 +413,7 @@ git commit -m "V2开发：增强场景列表筛选与执行历史差异查询契
 - Modify: `D:\AI\api-test-platform\platform_core\traffic_capture.py`
 - Modify: `D:\AI\api-test-platform\scenario_service\services.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 """V2 P1 抓包问题分类与来源元数据测试。"""
@@ -482,12 +482,12 @@ def test_traffic_capture_parser_emits_quality_issues_and_source_metadata(tmp_pat
     assert step_metadata["source_traces"][0]["confidence"] == "low"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `.venv_service\Scripts\python.exe -m pytest tests/platform_core/test_traffic_capture_traceability.py::test_traffic_capture_parser_emits_quality_issues_and_source_metadata -q`
 Expected: FAIL，报错应集中在 `static_noise_filtered`、`duplicate_request_group`、`source_traces` 等新标签和元数据尚未生成。
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 def parse_payload(
@@ -612,7 +612,7 @@ def _normalize_entries(self, raw_capture: dict[str, Any]) -> dict[str, Any]:
     return {"entries": normalized_entries, "issues": issues}
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `.venv_service\Scripts\python.exe -m pytest tests/platform_core/test_traffic_capture_traceability.py::test_traffic_capture_parser_emits_quality_issues_and_source_metadata -q`
 Expected: PASS，且抓包解析结果已经能输出来源元数据、低置信标签和重复/噪声问题分类。

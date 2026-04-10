@@ -108,7 +108,7 @@
     - `execution_status=passed`
     - `revision_count=1`
 
-当前已启动的 V2 P1 扩展轮 Task 1/Task 2 首批落地包括：
+当前已启动的 V2 P1 扩展轮 Task 1/Task 2/Task 3 首批落地包括：
 
 - 已将 `platform_service/settings.py` 的默认 MySQL 连接参数收口为仓库文档中的本地基线：`127.0.0.1:3306 / api_test_platform / platform_service / PlatformService_2025!`；
 - 已新增 `service_tests/conftest.py`，让服务测试复用当前本地 MySQL 基线库，并在每个测试前后清理 `scenario_service` 业务表，绕开 `platform_service` 账号无建库权限的问题；
@@ -117,6 +117,8 @@
 - 已新增场景列表筛选查询契约，当前已支持按 `source_type`、`review_status`、`execution_status`、`issue_code` 和 `ordering` 过滤场景摘要；
 - 已让场景摘要/详情返回 `source_summary`、`issue_codes` 与最近执行差异摘要，让结果查询稳定返回 `execution_history` 与 `latest_diff_summary`；
 - 已同步增强 DRF 查询契约测试，锁定列表筛选、详情来源聚合、执行历史和轻量差异摘要返回结构，为后续 AI 建议治理打下事实层基础；
+- 已增强 `TrafficCaptureDraftParser` 的抓包归一化分类，当前会额外输出 `static_noise_filtered`、`duplicate_request_group` 等问题标签，并在步骤元数据中写入 `source_traces`、`capture_quality` 和低置信来源信息；
+- 已让抓包导入后的场景来源追溯保留步骤级 `issue_tags` 与 `confidence=low`，避免抓包草稿在服务层落库后丢失来源质量标签；
 - 当前服务测试执行约束：
   - 服务测试统一使用本地 MySQL 基线配置，并需设置 `DJANGO_SETTINGS_MODULE=platform_service.settings`
   - 由于根 `pytest.ini` 的默认 `.pytest_tmp` 下存在历史锁文件，当前服务测试命令统一追加 `--basetemp=.pytest_tmp_service`
@@ -129,6 +131,8 @@
     - `6 passed`
   - `.venv_service\\Scripts\\python.exe -m pytest --basetemp=.pytest_tmp_service service_tests\\test_scenario_query_contract.py service_tests\\test_drf_contract.py -q`
     - `4 passed`
+  - `python -m pytest tests\\platform_core\\test_parser_inputs.py::test_traffic_capture_parser_filters_noise_and_builds_reviewable_draft tests\\platform_core\\test_services_and_assets.py::test_platform_application_service_supports_traffic_capture_draft_summary tests\\platform_core\\test_traffic_capture_traceability.py -q --basetemp=.pytest_tmp\\v2_p1_task3_regression`
+    - `3 passed`
   - `$env:DJANGO_SETTINGS_MODULE='platform_service.settings'; .\\.venv_service\\Scripts\\python.exe -m pytest service_tests -q --basetemp=.pytest_tmp_service`
     - `17 passed`
   - `.venv_service\\Scripts\\python.exe manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.migration_settings`
@@ -201,7 +205,7 @@
 
 当前分支最新已验证结果：
 
-- 2026-04-10 V2 P1 扩展轮 Task 1/Task 2：
+- 2026-04-10 V2 P1 扩展轮 Task 1/Task 2/Task 3：
   - `.venv_service\\Scripts\\python.exe -m pytest service_tests\\test_service_bootstrap.py::test_platform_service_defaults_follow_documented_local_mysql_baseline -q`
     - `1 passed`
   - `$env:DJANGO_SETTINGS_MODULE='platform_service.settings'; .\\.venv_service\\Scripts\\python.exe -m pytest --basetemp=.pytest_tmp_service service_tests\\test_traceability_history_flow.py::test_import_and_repeated_execution_preserve_source_traces_and_history -q`
@@ -210,6 +214,8 @@
     - `6 passed`
   - `$env:DJANGO_SETTINGS_MODULE='platform_service.settings'; .\\.venv_service\\Scripts\\python.exe -m pytest --basetemp=.pytest_tmp_service service_tests\\test_scenario_query_contract.py service_tests\\test_drf_contract.py -q`
     - `4 passed`
+  - `python -m pytest tests\\platform_core\\test_parser_inputs.py::test_traffic_capture_parser_filters_noise_and_builds_reviewable_draft tests\\platform_core\\test_services_and_assets.py::test_platform_application_service_supports_traffic_capture_draft_summary tests\\platform_core\\test_traffic_capture_traceability.py -q --basetemp=.pytest_tmp\\v2_p1_task3_regression`
+    - `3 passed`
   - `$env:DJANGO_SETTINGS_MODULE='platform_service.settings'; .\\.venv_service\\Scripts\\python.exe -m pytest service_tests -q --basetemp=.pytest_tmp_service`
     - `17 passed`
   - `.venv_service\\Scripts\\python.exe manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.migration_settings`

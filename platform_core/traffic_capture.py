@@ -76,7 +76,8 @@ class TrafficCaptureDraftParser:
         """直接把抓包请求体解析为场景草稿聚合对象。"""
         resolved_source_name = source_name or "traffic_capture"
         source = source_path or Path(f"{self._normalize_identifier(resolved_source_name)}.har.json")
-        normalized_entries = self._normalize_entries(raw_capture=raw_capture)
+        normalization = self._normalize_entries(raw_capture=raw_capture)
+        normalized_entries = normalization["entries"]
         source_document = self._build_source_document(
             source=source,
             source_name=resolved_source_name,
@@ -90,7 +91,7 @@ class TrafficCaptureDraftParser:
 
         steps: list[ScenarioStep] = []
         assertions: list[AssertionCandidate] = []
-        issues: list[FunctionalCaseIssue] = []
+        issues: list[FunctionalCaseIssue] = list(normalization["issues"])
         binding_index: dict[str, VariableBinding] = {}
         value_index: dict[str, list[VariableBinding]] = {}
         dependencies: list[DependencyLink] = []
@@ -112,6 +113,7 @@ class TrafficCaptureDraftParser:
                 binding_index=binding_index,
                 value_index=value_index,
             )
+            source_trace = self._build_source_trace(entry=entry)
             raw_step = {
                 "step_name": step_name,
                 "operation_id": operation_id,
@@ -122,6 +124,7 @@ class TrafficCaptureDraftParser:
                 "uses": step_uses,
                 "capture_source": entry["url"],
                 "capture_confidence": "low",
+                "capture_quality": entry["quality_tags"],
             }
             step_id = f"{scenario.scenario_id}-step-{step_order}"
             step = ScenarioStep(
@@ -135,7 +138,12 @@ class TrafficCaptureDraftParser:
                 assertion_ids=[],
                 retry_policy={},
                 optional=False,
-                metadata={"raw_step": raw_step, "capture_confidence": "low"},
+                metadata={
+                    "raw_step": raw_step,
+                    "capture_confidence": "low",
+                    "capture_quality": entry["quality_tags"],
+                    "source_traces": [source_trace],
+                },
             )
             steps.append(step)
             assertions.append(self._build_status_assertion(step=step, response_status=entry["response_status"]))
@@ -146,7 +154,7 @@ class TrafficCaptureDraftParser:
                     severity="warning",
                     step_id=step.step_id,
                     step_order=step.step_order,
-                    metadata={"operation_id": operation_id},
+                    metadata={"operation_id": operation_id, "quality_tags": entry["quality_tags"]},
                 )
             )
             dependencies.extend(step_dependencies)
@@ -174,17 +182,27 @@ class TrafficCaptureDraftParser:
             issues=issues,
         )
 
-    def _normalize_entries(self, raw_capture: dict[str, Any]) -> list[dict[str, Any]]:
-        """过滤噪声、去重并生成稳定的请求序列。"""
+    def _normalize_entries(self, raw_capture: dict[str, Any]) -> dict[str, Any]:
+        """过滤噪声、去重并生成稳定的请求序列与问题清单。"""
         entries = sorted(
             raw_capture.get("log", {}).get("entries") or [],
             key=lambda item: item.get("startedDateTime") or "",
         )
         normalized_entries: list[dict[str, Any]] = []
+        normalization_issues: list[FunctionalCaseIssue] = []
         seen_keys: set[str] = set()
         for entry in entries:
             normalized_entry = self._normalize_entry(entry)
-            if not normalized_entry or self._is_noise_entry(normalized_entry):
+            if not normalized_entry:
+                continue
+            if self._is_noise_entry(normalized_entry):
+                normalization_issues.append(
+                    self._build_normalization_issue(
+                        issue_code="static_noise_filtered",
+                        issue_message=f'已过滤静态资源或浏览器噪声请求: {normalized_entry["method"]} {normalized_entry["url"]}',
+                        source_url=normalized_entry["url"],
+                    )
+                )
                 continue
             dedupe_key = json.dumps(
                 {
@@ -199,10 +217,18 @@ class TrafficCaptureDraftParser:
                 sort_keys=True,
             )
             if dedupe_key in seen_keys:
+                normalization_issues.append(
+                    self._build_normalization_issue(
+                        issue_code="duplicate_request_group",
+                        issue_message=f'已折叠重复请求: {normalized_entry["method"]} {normalized_entry["path_template"]}',
+                        source_url=normalized_entry["url"],
+                    )
+                )
                 continue
             seen_keys.add(dedupe_key)
+            normalized_entry["quality_tags"] = ["capture_operation_needs_review"]
             normalized_entries.append(normalized_entry)
-        return normalized_entries
+        return {"entries": normalized_entries, "issues": normalization_issues}
 
     def _normalize_entry(self, entry: dict[str, Any]) -> dict[str, Any] | None:
         """把单条 HAR entry 归一化为便于场景草稿消费的结构。"""
@@ -385,6 +411,35 @@ class TrafficCaptureDraftParser:
             confidence_score=0.8,
             review_status="pending",
         )
+
+    @staticmethod
+    def _build_normalization_issue(issue_code: str, issue_message: str, source_url: str) -> FunctionalCaseIssue:
+        """构造抓包归一化阶段的问题记录。"""
+        return FunctionalCaseIssue(
+            issue_code=issue_code,
+            issue_message=issue_message,
+            severity="warning",
+            step_id=None,
+            step_order=None,
+            metadata={"source_url": source_url, "source_type": "traffic_capture"},
+        )
+
+    @staticmethod
+    def _build_source_trace(entry: dict[str, Any]) -> dict[str, Any]:
+        """构造抓包步骤的来源追溯元数据。"""
+        return {
+            "entity_type": "step",
+            "source_type": "traffic_capture",
+            "source_ref": entry["url"],
+            "confidence": "low",
+            "issue_tags": list(entry["quality_tags"]),
+            "metadata": {
+                "started_at": entry["started_at"],
+                "host": entry["host"],
+                "path_template": entry["path_template"],
+                "quality_tags": list(entry["quality_tags"]),
+            },
+        }
 
     @staticmethod
     def _normalize_headers(headers: list[dict[str, Any]]) -> dict[str, Any]:

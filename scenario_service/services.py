@@ -140,16 +140,20 @@ class FunctionalCaseScenarioService:
             )
         ]
         for step in draft.steps:
+            source_trace = ((step.metadata or {}).get("source_traces") or [{}])[0]
             source_records.append(
                 ScenarioSourceRecord(
                     scenario=scenario,
                     entity_type="step",
                     entity_id=step.step_id,
-                    source_type=draft.source_document.source_type,
-                    source_ref=draft.source_document.source_id,
-                    confidence=step.metadata.get("capture_confidence", "high"),
-                    issue_tags=[],
-                    metadata=step.metadata,
+                    source_type=source_trace.get("source_type", draft.source_document.source_type),
+                    source_ref=source_trace.get("source_ref", draft.source_document.source_id),
+                    confidence=source_trace.get("confidence", step.metadata.get("capture_confidence", "high")),
+                    issue_tags=source_trace.get("issue_tags", []),
+                    metadata={
+                        **step.metadata,
+                        **source_trace.get("metadata", {}),
+                    },
                 )
             )
         ScenarioSourceRecord.objects.bulk_create(source_records)

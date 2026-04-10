@@ -117,6 +117,12 @@ def test_drf_contract_imports_traffic_capture_into_reviewable_scenario_draft():
     detail = detail_response.json()["data"]
     assert len(detail["steps"]) == 2
     assert any(issue["issue_code"] == "capture_operation_needs_review" for issue in detail["issues"])
+    assert any(
+        trace["entity_type"] == "step"
+        and trace["confidence"] == "low"
+        and "capture_operation_needs_review" in trace["issue_tags"]
+        for trace in detail["source_traces"]
+    )
 
     review_response = client.post(
         f"/api/v2/scenarios/{scenario_id}/review/",
