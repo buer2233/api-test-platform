@@ -8,17 +8,21 @@
 
 ## 当前状态
 
-截至 2026-04-15，V1 已正式验收通过，V2 也已完成正式验收；V3 `P0` 已完成详细验收与 MySQL 保留数据复验。当前仓库状态应判断为：
+截至 2026-04-15，V1 已正式验收通过，V2 也已完成正式验收；V3 `P0` 已完成详细验收，`P1-G1 / P1-G2` 已完成首批开发与测试。当前仓库状态应判断为：
 
 - V3 当前主轴已确认为“平台治理优先”，并采用 `P0 / P1 / P2` 分层推进；
 - V3 `P0` 已完成多项目 / 环境 / 场景集 / 基线版本治理、默认项目迁移、执行隔离、导出隔离和最小治理入口首轮交付；
 - V3 `P0` 当前验证结果为：`P0专项=11 passed`、`service_tests=32 passed`、`tests/platform_core=71 passed`、`tests=79 passed`、`api_test/tests=39 passed`；
 - `scenario_service` 已生成并应用 `0005_baselineversionrecord_governancemigrationrecord_and_more.py`，迁移一致性检查结果为 `No changes detected in app 'scenario_service'`，本地 MySQL 已完成 `0005` 落库；
+- `scenario_service` 已新增并应用 `0006_scenarioauditlogrecord_projectroleassignmentrecord.py`，当前已补齐项目角色授权记录、审计日志记录、授权管理接口和审计查询接口；
+- `scenario_service` 已新增并应用 `0007_trafficcaptureformalizationrecord.py`，当前已补齐抓包正式执行对象、正式确认接口、绑定确认接口和执行前门禁；
 - 服务测试已彻底切换到正式 MySQL 基线，`platform_service.test_settings` 不再保留 SQLite 路径，且运行时连接已验证直连 `api_test_platform`；
 - `service_tests` 已改为正式 MySQL 保留数据模式：不再清库、不再走 SQLite、测试用例改为运行期唯一业务标识，可重复回归；
 - 工作台 `/ui/v2/workbench/` 已通过正式 MySQL 数据源下的真实浏览器主链路冒烟，验证链路为“导入 -> 审核通过 -> 触发执行 -> 回看结果”，且默认示例 ID 会自动换新，便于重复点测；
 - 抓包导入接口已补齐治理上下文承接，当前 `project_code / environment_code / scenario_set_code` 不再被后端忽略；
-- V3 `P1 / P2` 尚未开始正式实现，Windows 路线仍保持“先 Web 稳定验证，再轻量套壳到 Windows”，默认采用 `Tauri` 优先、浏览器先验、阶段性打包复验的方案。
+- `P1-G1` 首批权限与审计治理验证结果为：`service_tests/test_v3_p1_permission_audit.py=3 passed`、`service_tests=35 passed`、`tests/platform_core=71 passed`、`tests=79 passed`、`api_test/tests=39 passed`；
+- `P1-G2` 首批抓包正式执行闭环验证结果为：`service_tests/test_v3_p1_traffic_capture_execution.py=3 passed`、`service_tests=38 passed`、`tests/platform_core=71 passed`、`tests=79 passed`、`api_test/tests=39 passed`；
+- 当前 `P1` 已完成 `G1 / G2` 首批能力，`G3 / G4` 尚未开始正式实现；Windows 路线仍保持“先 Web 稳定验证，再轻量套壳到 Windows”，默认采用 `Tauri` 优先、浏览器先验、阶段性打包复验的方案。
 
 当前已完成的 V2 第一实施子阶段首批落地包括：
 
@@ -480,6 +484,28 @@ python -m pytest tests -q --basetemp=.pytest_tmp\mysql_root_acceptance
 python -m pytest api_test/tests -q --basetemp=.pytest_tmp\mysql_api_test_acceptance
 ```
 
+V3 P1 G1 当前验证：
+
+```bash
+$env:DJANGO_SETTINGS_MODULE='platform_service.test_settings'; .\.venv_service\Scripts\python.exe -m pytest service_tests\test_v3_p1_permission_audit.py -q --basetemp=.pytest_tmp\v3_p1_g1_targeted
+$env:DJANGO_SETTINGS_MODULE='platform_service.test_settings'; .\.venv_service\Scripts\python.exe -m pytest service_tests -q --basetemp=.pytest_tmp\v3_p1_g1_service
+$env:DJANGO_SETTINGS_MODULE='platform_service.test_settings'; .\.venv_service\Scripts\python.exe manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.test_settings
+python -m pytest tests/platform_core -q --basetemp=.pytest_tmp\v3_p1_g1_platform_core
+python -m pytest tests -q --basetemp=.pytest_tmp\v3_p1_g1_root
+python -m pytest api_test/tests -q --basetemp=.pytest_tmp\v3_p1_g1_api_test
+```
+
+V3 P1 G2 当前验证：
+
+```bash
+$env:DJANGO_SETTINGS_MODULE='platform_service.test_settings'; .\.venv_service\Scripts\python.exe -m pytest service_tests\test_v3_p1_traffic_capture_execution.py -q --basetemp=.pytest_tmp\v3_p1_g2_targeted
+$env:DJANGO_SETTINGS_MODULE='platform_service.test_settings'; .\.venv_service\Scripts\python.exe -m pytest service_tests -q --basetemp=.pytest_tmp\v3_p1_g2_service
+$env:DJANGO_SETTINGS_MODULE='platform_service.test_settings'; .\.venv_service\Scripts\python.exe manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.test_settings
+python -m pytest tests/platform_core -q --basetemp=.pytest_tmp\v3_p1_g2_platform_core
+python -m pytest tests -q --basetemp=.pytest_tmp\v3_p1_g2_root
+python -m pytest api_test/tests -q --basetemp=.pytest_tmp\v3_p1_g2_api_test
+```
+
 V1 验收回归验证：
 
 ```bash
@@ -528,5 +554,5 @@ V2 第四实施子阶段审核修订回归验证：
 
 ## 备注
 
-- 当前 README 以 V1 / V2 正式验收事实为基础，并已同步切换到“V3 P0 详细验收已完成、服务测试已切换为 MySQL 保留数据模式”的当前口径。
-- 后续新增能力应继续以 `V3-总索引 / V3-P0 / V3-P1 / V3-P2` 为边界基线，先完成当前问题收口与用户确认，再决定是否进入 `P1`。
+- 当前 README 以 V1 / V2 正式验收事实为基础，并已同步切换到“V3 P0 详细验收已完成、P1 G1 / G2 已完成首批回归”的当前口径。
+- 后续新增能力应继续以 `V3-总索引 / V3-P0 / V3-P1 / V3-P2` 为边界基线，当前应继续沿 `P1-G3 -> P1-G4` 的拆分顺序推进。

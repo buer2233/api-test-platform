@@ -127,6 +127,73 @@ class GovernanceMigrationRecord(models.Model):
         ordering = ["-executed_at", "-id"]
 
 
+class ProjectRoleAssignmentRecord(models.Model):
+    """项目成员角色授权记录。"""
+
+    assignment_id = models.CharField(max_length=128, unique=True)
+    project = models.ForeignKey(ProjectRecord, related_name="role_assignments", on_delete=models.CASCADE)
+    subject_name = models.CharField(max_length=128)
+    role_code = models.CharField(max_length=32)
+    can_view = models.BooleanField(default=False)
+    can_edit = models.BooleanField(default=False)
+    can_execute = models.BooleanField(default=False)
+    can_review = models.BooleanField(default=False)
+    can_schedule = models.BooleanField(default=False)
+    can_grant = models.BooleanField(default=False)
+    granted_by = models.CharField(max_length=128, default="system")
+    is_active = models.BooleanField(default=True)
+    metadata = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["project__project_code", "subject_name", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["project", "subject_name"], name="uniq_project_role_assignment_subject"),
+        ]
+
+    def __str__(self) -> str:
+        """返回便于后台查看的项目成员角色标识。"""
+        return f"{self.project.project_code}/{self.subject_name}({self.role_code})"
+
+
+class TrafficCaptureFormalizationRecord(models.Model):
+    """抓包场景正式执行治理对象。"""
+
+    confirmation_id = models.CharField(max_length=128, unique=True)
+    scenario = models.OneToOneField(
+        "ScenarioRecord",
+        related_name="traffic_capture_formalization",
+        on_delete=models.CASCADE,
+    )
+    project = models.ForeignKey(
+        ProjectRecord,
+        related_name="traffic_capture_formalizations",
+        on_delete=models.PROTECT,
+    )
+    environment = models.ForeignKey(
+        TestEnvironmentRecord,
+        related_name="traffic_capture_formalizations",
+        on_delete=models.PROTECT,
+    )
+    confirmation_status = models.CharField(max_length=32, default="draft")
+    binding_status = models.CharField(max_length=32, default="pending")
+    execution_readiness = models.CharField(max_length=32, default="blocked")
+    confirmed_by = models.CharField(max_length=128, blank=True, default="")
+    bindings_confirmed_by = models.CharField(max_length=128, blank=True, default="")
+    last_execution_id = models.CharField(max_length=128, blank=True, default="")
+    metadata = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["project__project_code", "scenario__scenario_code", "id"]
+
+    def __str__(self) -> str:
+        """返回便于后台查看的抓包正式执行对象标识。"""
+        return f"{self.project.project_code}/{self.scenario.scenario_code}({self.execution_readiness})"
+
+
 class ScenarioRecord(models.Model):
     """场景草稿与正式场景的持久化记录。"""
 
@@ -306,3 +373,39 @@ class ScenarioExecutionRecord(models.Model):
 
     class Meta:
         ordering = ["-created_at", "-id"]
+
+
+class ScenarioAuditLogRecord(models.Model):
+    """关键治理动作审计日志记录。"""
+
+    audit_id = models.CharField(max_length=128, unique=True)
+    project = models.ForeignKey(ProjectRecord, related_name="audit_logs", on_delete=models.PROTECT, null=True, blank=True)
+    scenario = models.ForeignKey(
+        "ScenarioRecord",
+        related_name="audit_logs",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    execution = models.ForeignKey(
+        "ScenarioExecutionRecord",
+        related_name="audit_logs",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    actor_name = models.CharField(max_length=128)
+    action_type = models.CharField(max_length=64)
+    action_result = models.CharField(max_length=32)
+    target_type = models.CharField(max_length=32, default="scenario")
+    target_id = models.CharField(max_length=128, blank=True, default="")
+    detail_message = models.TextField(blank=True, default="")
+    metadata = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self) -> str:
+        """返回便于后台查看的审计日志标识。"""
+        return f"{self.action_type}/{self.actor_name}({self.action_result})"

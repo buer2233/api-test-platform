@@ -10,12 +10,17 @@ from rest_framework.views import APIView
 from scenario_service.serializers import (
     BaselineVersionActivateSerializer,
     FunctionalCaseImportRequestSerializer,
+    ProjectRoleAssignmentQuerySerializer,
+    ProjectRoleAssignmentRequestSerializer,
     ScenarioListQuerySerializer,
+    ScenarioAuditLogQuerySerializer,
     ScenarioExportRequestSerializer,
     ScenarioRevisionRequestSerializer,
     ScenarioReviewRequestSerializer,
     ScenarioSuggestionApplyRequestSerializer,
     ScenarioSuggestionRequestSerializer,
+    TrafficCaptureBindingConfirmRequestSerializer,
+    TrafficCaptureConfirmRequestSerializer,
     TrafficCaptureImportRequestSerializer,
 )
 from scenario_service.services import FunctionalCaseScenarioService, ScenarioServiceError
@@ -78,6 +83,43 @@ class TrafficCaptureImportView(APIView):
         )
 
 
+class TrafficCaptureConfirmView(APIView):
+    """处理抓包场景正式确认请求。"""
+
+    def post(self, request, scenario_id: str):
+        """处理抓包场景正式确认动作。"""
+        serializer = TrafficCaptureConfirmRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            data = SCENARIO_SERVICE.confirm_traffic_capture(
+                scenario_id=scenario_id,
+                confirmer=serializer.validated_data["confirmer"],
+                confirm_comment=serializer.validated_data.get("confirm_comment", ""),
+            )
+        except ScenarioServiceError as error:
+            return build_error_response(error)
+        return Response({"success": True, "data": data})
+
+
+class TrafficCaptureBindingConfirmView(APIView):
+    """处理抓包步骤绑定确认请求。"""
+
+    def post(self, request, scenario_id: str):
+        """处理抓包步骤绑定确认动作。"""
+        serializer = TrafficCaptureBindingConfirmRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            data = SCENARIO_SERVICE.confirm_traffic_capture_bindings(
+                scenario_id=scenario_id,
+                confirmer=serializer.validated_data["confirmer"],
+                step_bindings=serializer.validated_data["step_bindings"],
+                confirm_comment=serializer.validated_data.get("confirm_comment", ""),
+            )
+        except ScenarioServiceError as error:
+            return build_error_response(error)
+        return Response({"success": True, "data": data})
+
+
 class ScenarioListView(APIView):
     """返回可用型入口消费的场景摘要列表。"""
 
@@ -85,7 +127,11 @@ class ScenarioListView(APIView):
         """处理场景列表查询。"""
         serializer = ScenarioListQuerySerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
-        return Response({"success": True, "data": SCENARIO_SERVICE.list_scenarios(serializer.validated_data)})
+        try:
+            data = SCENARIO_SERVICE.list_scenarios(serializer.validated_data)
+        except ScenarioServiceError as error:
+            return build_error_response(error)
+        return Response({"success": True, "data": data})
 
 
 class GovernanceContextQueryView(APIView):
@@ -119,13 +165,46 @@ class BaselineVersionActivateView(APIView):
         )
 
 
+class ProjectRoleAssignmentView(APIView):
+    """处理项目角色授权的查询与写入请求。"""
+
+    def get(self, request):
+        """处理项目成员角色查询。"""
+        serializer = ProjectRoleAssignmentQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        return Response({"success": True, "data": SCENARIO_SERVICE.list_project_roles(**serializer.validated_data)})
+
+    def post(self, request):
+        """处理项目成员角色写入。"""
+        serializer = ProjectRoleAssignmentRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            data = SCENARIO_SERVICE.assign_project_role(**serializer.validated_data)
+        except ScenarioServiceError as error:
+            return build_error_response(error)
+        return Response({"success": True, "data": data}, status=status.HTTP_201_CREATED)
+
+
+class ScenarioAuditLogListView(APIView):
+    """处理项目审计日志查询请求。"""
+
+    def get(self, request):
+        """按治理维度返回审计日志列表。"""
+        serializer = ScenarioAuditLogQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        return Response({"success": True, "data": SCENARIO_SERVICE.list_audit_logs(**serializer.validated_data)})
+
+
 class ScenarioDetailView(APIView):
     """返回场景详情。"""
 
     def get(self, request, scenario_id: str):
         """处理详情查询请求。"""
         try:
-            detail = SCENARIO_SERVICE.get_scenario_detail(scenario_id=scenario_id)
+            detail = SCENARIO_SERVICE.get_scenario_detail(
+                scenario_id=scenario_id,
+                actor=request.query_params.get("actor"),
+            )
         except ScenarioServiceError as error:
             return build_error_response(error)
         return Response({"success": True, "data": detail})
@@ -187,15 +266,18 @@ class ScenarioExecuteView(APIView):
             workspace_root = None
             project_code = None
             environment_code = None
+            operator = None
             if isinstance(request.data, dict):
                 workspace_root = request.data.get("workspace_root")
                 project_code = request.data.get("project_code")
                 environment_code = request.data.get("environment_code")
+                operator = request.data.get("operator")
             execution = SCENARIO_SERVICE.request_execution(
                 scenario_id=scenario_id,
                 project_code=project_code,
                 environment_code=environment_code,
                 workspace_root=workspace_root,
+                operator=operator,
             )
         except ScenarioServiceError as error:
             return build_error_response(error)
@@ -236,7 +318,10 @@ class ScenarioResultView(APIView):
     def get(self, request, scenario_id: str):
         """处理结果查询请求。"""
         try:
-            result = SCENARIO_SERVICE.get_scenario_result(scenario_id=scenario_id)
+            result = SCENARIO_SERVICE.get_scenario_result(
+                scenario_id=scenario_id,
+                actor=request.query_params.get("actor"),
+            )
         except ScenarioServiceError as error:
             return build_error_response(error)
         return Response({"success": True, "data": result})

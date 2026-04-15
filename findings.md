@@ -1,5 +1,47 @@
 # 当前发现
 
+## 2026-04-15 V3 P1 G2 抓包正式执行闭环发现
+- 当前 `P1-G2` 的真正缺口不是“抓包导入”，而是导入后的正式治理层缺失：没有正式确认对象、没有绑定确认动作，也没有执行前门禁，因此执行入口会直接落到旧的 `unsupported_public_baseline_operation` 错误。
+- 本轮首批实现采用“抓包场景继续复用 `ScenarioRecord`，另增 `TrafficCaptureFormalizationRecord` 承接确认态与绑定态”的方案，避免为抓包路线再造一套平行场景或执行体系。
+- 当前抓包正式执行闭环继续复用 `P1-G1` 的显式 actor 门禁与审计日志：
+  - `confirm_traffic_capture`
+  - `confirm_traffic_capture_bindings`
+  - `execute_scenario`
+  三类关键动作都继续落在统一的项目边界和审计查询契约内。
+- 执行门禁必须前置在执行管线之前；否则抓包场景会先因为候选 `operation_id` 不可执行而失败，掩盖真正应暴露给用户的治理错误语义。
+- 当前第一批抓包正式执行范围仍然刻意收敛：
+  - 只支持公开基线操作绑定确认；
+  - 不做复杂抓包智能映射；
+  - 不做 AI 自动修复或自动推断绑定。
+- 当前 `P1-G2` 首批结果已成立：
+  - `service_tests/test_v3_p1_traffic_capture_execution.py` -> `3 passed`
+  - `service_tests` -> `38 passed`
+  - `tests/platform_core` -> `71 passed`
+  - `tests` -> `79 passed`
+  - `api_test/tests` -> `39 passed`
+
+## 2026-04-15 V3 P1 G1 启动发现
+- `P1` 当前范围过大，必须继续拆分；其中 `权限体系与审计治理` 是抓包正式执行、入口深化和调度中心的共同前置，不宜继续和其他 `P1` 子项并行混改。
+- 当前仓库虽然已引入 `django.contrib.auth`，但服务层并没有任何正式的用户、角色或项目授权事实对象；如果直接把权限判断散落在视图层，会快速破坏 `scenario_service` 现有事实源设计。
+- 当前最稳妥的首批实现不是立刻接完整登录，而是先在服务层补“项目角色授权记录 + 审计日志记录 + 显式 actor 门禁”三件套：
+  - 角色授权记录承接 `viewer / editor / executor / reviewer / scheduler / project_admin`；
+  - 审计日志记录关键动作的成功与阻断；
+  - 审核、执行和查看先接入项目级授权校验。
+- 由于现有接口普遍已经带有 `reviewer` 等显式操作者字段，`P1-G1` 第一批实现继续采用 `actor / reviewer / operator` 显式传参，比强行接入完整登录态更符合当前阶段的增量式改造原则。
+- 用户已明确要求进入 `P1` 正式开发与测试，因此当前不再停留在计划讨论；实施计划已落到 `docs/superpowers/plans/2026-04-15-v3-p1-g1-permission-audit.md`，后续可直接按该文件执行。
+- 本轮真实兼容性问题不是权限模型本身，而是历史 V2/P0 测试默认把 `qa-owner / qa-reviewer` 视为内置操作者；如果完全改成“无授权即拒绝”，会直接打回既有审核主链路。
+- 当前已采用“历史内置操作者兼容模板 + P1 新角色授权记录并存”的折中方案：
+  - `qa-owner` 保持全量治理动作权限；
+  - `qa-reviewer` 保持查看/审核权限；
+  - 新增 `viewer / editor / executor / reviewer / scheduler / project_admin` 继续走显式项目角色授权记录。
+- 审计日志若写在 `@transaction.atomic` 内部，越权异常会导致阻断日志一起回滚；本轮已将授权校验前移到事务外，确保被阻断的动作也能真正留下审计记录。
+- 当前 `P1-G1` 首批结果已成立：
+  - `service_tests/test_v3_p1_permission_audit.py` -> `3 passed`
+  - `service_tests` -> `35 passed`
+  - `tests/platform_core` -> `71 passed`
+  - `tests` -> `79 passed`
+  - `api_test/tests` -> `39 passed`
+
 ## 2026-04-15 V3 P0 详细验收与数据保留发现
 - `platform_service.test_settings` 虽然已经切到 MySQL，但如果继续沿用 `pytest.mark.django_db + 清库夹具`，测试数据仍不会保留；本轮已确认真正的冲突点在 `service_tests/conftest.py` 和固定业务标识，而不只是数据库引擎本身。
 - 当前更稳妥的数据保留方案不是强行让 pytest-django 接管正式库，而是：

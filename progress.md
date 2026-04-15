@@ -1,5 +1,76 @@
 # 会话进展
 
+## 2026-04-15 V3 P1 G2 抓包正式执行闭环
+
+### 已完成
+- 已新增 `docs/superpowers/plans/2026-04-15-v3-p1-g2-traffic-capture-execution.md`，将 `P1-G2` 拆分为独立执行批次，明确范围只覆盖“正式确认 -> 绑定确认 -> 正式执行 -> 结果回写”。
+- 已新增 `service_tests/test_v3_p1_traffic_capture_execution.py`，按 TDD 覆盖三条主线：
+  - 抓包正式执行对象应表达确认、绑定与就绪状态；
+  - 抓包正式确认与绑定确认接口应返回稳定契约；
+  - 抓包执行前必须通过正式确认门禁，执行成功后需回写结果与审计。
+- 已完成 `P1-G2` 首批最小实现：
+  - 新增 `TrafficCaptureFormalizationRecord` 与迁移 `0007_trafficcaptureformalizationrecord.py`；
+  - 在抓包导入后初始化正式执行对象；
+  - 新增 `/traffic-capture/confirm/` 与 `/traffic-capture/bindings/confirm/` 两个接口；
+  - 为执行入口新增抓包正式确认门禁；
+  - 在详情与结果摘要中新增 `traffic_capture_formalization` 返回结构；
+  - 执行成功后回写 `last_execution_id` 与抓包正式执行元数据。
+- 已完成本轮验证：
+  - `service_tests/test_v3_p1_traffic_capture_execution.py` -> `3 passed`
+  - `service_tests` -> `38 passed`
+  - `tests/platform_core` -> `71 passed`
+  - `tests` -> `79 passed`
+  - `api_test/tests` -> `39 passed`
+  - `manage.py showmigrations scenario_service --settings=platform_service.test_settings` -> `0007_trafficcaptureformalizationrecord [X]`
+  - `manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.test_settings` -> `No changes detected in app 'scenario_service'`
+- 已完成文档同步：
+  - `README.md`
+  - `product_document/阶段文档/V3阶段工作计划文档.md`
+  - `product_document/测试文档/详细测试用例说明书(V3-P1).md`
+  - `product_document/本地MySQL数据库信息.md`
+  - `task_plan.md`
+  - `findings.md`
+  - `progress.md`
+
+### 下一步
+- 继续进入 `P1-G3` Web 正式入口深化与 Windows Demo。
+- 保持 `P1-G1 / G2` 已建立的权限、审计和抓包正式执行契约，不引入第二套事实源或并行门禁逻辑。
+
+## 2026-04-15 V3 P1 G1 启动
+
+### 已完成
+- 已将 `CLAUDE.md` 以独立提交 `b485bc7` 推送到 `origin/main`，满足用户“CLAUDE.md 也需要提交到远程仓库”的要求。
+- 已再次复核 `V3阶段工作计划文档.md`、`详细测试用例说明书(V3-P1).md`、`scenario_service` 当前实现和 Git 状态，确认当前 `V3 P0` 最新有效验收口径仍成立，且工作区不存在会推翻 `P0` 结论的已跟踪改动。
+- 已新增 `docs/superpowers/plans/2026-04-15-v3-p1-g1-permission-audit.md`，把 `P1` 拆分为首个可执行子项目 `P1-G1 权限与审计治理`。
+- 已收敛当前实现策略：
+  - 暂不引入完整登录体系；
+  - 先采用显式 `actor / reviewer / operator` 作为项目级授权主体；
+  - 在 `scenario_service` 中新增项目角色授权记录和审计日志记录；
+  - 先把审核、执行和查看等关键动作接入项目边界与留痕。
+- 已完成 `P1-G1` 首批实现：
+  - 新增 `ProjectRoleAssignmentRecord` 与 `ScenarioAuditLogRecord`；
+  - 新增授权管理接口 `/api/v2/scenarios/governance/access-grants/`；
+  - 新增审计日志查询接口 `/api/v2/scenarios/governance/audit-logs/`；
+  - 已让审核、执行、详情查看和结果查看承接显式 `actor / operator / reviewer` 权限门禁；
+  - 已兼容历史内置操作者 `qa-owner / qa-reviewer`，避免现有 V2/P0 主链路被新门禁打回。
+- 已完成本轮验证：
+  - `service_tests/test_v3_p1_permission_audit.py` -> `3 passed`
+  - `service_tests` -> `35 passed`
+  - `tests/platform_core` -> `71 passed`
+  - `tests` -> `79 passed`
+  - `api_test/tests` -> `39 passed`
+  - `manage.py showmigrations scenario_service --settings=platform_service.test_settings` -> `0006_scenarioauditlogrecord_projectroleassignmentrecord [X]`
+  - `manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.test_settings` -> `No changes detected in app 'scenario_service'`
+- 已完成文档同步：
+  - `README.md`
+  - `product_document/阶段文档/V3阶段工作计划文档.md`
+  - `product_document/测试文档/详细测试用例说明书(V3-P1).md`
+  - `product_document/本地MySQL数据库信息.md`
+
+### 下一步
+- 向用户汇报 `P1-G1` 首批开发与测试结果、兼容性处理和当前边界。
+- 如用户认可，继续拆解并进入 `P1-G2` 抓包正式执行闭环。
+
 ## 2026-04-15 V3 P0 详细验收与数据保留收口
 
 ### 已完成

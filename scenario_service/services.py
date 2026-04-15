@@ -16,13 +16,16 @@ from platform_core.services import PlatformApplicationService
 from platform_core.traffic_capture import TrafficCaptureDraftParser
 from scenario_service.governance import GovernanceBootstrapService
 from scenario_service.models import (
+    ProjectRoleAssignmentRecord,
     ScenarioExecutionRecord,
+    ScenarioAuditLogRecord,
     ScenarioRecord,
     ScenarioRevisionRecord,
     ScenarioReviewRecord,
     ScenarioSourceRecord,
     ScenarioSuggestionRecord,
     ScenarioStepRecord,
+    TrafficCaptureFormalizationRecord,
 )
 from scenario_service.suggestion_providers import BaseSuggestionProvider, RuleBasedSuggestionProvider
 
@@ -36,6 +39,85 @@ class ScenarioServiceError(Exception):
         self.code = code
         self.message = message
         self.status_code = status_code
+
+
+SUPER_ADMIN_ACTOR = "platform-admin"
+BUILTIN_ACTOR_PERMISSIONS = {
+    SUPER_ADMIN_ACTOR: {
+        "can_view": True,
+        "can_edit": True,
+        "can_execute": True,
+        "can_review": True,
+        "can_schedule": True,
+        "can_grant": True,
+    },
+    "qa-owner": {
+        "can_view": True,
+        "can_edit": True,
+        "can_execute": True,
+        "can_review": True,
+        "can_schedule": True,
+        "can_grant": True,
+    },
+    "qa-reviewer": {
+        "can_view": True,
+        "can_edit": False,
+        "can_execute": False,
+        "can_review": True,
+        "can_schedule": False,
+        "can_grant": False,
+    },
+}
+ROLE_PERMISSION_TEMPLATES = {
+    "viewer": {
+        "can_view": True,
+        "can_edit": False,
+        "can_execute": False,
+        "can_review": False,
+        "can_schedule": False,
+        "can_grant": False,
+    },
+    "editor": {
+        "can_view": True,
+        "can_edit": True,
+        "can_execute": False,
+        "can_review": False,
+        "can_schedule": False,
+        "can_grant": False,
+    },
+    "executor": {
+        "can_view": True,
+        "can_edit": False,
+        "can_execute": True,
+        "can_review": False,
+        "can_schedule": False,
+        "can_grant": False,
+    },
+    "reviewer": {
+        "can_view": True,
+        "can_edit": False,
+        "can_execute": False,
+        "can_review": True,
+        "can_schedule": False,
+        "can_grant": False,
+    },
+    "scheduler": {
+        "can_view": True,
+        "can_edit": False,
+        "can_execute": True,
+        "can_review": False,
+        "can_schedule": True,
+        "can_grant": False,
+    },
+    "project_admin": {
+        "can_view": True,
+        "can_edit": True,
+        "can_execute": True,
+        "can_review": True,
+        "can_schedule": True,
+        "can_grant": True,
+    },
+}
 
 
 class FunctionalCaseScenarioService:
@@ -91,7 +173,9 @@ class FunctionalCaseScenarioService:
             environment_code=environment_code,
             scenario_set_code=scenario_set_code,
         )
-        return self._persist_scenario_draft(draft=draft, governance_context=governance_context)
+        scenario = self._persist_scenario_draft(draft=draft, governance_context=governance_context)
+        self._create_traffic_capture_formalization(scenario=scenario)
+        return scenario
 
     def _persist_scenario_draft(self, draft: FunctionalCaseDraft, governance_context) -> ScenarioRecord:
         """把统一场景草稿对象持久化为场景与步骤记录。"""
@@ -194,6 +278,486 @@ class FunctionalCaseScenarioService:
                 )
             )
         ScenarioSourceRecord.objects.bulk_create(source_records)
+
+    @staticmethod
+    def _build_role_assignment_summary(assignment: ProjectRoleAssignmentRecord) -> dict:
+        """构造项目角色授权摘要。"""
+        return {
+            "assignment_id": assignment.assignment_id,
+            "project_id": assignment.project.project_id,
+            "project_code": assignment.project.project_code,
+            "subject_name": assignment.subject_name,
+            "role_code": assignment.role_code,
+            "permissions": {
+                "can_view": assignment.can_view,
+                "can_edit": assignment.can_edit,
+                "can_execute": assignment.can_execute,
+                "can_review": assignment.can_review,
+                "can_schedule": assignment.can_schedule,
+                "can_grant": assignment.can_grant,
+            },
+            "granted_by": assignment.granted_by,
+            "is_active": assignment.is_active,
+            "created_at": assignment.created_at.isoformat(),
+            "updated_at": assignment.updated_at.isoformat(),
+        }
+
+    @staticmethod
+    def _build_audit_log_summary(audit_log: ScenarioAuditLogRecord) -> dict:
+        """构造审计日志摘要。"""
+        return {
+            "audit_id": audit_log.audit_id,
+            "project_code": audit_log.project.project_code if audit_log.project else "",
+            "scenario_id": audit_log.scenario.scenario_id if audit_log.scenario else "",
+            "execution_id": audit_log.execution.execution_id if audit_log.execution else "",
+            "actor_name": audit_log.actor_name,
+            "action_type": audit_log.action_type,
+            "action_result": audit_log.action_result,
+            "target_type": audit_log.target_type,
+            "target_id": audit_log.target_id,
+            "detail_message": audit_log.detail_message,
+            "metadata": audit_log.metadata,
+            "created_at": audit_log.created_at.isoformat(),
+        }
+
+    @staticmethod
+    def _build_traffic_capture_formalization_summary(formalization: TrafficCaptureFormalizationRecord) -> dict:
+        """构造抓包正式执行治理摘要。"""
+        return {
+            "confirmation_id": formalization.confirmation_id,
+            "project_code": formalization.project.project_code,
+            "environment_code": formalization.environment.environment_code,
+            "confirmation_status": formalization.confirmation_status,
+            "binding_status": formalization.binding_status,
+            "execution_readiness": formalization.execution_readiness,
+            "confirmed_by": formalization.confirmed_by,
+            "bindings_confirmed_by": formalization.bindings_confirmed_by,
+            "last_execution_id": formalization.last_execution_id,
+            "metadata": formalization.metadata,
+            "created_at": formalization.created_at.isoformat(),
+            "updated_at": formalization.updated_at.isoformat(),
+        }
+
+    @staticmethod
+    def _is_traffic_capture_scenario(scenario: ScenarioRecord) -> bool:
+        """判断当前场景是否来自抓包导入路线。"""
+        return (scenario.metadata or {}).get("source_type") == "traffic_capture"
+
+    @staticmethod
+    def _get_traffic_capture_formalization(
+        scenario: ScenarioRecord,
+    ) -> TrafficCaptureFormalizationRecord | None:
+        """读取抓包场景的正式执行治理对象。"""
+        if not FunctionalCaseScenarioService._is_traffic_capture_scenario(scenario):
+            return None
+        try:
+            return scenario.traffic_capture_formalization
+        except TrafficCaptureFormalizationRecord.DoesNotExist:
+            return None
+
+    def _create_traffic_capture_formalization(
+        self,
+        *,
+        scenario: ScenarioRecord,
+    ) -> TrafficCaptureFormalizationRecord | None:
+        """为抓包场景初始化正式执行治理对象。"""
+        if not self._is_traffic_capture_scenario(scenario):
+            return None
+        if scenario.project is None or scenario.environment is None:
+            raise ScenarioServiceError(
+                code="traffic_capture_governance_context_missing",
+                message="抓包场景缺少项目或环境上下文，无法初始化正式执行治理对象。",
+                status_code=400,
+            )
+        formalization, _ = TrafficCaptureFormalizationRecord.objects.get_or_create(
+            scenario=scenario,
+            defaults={
+                "confirmation_id": f"capture-formalization-{scenario.scenario_id}",
+                "project": scenario.project,
+                "environment": scenario.environment,
+                "confirmation_status": "draft",
+                "binding_status": "pending",
+                "execution_readiness": "blocked",
+                "metadata": {
+                    "source_type": "traffic_capture",
+                    "scenario_code": scenario.scenario_code,
+                },
+            },
+        )
+        return formalization
+
+    def _validate_traffic_capture_step_bindings(self, step_bindings: list[dict]) -> None:
+        """校验抓包步骤绑定确认请求中的公开基线操作映射。"""
+        if not step_bindings:
+            raise ScenarioServiceError(
+                code="traffic_capture_step_bindings_required",
+                message="抓包正式绑定确认至少需要一条步骤绑定。",
+                status_code=400,
+            )
+        supported_operations = self.scenario_execution_pipeline.SUPPORTED_OPERATIONS
+        for binding in step_bindings:
+            operation_id = binding.get("operation_id")
+            if not operation_id or operation_id not in supported_operations:
+                raise ScenarioServiceError(
+                    code="unsupported_public_baseline_operation",
+                    message=f"未绑定可执行的公开基线操作: {operation_id}",
+                    status_code=400,
+                )
+
+    @staticmethod
+    def _clear_capture_review_issues(scenario: ScenarioRecord) -> None:
+        """在绑定确认完成后清理抓包候选态问题标记。"""
+        scenario.issues = [
+            issue
+            for issue in scenario.issues
+            if issue.get("issue_code") != "capture_operation_needs_review"
+        ]
+        scenario.issue_count = len(scenario.issues)
+        scenario.save(update_fields=["issues", "issue_count", "updated_at"])
+        scenario.sources.filter(entity_type="step").update(confidence="high", issue_tags=[])
+
+    def confirm_traffic_capture(
+        self,
+        *,
+        scenario_id: str,
+        confirmer: str,
+        confirm_comment: str = "",
+    ) -> dict:
+        """确认抓包场景可进入正式绑定阶段。"""
+        scenario = self._get_scenario(scenario_id=scenario_id)
+        if not self._is_traffic_capture_scenario(scenario):
+            raise ScenarioServiceError(
+                code="traffic_capture_scenario_required",
+                message="当前场景不是抓包导入场景，不能执行抓包正式确认。",
+                status_code=400,
+            )
+        if scenario.review_status != "approved":
+            raise ScenarioServiceError(
+                code="traffic_capture_review_required",
+                message="抓包场景需先审核通过，才能进入正式确认。",
+                status_code=400,
+            )
+        self._authorize_project_action(
+            project=scenario.project,
+            actor_name=confirmer,
+            action_type="confirm_traffic_capture",
+            required_permission="can_review",
+            target_type="scenario",
+            target_id=scenario.scenario_id,
+            scenario=scenario,
+            detail_message="尝试确认抓包场景进入正式绑定阶段。",
+        )
+        formalization = self._create_traffic_capture_formalization(scenario=scenario)
+        assert formalization is not None
+        formalization.confirmation_status = "confirmed"
+        formalization.execution_readiness = "ready" if formalization.binding_status == "confirmed" else "blocked"
+        formalization.confirmed_by = confirmer
+        formalization.metadata = {
+            **(formalization.metadata or {}),
+            "confirm_comment": confirm_comment,
+            "confirmed_at": datetime.now(UTC).isoformat(),
+        }
+        formalization.save(
+            update_fields=[
+                "confirmation_status",
+                "execution_readiness",
+                "confirmed_by",
+                "metadata",
+                "updated_at",
+            ]
+        )
+        self._create_audit_log(
+            project=scenario.project,
+            actor_name=confirmer,
+            action_type="confirm_traffic_capture",
+            action_result="succeeded",
+            target_type="scenario",
+            target_id=scenario.scenario_id,
+            scenario=scenario,
+            detail_message="已确认抓包场景进入正式绑定阶段。",
+            metadata={"confirmation_status": formalization.confirmation_status},
+        )
+        return self._build_traffic_capture_formalization_summary(formalization)
+
+    def confirm_traffic_capture_bindings(
+        self,
+        *,
+        scenario_id: str,
+        confirmer: str,
+        step_bindings: list[dict],
+        confirm_comment: str = "",
+    ) -> dict:
+        """确认抓包步骤的正式操作绑定与变量绑定。"""
+        scenario = self._get_scenario(scenario_id=scenario_id)
+        if not self._is_traffic_capture_scenario(scenario):
+            raise ScenarioServiceError(
+                code="traffic_capture_scenario_required",
+                message="当前场景不是抓包导入场景，不能执行抓包绑定确认。",
+                status_code=400,
+            )
+        self._authorize_project_action(
+            project=scenario.project,
+            actor_name=confirmer,
+            action_type="confirm_traffic_capture_bindings",
+            required_permission="can_review",
+            target_type="scenario",
+            target_id=scenario.scenario_id,
+            scenario=scenario,
+            detail_message="尝试确认抓包步骤绑定。",
+        )
+        formalization = self._create_traffic_capture_formalization(scenario=scenario)
+        assert formalization is not None
+        if formalization.confirmation_status != "confirmed":
+            raise ScenarioServiceError(
+                code="traffic_capture_confirmation_required",
+                message="抓包场景需先完成正式确认，才能确认步骤绑定。",
+                status_code=400,
+            )
+        self._validate_traffic_capture_step_bindings(step_bindings=step_bindings)
+        with transaction.atomic():
+            self._apply_step_patches(scenario=scenario, step_patches=step_bindings)
+            self._clear_capture_review_issues(scenario)
+            formalization.binding_status = "confirmed"
+            formalization.execution_readiness = "ready"
+            formalization.bindings_confirmed_by = confirmer
+            formalization.metadata = {
+                **(formalization.metadata or {}),
+                "binding_confirm_comment": confirm_comment,
+                "binding_confirmed_at": datetime.now(UTC).isoformat(),
+                "binding_step_count": len(step_bindings),
+            }
+            formalization.save(
+                update_fields=[
+                    "binding_status",
+                    "execution_readiness",
+                    "bindings_confirmed_by",
+                    "metadata",
+                    "updated_at",
+                ]
+            )
+            self._create_audit_log(
+                project=scenario.project,
+                actor_name=confirmer,
+                action_type="confirm_traffic_capture_bindings",
+                action_result="succeeded",
+                target_type="scenario",
+                target_id=scenario.scenario_id,
+                scenario=scenario,
+                detail_message="已完成抓包步骤正式绑定确认。",
+                metadata={"binding_status": formalization.binding_status, "step_count": len(step_bindings)},
+            )
+        return self._build_traffic_capture_formalization_summary(formalization)
+
+    def _ensure_traffic_capture_execution_ready(
+        self,
+        *,
+        scenario: ScenarioRecord,
+        actor_name: str | None,
+    ) -> TrafficCaptureFormalizationRecord | None:
+        """在执行前校验抓包场景是否已完成正式确认与绑定确认。"""
+        formalization = self._get_traffic_capture_formalization(scenario)
+        if formalization is None:
+            return None
+        if formalization.confirmation_status == "confirmed" and formalization.binding_status == "confirmed":
+            return formalization
+        if actor_name:
+            self._create_audit_log(
+                project=scenario.project,
+                actor_name=actor_name,
+                action_type="execute_scenario",
+                action_result="blocked",
+                target_type="scenario",
+                target_id=scenario.scenario_id,
+                scenario=scenario,
+                detail_message="抓包场景尚未完成正式确认与绑定确认，禁止触发正式执行。",
+                metadata={"reason_code": "traffic_capture_formalization_required"},
+            )
+        raise ScenarioServiceError(
+            code="traffic_capture_formalization_required",
+            message="抓包场景需先完成正式确认与绑定确认，才能触发正式执行。",
+            status_code=400,
+        )
+
+    @staticmethod
+    def _resolve_role_permissions(role_code: str) -> dict[str, bool]:
+        """返回角色编码对应的权限模板。"""
+        try:
+            return ROLE_PERMISSION_TEMPLATES[role_code]
+        except KeyError as error:
+            raise ScenarioServiceError(
+                code="project_role_code_invalid",
+                message=f"未支持的项目角色编码: {role_code}",
+                status_code=400,
+            ) from error
+
+    @staticmethod
+    def _get_project_role_assignment(
+        *,
+        project,
+        subject_name: str,
+    ) -> ProjectRoleAssignmentRecord | None:
+        """加载项目成员当前生效的角色授权记录。"""
+        return (
+            ProjectRoleAssignmentRecord.objects.filter(
+                project=project,
+                subject_name=subject_name,
+                is_active=True,
+            )
+            .order_by("-updated_at", "-id")
+            .first()
+        )
+
+    @staticmethod
+    def _create_audit_log(
+        *,
+        project,
+        actor_name: str,
+        action_type: str,
+        action_result: str,
+        target_type: str,
+        target_id: str,
+        scenario: ScenarioRecord | None = None,
+        execution: ScenarioExecutionRecord | None = None,
+        detail_message: str = "",
+        metadata: dict | None = None,
+    ) -> ScenarioAuditLogRecord:
+        """写入一条治理动作审计日志。"""
+        return ScenarioAuditLogRecord.objects.create(
+            audit_id=f"audit-{uuid4().hex[:12]}",
+            project=project,
+            scenario=scenario,
+            execution=execution,
+            actor_name=actor_name,
+            action_type=action_type,
+            action_result=action_result,
+            target_type=target_type,
+            target_id=target_id,
+            detail_message=detail_message,
+            metadata=metadata or {},
+        )
+
+    def _authorize_project_action(
+        self,
+        *,
+        project,
+        actor_name: str,
+        action_type: str,
+        required_permission: str,
+        target_type: str,
+        target_id: str,
+        scenario: ScenarioRecord | None = None,
+        detail_message: str = "",
+    ) -> ProjectRoleAssignmentRecord | None:
+        """校验 actor 是否具备项目级动作权限，不通过时写入阻断日志。"""
+        builtin_permissions = BUILTIN_ACTOR_PERMISSIONS.get(actor_name)
+        if builtin_permissions and builtin_permissions.get(required_permission):
+            return None
+        assignment = self._get_project_role_assignment(project=project, subject_name=actor_name)
+        if assignment is None or not getattr(assignment, required_permission):
+            self._create_audit_log(
+                project=project,
+                actor_name=actor_name,
+                action_type=action_type,
+                action_result="blocked",
+                target_type=target_type,
+                target_id=target_id,
+                scenario=scenario,
+                detail_message=detail_message or "当前成员缺少项目动作权限。",
+                metadata={"required_permission": required_permission},
+            )
+            raise ScenarioServiceError(
+                code="project_action_forbidden",
+                message="当前成员无权执行该项目动作。",
+                status_code=403,
+            )
+        return assignment
+
+    def assign_project_role(
+        self,
+        *,
+        project_code: str,
+        operator: str,
+        subject_name: str,
+        role_code: str,
+    ) -> dict:
+        """为项目成员写入或更新角色授权记录。"""
+        context = self.governance_service.resolve_context(project_code=project_code)
+        if operator != SUPER_ADMIN_ACTOR:
+            self._authorize_project_action(
+                project=context.project,
+                actor_name=operator,
+                action_type="assign_project_role",
+                required_permission="can_grant",
+                target_type="project",
+                target_id=context.project.project_id,
+                detail_message="尝试为项目成员分配角色。",
+            )
+        permissions = self._resolve_role_permissions(role_code=role_code)
+        with transaction.atomic():
+            assignment, created = ProjectRoleAssignmentRecord.objects.update_or_create(
+                project=context.project,
+                subject_name=subject_name,
+                defaults={
+                    "assignment_id": f"assignment-{context.project.project_code}-{subject_name}",
+                    "role_code": role_code,
+                    "can_view": permissions["can_view"],
+                    "can_edit": permissions["can_edit"],
+                    "can_execute": permissions["can_execute"],
+                    "can_review": permissions["can_review"],
+                    "can_schedule": permissions["can_schedule"],
+                    "can_grant": permissions["can_grant"],
+                    "granted_by": operator,
+                    "is_active": True,
+                    "metadata": {},
+                },
+            )
+            self._create_audit_log(
+                project=context.project,
+                actor_name=operator,
+                action_type="assign_project_role",
+                action_result="succeeded",
+                target_type="project_role_assignment",
+                target_id=assignment.assignment_id,
+                detail_message=f"已为 {subject_name} 分配角色 {role_code}。",
+                metadata={
+                    "subject_name": subject_name,
+                    "role_code": role_code,
+                    "created": created,
+                },
+            )
+        return self._build_role_assignment_summary(assignment)
+
+    def list_project_roles(
+        self,
+        *,
+        project_code: str,
+        subject_name: str | None = None,
+    ) -> list[dict]:
+        """查询项目成员角色授权记录。"""
+        queryset = ProjectRoleAssignmentRecord.objects.filter(project__project_code=project_code, is_active=True)
+        if subject_name:
+            queryset = queryset.filter(subject_name=subject_name)
+        return [self._build_role_assignment_summary(item) for item in queryset.order_by("subject_name", "id")]
+
+    def list_audit_logs(
+        self,
+        *,
+        project_code: str | None = None,
+        actor_name: str | None = None,
+        action_type: str | None = None,
+        action_result: str | None = None,
+    ) -> list[dict]:
+        """按治理维度筛选审计日志记录。"""
+        queryset = ScenarioAuditLogRecord.objects.all()
+        if project_code:
+            queryset = queryset.filter(project__project_code=project_code)
+        if actor_name:
+            queryset = queryset.filter(actor_name=actor_name)
+        if action_type:
+            queryset = queryset.filter(action_type=action_type)
+        if action_result:
+            queryset = queryset.filter(action_result=action_result)
+        return [self._build_audit_log_summary(item) for item in queryset.order_by("-created_at", "-id")]
 
     def _build_governance_summary(self, scenario: ScenarioRecord) -> dict:
         """构造场景级治理上下文摘要。"""
@@ -337,10 +901,31 @@ class FunctionalCaseScenarioService:
             return latest_execution.diff_summary
         return cls._build_empty_diff_summary()
 
-    def get_scenario_detail(self, scenario_id: str) -> dict:
+    def get_scenario_detail(self, scenario_id: str, actor: str | None = None) -> dict:
         """返回场景详情结构。"""
         self.governance_service.ensure_bootstrap()
         scenario = self._get_scenario(scenario_id=scenario_id)
+        if actor:
+            self._authorize_project_action(
+                project=scenario.project,
+                actor_name=actor,
+                action_type="view_scenario",
+                required_permission="can_view",
+                target_type="scenario",
+                target_id=scenario.scenario_id,
+                scenario=scenario,
+                detail_message="尝试查看场景详情。",
+            )
+            self._create_audit_log(
+                project=scenario.project,
+                actor_name=actor,
+                action_type="view_scenario",
+                action_result="succeeded",
+                target_type="scenario",
+                target_id=scenario.scenario_id,
+                scenario=scenario,
+                detail_message="已查看场景详情。",
+            )
         return {
             **self.build_scenario_summary(scenario),
             "steps": [
@@ -387,10 +972,25 @@ class FunctionalCaseScenarioService:
         self.governance_service.ensure_bootstrap()
         filters = filters or {}
         queryset = ScenarioRecord.objects.all()
+        actor = filters.get("actor")
 
         project_code = filters.get("project_code")
         if project_code:
             queryset = queryset.filter(project__project_code=project_code)
+            if actor:
+                project = self.governance_service.resolve_context(project_code=project_code).project
+                self._authorize_project_action(
+                    project=project,
+                    actor_name=actor,
+                    action_type="list_scenarios",
+                    required_permission="can_view",
+                    target_type="project",
+                    target_id=project.project_id,
+                    detail_message="尝试按项目筛选场景列表。",
+                )
+        elif actor and not BUILTIN_ACTOR_PERMISSIONS.get(actor, {}).get("can_view"):
+            assignments = ProjectRoleAssignmentRecord.objects.filter(subject_name=actor, is_active=True, can_view=True)
+            queryset = queryset.filter(project__in=[item.project for item in assignments])
 
         environment_code = filters.get("environment_code")
         if environment_code:
@@ -528,37 +1128,58 @@ class FunctionalCaseScenarioService:
         scenario = self._get_scenario(scenario_id=scenario_id)
         return self._build_suggestion_records(scenario)
 
-    @transaction.atomic
     def review_scenario(
         self,
         scenario_id: str,
         review_status: str,
         reviewer: str,
         review_comment: str | None = None,
-    ) -> ScenarioRecord:
+        ) -> ScenarioRecord:
         """执行场景审核并写入留痕记录。"""
         scenario = self._get_scenario(scenario_id=scenario_id)
-        self.application_service.validate_scenario_transition(
-            current_review_status=scenario.review_status,
-            target_review_status=review_status,
-            current_execution_status=scenario.execution_status,
-            target_execution_status=scenario.execution_status,
-        )
-        scenario.review_status = review_status
-        scenario.current_stage = self._derive_stage(
-            review_status=review_status,
-            execution_status=scenario.execution_status,
-        )
-        scenario.save(update_fields=["review_status", "current_stage", "updated_at"])
-        ScenarioReviewRecord.objects.create(
+        self._authorize_project_action(
+            project=scenario.project,
+            actor_name=reviewer,
+            action_type="review_scenario",
+            required_permission="can_review",
+            target_type="scenario",
+            target_id=scenario.scenario_id,
             scenario=scenario,
-            review_id=f"review-{uuid4().hex[:12]}",
-            reviewer=reviewer,
-            review_comment=review_comment or "",
-            review_status=review_status,
-            reviewed_at=datetime.now(UTC),
-            metadata={},
+            detail_message="尝试审核场景。",
         )
+        with transaction.atomic():
+            self.application_service.validate_scenario_transition(
+                current_review_status=scenario.review_status,
+                target_review_status=review_status,
+                current_execution_status=scenario.execution_status,
+                target_execution_status=scenario.execution_status,
+            )
+            scenario.review_status = review_status
+            scenario.current_stage = self._derive_stage(
+                review_status=review_status,
+                execution_status=scenario.execution_status,
+            )
+            scenario.save(update_fields=["review_status", "current_stage", "updated_at"])
+            ScenarioReviewRecord.objects.create(
+                scenario=scenario,
+                review_id=f"review-{uuid4().hex[:12]}",
+                reviewer=reviewer,
+                review_comment=review_comment or "",
+                review_status=review_status,
+                reviewed_at=datetime.now(UTC),
+                metadata={},
+            )
+            self._create_audit_log(
+                project=scenario.project,
+                actor_name=reviewer,
+                action_type="review_scenario",
+                action_result="succeeded",
+                target_type="scenario",
+                target_id=scenario.scenario_id,
+                scenario=scenario,
+                detail_message=f"已将场景审核状态更新为 {review_status}。",
+                metadata={"review_status": review_status},
+            )
         return scenario
 
     @transaction.atomic
@@ -639,13 +1260,13 @@ class FunctionalCaseScenarioService:
             "revision_id": latest_revision.revision_id if latest_revision else "",
         }
 
-    @transaction.atomic
     def request_execution(
         self,
         scenario_id: str,
         project_code: str | None = None,
         environment_code: str | None = None,
         workspace_root: str | Path | None = None,
+        operator: str | None = None,
     ) -> ScenarioExecutionRecord:
         """执行场景并回写统一结果摘要。"""
         self.governance_service.ensure_bootstrap()
@@ -662,6 +1283,18 @@ class FunctionalCaseScenarioService:
                 message="执行必须显式指定项目和环境。",
                 status_code=400,
             )
+        if operator:
+            self._authorize_project_action(
+                project=scenario.project,
+                actor_name=operator,
+                action_type="execute_scenario",
+                required_permission="can_execute",
+                target_type="scenario",
+                target_id=scenario.scenario_id,
+                scenario=scenario,
+                detail_message="尝试触发场景执行。",
+            )
+        formalization = self._ensure_traffic_capture_execution_ready(scenario=scenario, actor_name=operator)
         try:
             governance_context = self.governance_service.resolve_execution_context(
                 scenario=scenario,
@@ -714,59 +1347,101 @@ class FunctionalCaseScenarioService:
             failure_summary=failure_summary,
             previous_execution=previous_execution,
         )
-        execution = ScenarioExecutionRecord.objects.create(
-            scenario=scenario,
-            project=scenario.project,
-            environment=scenario.environment,
-            scenario_set=scenario.scenario_set,
-            baseline_version=baseline_version,
-            execution_id=execution_id,
-            execution_status=execution_status,
-            passed_count=pipeline_result.execution_record.passed_count,
-            failed_count=failed_count,
-            skipped_count=pipeline_result.execution_record.skipped_count,
-            workspace_root=pipeline_result.asset_manifest.workspace_root,
-            report_path=pipeline_result.execution_record.report_path or "",
-            failure_summary=failure_summary,
-            trigger_source="manual",
-            based_on_revision_id=self._get_latest_revision_id(scenario),
-            based_on_suggestion_id=self._get_latest_applied_suggestion_id(scenario),
-            change_summary={},
-            diff_summary=diff_summary,
-        )
-        scenario.latest_execution_id = execution.execution_id
-        scenario.execution_status = execution.execution_status
-        scenario.workspace_root = pipeline_result.asset_manifest.workspace_root
-        scenario.report_path = execution.report_path
-        scenario.passed_count = execution.passed_count
-        scenario.failed_count = execution.failed_count
-        scenario.skipped_count = execution.skipped_count
-        scenario.current_stage = self._derive_stage(
-            review_status=scenario.review_status,
-            execution_status=scenario.execution_status,
-        )
-        scenario.save(
-            update_fields=[
-                "latest_execution_id",
-                "execution_status",
-                "workspace_root",
-                "report_path",
-                "passed_count",
-                "failed_count",
-                "skipped_count",
-                "current_stage",
-                "updated_at",
-            ]
-        )
+        with transaction.atomic():
+            execution = ScenarioExecutionRecord.objects.create(
+                scenario=scenario,
+                project=scenario.project,
+                environment=scenario.environment,
+                scenario_set=scenario.scenario_set,
+                baseline_version=baseline_version,
+                execution_id=execution_id,
+                execution_status=execution_status,
+                passed_count=pipeline_result.execution_record.passed_count,
+                failed_count=failed_count,
+                skipped_count=pipeline_result.execution_record.skipped_count,
+                workspace_root=pipeline_result.asset_manifest.workspace_root,
+                report_path=pipeline_result.execution_record.report_path or "",
+                failure_summary=failure_summary,
+                trigger_source="manual",
+                based_on_revision_id=self._get_latest_revision_id(scenario),
+                based_on_suggestion_id=self._get_latest_applied_suggestion_id(scenario),
+                change_summary={},
+                diff_summary=diff_summary,
+            )
+            scenario.latest_execution_id = execution.execution_id
+            scenario.execution_status = execution.execution_status
+            scenario.workspace_root = pipeline_result.asset_manifest.workspace_root
+            scenario.report_path = execution.report_path
+            scenario.passed_count = execution.passed_count
+            scenario.failed_count = execution.failed_count
+            scenario.skipped_count = execution.skipped_count
+            scenario.current_stage = self._derive_stage(
+                review_status=scenario.review_status,
+                execution_status=scenario.execution_status,
+            )
+            scenario.save(
+                update_fields=[
+                    "latest_execution_id",
+                    "execution_status",
+                    "workspace_root",
+                    "report_path",
+                    "passed_count",
+                    "failed_count",
+                    "skipped_count",
+                    "current_stage",
+                    "updated_at",
+                ]
+            )
+            if formalization is not None:
+                formalization.last_execution_id = execution.execution_id
+                formalization.metadata = {
+                    **(formalization.metadata or {}),
+                    "last_execution_at": datetime.now(UTC).isoformat(),
+                }
+                formalization.save(update_fields=["last_execution_id", "metadata", "updated_at"])
+            if operator:
+                self._create_audit_log(
+                    project=scenario.project,
+                    actor_name=operator,
+                    action_type="execute_scenario",
+                    action_result="succeeded",
+                    target_type="scenario",
+                    target_id=scenario.scenario_id,
+                    scenario=scenario,
+                    execution=execution,
+                    detail_message="已触发场景执行并写回结果。",
+                    metadata={"execution_id": execution.execution_id},
+                )
         return execution
 
-    def get_scenario_result(self, scenario_id: str) -> dict:
+    def get_scenario_result(self, scenario_id: str, actor: str | None = None) -> dict:
         """返回统一结果查询摘要。"""
         scenario = self._get_scenario(scenario_id=scenario_id)
+        if actor:
+            self._authorize_project_action(
+                project=scenario.project,
+                actor_name=actor,
+                action_type="view_scenario_result",
+                required_permission="can_view",
+                target_type="scenario",
+                target_id=scenario.scenario_id,
+                scenario=scenario,
+                detail_message="尝试查看场景结果。",
+            )
+            self._create_audit_log(
+                project=scenario.project,
+                actor_name=actor,
+                action_type="view_scenario_result",
+                action_result="succeeded",
+                target_type="scenario",
+                target_id=scenario.scenario_id,
+                scenario=scenario,
+                detail_message="已查看场景结果摘要。",
+            )
         execution = scenario.executions.first()
         execution_status = execution.execution_status if execution else scenario.execution_status
         execution_history = self._build_execution_history(scenario)
-        return {
+        result = {
             "scenario_id": scenario.scenario_id,
             "scenario_code": scenario.scenario_code,
             "scenario_name": scenario.scenario_name,
@@ -785,11 +1460,15 @@ class FunctionalCaseScenarioService:
             "execution_history": execution_history,
             "latest_diff_summary": self._build_latest_diff_summary(scenario),
         }
+        formalization = self._get_traffic_capture_formalization(scenario)
+        if formalization is not None:
+            result["traffic_capture_formalization"] = self._build_traffic_capture_formalization_summary(formalization)
+        return result
 
     def build_scenario_summary(self, scenario: ScenarioRecord) -> dict:
         """构造统一场景摘要。"""
         governance_summary = self._build_governance_summary(scenario)
-        return {
+        summary = {
             "scenario_id": scenario.scenario_id,
             "scenario_code": scenario.scenario_code,
             "scenario_name": scenario.scenario_name,
@@ -809,6 +1488,10 @@ class FunctionalCaseScenarioService:
             "latest_diff_summary": self._build_latest_diff_summary(scenario),
             **governance_summary,
         }
+        formalization = self._get_traffic_capture_formalization(scenario)
+        if formalization is not None:
+            summary["traffic_capture_formalization"] = self._build_traffic_capture_formalization_summary(formalization)
+        return summary
 
     @staticmethod
     def _derive_stage(review_status: str, execution_status: str) -> str:

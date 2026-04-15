@@ -31,9 +31,25 @@ class TrafficCaptureImportRequestSerializer(serializers.Serializer):
     capture_payload = serializers.JSONField()
 
 
+class TrafficCaptureConfirmRequestSerializer(serializers.Serializer):
+    """抓包正式确认请求校验器。"""
+
+    confirmer = serializers.CharField()
+    confirm_comment = serializers.CharField(required=False, allow_blank=True)
+
+
+class TrafficCaptureBindingConfirmRequestSerializer(serializers.Serializer):
+    """抓包绑定确认请求校验器。"""
+
+    confirmer = serializers.CharField()
+    confirm_comment = serializers.CharField(required=False, allow_blank=True)
+    step_bindings = serializers.ListField(child=serializers.DictField())
+
+
 class ScenarioListQuerySerializer(serializers.Serializer):
     """场景列表筛选查询参数校验器。"""
 
+    actor = serializers.CharField(required=False, allow_blank=True)
     project_code = serializers.CharField(required=False, allow_blank=True)
     environment_code = serializers.CharField(required=False, allow_blank=True)
     scenario_set_code = serializers.CharField(required=False, allow_blank=True)
@@ -64,6 +80,33 @@ class BaselineVersionActivateSerializer(serializers.Serializer):
     scenario_set_code = serializers.CharField()
     version_code = serializers.CharField()
     version_name = serializers.CharField(required=False, allow_blank=True)
+
+
+class ProjectRoleAssignmentRequestSerializer(serializers.Serializer):
+    """项目角色授权写入请求校验器。"""
+
+    project_code = serializers.CharField()
+    operator = serializers.CharField()
+    subject_name = serializers.CharField()
+    role_code = serializers.ChoiceField(
+        choices=["viewer", "editor", "executor", "reviewer", "scheduler", "project_admin"]
+    )
+
+
+class ProjectRoleAssignmentQuerySerializer(serializers.Serializer):
+    """项目角色授权查询参数校验器。"""
+
+    project_code = serializers.CharField()
+    subject_name = serializers.CharField(required=False, allow_blank=True)
+
+
+class ScenarioAuditLogQuerySerializer(serializers.Serializer):
+    """项目审计日志查询参数校验器。"""
+
+    project_code = serializers.CharField(required=False, allow_blank=True)
+    actor_name = serializers.CharField(required=False, allow_blank=True)
+    action_type = serializers.CharField(required=False, allow_blank=True)
+    action_result = serializers.ChoiceField(choices=["succeeded", "blocked"], required=False)
 
 
 class ScenarioExportRequestSerializer(serializers.Serializer):
