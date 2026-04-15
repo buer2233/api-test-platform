@@ -2,21 +2,20 @@
 
 from __future__ import annotations
 
-import pytest
-
 from scenario_service.services import FunctionalCaseScenarioService
 
 
-pytestmark = pytest.mark.django_db
+DEFAULT_PROJECT_CODE = "default-project"
+DEFAULT_ENVIRONMENT_CODE = "default-env"
 
 
-def test_import_and_repeated_execution_preserve_source_traces_and_history(tmp_path):
+def test_import_and_repeated_execution_preserve_source_traces_and_history(tmp_path, service_test_token: str):
     """场景导入和重复执行后应保留来源追溯与独立历史。"""
     service = FunctionalCaseScenarioService()
     scenario = service.import_functional_case(
         {
-            "case_id": "fc-history-001",
-            "case_code": "history_query_user_profile",
+            "case_id": f"fc-history-001-{service_test_token}",
+            "case_code": f"history_query_user_profile_{service_test_token}",
             "case_name": "重复执行历史场景",
             "steps": [
                 {
@@ -35,8 +34,18 @@ def test_import_and_repeated_execution_preserve_source_traces_and_history(tmp_pa
         reviewer="qa-owner",
         review_comment="通过",
     )
-    service.request_execution(scenario.scenario_id, tmp_path / "run-1")
-    service.request_execution(scenario.scenario_id, tmp_path / "run-2")
+    service.request_execution(
+        scenario_id=scenario.scenario_id,
+        project_code=DEFAULT_PROJECT_CODE,
+        environment_code=DEFAULT_ENVIRONMENT_CODE,
+        workspace_root=tmp_path / "run-1",
+    )
+    service.request_execution(
+        scenario_id=scenario.scenario_id,
+        project_code=DEFAULT_PROJECT_CODE,
+        environment_code=DEFAULT_ENVIRONMENT_CODE,
+        workspace_root=tmp_path / "run-2",
+    )
 
     detail = service.get_scenario_detail(scenario.scenario_id)
     result = service.get_scenario_result(scenario.scenario_id)
@@ -46,3 +55,5 @@ def test_import_and_repeated_execution_preserve_source_traces_and_history(tmp_pa
     assert len(result["execution_history"]) == 2
     assert result["execution_history"][0]["execution_id"] != result["execution_history"][1]["execution_id"]
     assert result["execution_history"][0]["trigger_source"] == "manual"
+    assert result["project"]["project_code"] == DEFAULT_PROJECT_CODE
+    assert result["environment"]["environment_code"] == DEFAULT_ENVIRONMENT_CODE

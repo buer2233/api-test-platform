@@ -1,5 +1,144 @@
 # 会话进展
 
+## 2026-04-15 V3 P0 详细验收与数据保留收口
+
+### 已完成
+- 已将 `service_tests/conftest.py` 改为正式 MySQL 直连模式，取消 SQLite 与自动清库路径，并通过 `SELECT DATABASE()` 确认运行期连接为 `api_test_platform`。
+- 已把 `service_tests` 中固定 `case_id / case_code / capture_name` 改为运行期唯一标识，确保保留历史数据后仍可重复回归。
+- 已补齐抓包导入治理上下文缺口：`project_code / environment_code / scenario_set_code` 现在会被 `import_traffic_capture()` 和 DRF 入口正式消费。
+- 已增强工作台默认示例：页面加载后会自动生成新的功能用例示例标识，成功导入后也会再次换新，便于 Windows / 浏览器反复点测。
+- 已完成当前轮验收回归：
+  - `service_tests/test_v3_p0_governance_flow.py service_tests/test_v3_p0_isolation.py service_tests/test_v3_p0_workbench_ui.py` -> `11 passed`
+  - `service_tests` -> `32 passed`
+  - `tests/platform_core` -> `71 passed`
+  - `tests` -> `79 passed`
+  - `api_test/tests` -> `39 passed`
+  - `manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.test_settings` -> `No changes detected in app 'scenario_service'`
+- 已完成正式 MySQL 浏览器复验：`/ui/v2/workbench/` 可完成“导入 -> 审核通过 -> 触发执行 -> 回看结果”，且结果区显示 `passed / 1 / 0 / 0`。
+- 已记录当前 MySQL 留存数据快照：`project_count=21`、`scenario_count=40`、`execution_count=16`。
+
+### 下一步
+- 复核最终纳入提交的文件范围。
+- 执行中文 `git commit` 与 `git push`。
+
+## 2026-04-14 V3 详细测试文档包收口
+
+### 已完成
+- 读取并复核 `V3阶段工作计划文档.md`、`全阶段工作规划文档.md`、`README.md`、`详细测试用例说明书(V3-总索引).md`、`详细测试用例说明书(V3-P0).md`、`详细测试用例说明书(V3-P1).md`、`详细测试用例说明书(V3-P2).md` 与本地记录文件。
+- 完成 V3 测试文档静态自检：
+  - 占位词检查无残留；
+  - 三份阶段详细测试文档共 `65` 个用例编号且无重复；
+  - 所有跨用例引用均已定义。
+- 已同步更新 `详细测试用例说明书(V3-总索引).md`、`V3阶段工作计划文档.md`、`全阶段工作规划文档.md`、`README.md`、`task_plan.md`、`findings.md` 与 `progress.md`，统一当前口径为“V3 详细测试文档包已建立，待评审后进入 P0 开发准备”。
+
+### 当前判断
+- V3 已完成正式规划和详细测试文档设计，但尚未进入 P0 实现与测试执行。
+- 当前最关键的门槛动作不是继续写代码，而是让用户先审阅并确认 V3 文档包。
+- 后续正式开发应从 `P0` 开始，不允许跳过 `P0` 直接进入 `P1 / P2`。
+
+### 下一步
+- 请用户审阅 `V3-总索引 / V3-P0 / V3-P1 / V3-P2` 四份文档。
+- 如用户确认无进一步修改，再进入 `P0` 正式开发与测试准备。
+- 本轮不新增任何 V3 测试执行结果。
+
+## 2026-04-14 V3 P0 正式开发准备
+
+### 已完成
+- 已重新读取 `V3阶段工作计划文档.md`、`详细测试用例说明书(V3-P0).md`、`scenario_service/models.py`、`scenario_service/services.py`、`scenario_service/views.py` 与 `scenario_service/templates/scenario_service/workbench.html`。
+- 已补充读取 `scenario_service/serializers.py`、`scenario_service/urls.py`、`platform_service/urls.py`、`service_tests/test_service_persistence.py`、`service_tests/test_scenario_query_contract.py`、`service_tests/test_workbench_ui.py` 与 `service_tests/conftest.py`。
+- 已确认 P0 主要改造面集中在现有 `scenario_service`：
+  - 模型层：补齐项目、环境、场景集、基线版本及其归属关系；
+  - 服务层：补齐默认项目迁移、项目级执行隔离和带项目上下文的查询 / 执行；
+  - 入口层：把现有 V2 工作台提升为最小治理入口；
+  - 测试层：继续在 `service_tests/` 现有测试集上扩展 TDD 用例。
+
+### 当前判断
+- P0 不是新子系统，而是对 V2 已落地事实源的治理化增量升级。
+- 后续实现顺序应先从模型与迁移开始，再进入 API / 隔离，再推进 UI。
+- 版本化入口本轮先不分叉到 `/api/v3`，优先在现有 `/api/v2` 与 `/ui/v2/workbench/` 上完成治理增强，降低回归面。
+
+### 下一步
+- 形成正式实施计划并开始写第一批失败测试。
+
+## 2026-04-14 V3 P0 第一批 TDD 实现
+
+### 已完成
+- 已新增 `service_tests/test_v3_p0_governance_flow.py`，并按 TDD 完成以下能力：
+  - 默认项目 / 默认环境 / 默认场景集 / 默认基线版本自动挂载；
+  - 治理上下文查询接口；
+  - 基线版本激活接口。
+- 已新增 `service_tests/test_v3_p0_isolation.py`，并按 TDD 完成以下能力：
+  - 同名场景跨项目导入不冲突；
+  - 缺少项目 / 环境上下文的执行阻断；
+  - 项目级工作区隔离与结果上下文写回。
+- 已新增 `scenario_service/governance.py`，并在 `scenario_service/models.py`、`services.py`、`serializers.py`、`views.py`、`urls.py` 中接入治理模型和治理接口。
+- 当前定向验证结果：
+  - `service_tests/test_v3_p0_governance_flow.py::test_import_functional_case_assigns_default_governance_context` -> `1 passed`
+  - `service_tests/test_v3_p0_governance_flow.py -k "governance_context_endpoint_returns_default_project_tree or baseline_version_activation_updates_active_version_context"` -> `2 passed`
+  - `service_tests/test_v3_p0_isolation.py` -> `3 passed`
+
+### 当前判断
+- P0 的治理底座已经从“纯文档状态”进入可运行状态，且当前实现方向仍保持在现有 `scenario_service` 的增量治理升级上。
+- 下一轮应优先补齐迁移幂等性、迁移状态可复核性和最小治理入口 UI。
+
+### 下一步
+- 继续补 P0 迁移与兼容测试。
+- 继续补 P0 最小治理入口 UI 红灯和绿灯。
+
+## 2026-04-14 V3 P0 首轮开发与测试完成
+
+### 已完成
+- 已补齐 `scenario_service` 的 P0 缺口实现：
+  - 新增治理导出接口与项目级导出路径隔离；
+  - 将默认工作区路径收口为 `项目 / 环境 / 场景集` 维度；
+  - 注册治理模型到 `scenario_service/admin.py`；
+  - 生成 `scenario_service/migrations/0005_baselineversionrecord_governancemigrationrecord_and_more.py`。
+- 已修正旧服务测试契约，使历史 V2 回归显式携带 `project_code / environment_code`，保持 P0 执行入口“必须显式绑定治理上下文”的强约束不回退。
+- 已完成 P0 专项与全量自动化回归：
+  - `service_tests/test_v3_p0_governance_flow.py service_tests/test_v3_p0_isolation.py service_tests/test_v3_p0_workbench_ui.py` -> `11 passed`
+  - `service_tests` -> `30 passed`
+  - `tests/platform_core` -> `71 passed`
+  - `tests` -> `79 passed`
+  - `api_test/tests` -> `39 passed`
+- 已完成迁移一致性检查与本地 MySQL 基线同步：
+  - `manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.migration_settings` -> `No changes detected in app 'scenario_service'`
+  - `manage.py migrate scenario_service --settings=platform_service.settings` -> `0005 ... OK`
+- 已完成两类真实冒烟：
+  - 浏览器端最小治理入口：完成“导入 -> 审核通过 -> 触发执行 -> 回看结果”主链路，并生成截图 `.pytest_tmp/browser_smoke/v3_p0_workbench_smoke.png`
+  - 本地 MySQL 服务层：完成带 `project/environment/scenario_set` 的真实执行冒烟，结果 `execution_status=passed`
+
+### 当前判断
+- `V3 P0` 已从“文档和测试设计阶段”推进到“首轮开发与测试已完成”的状态。
+- 当前最合理的下一步不再是继续扩张 P0 范围，而是先统一向用户汇报当前结果、问题记录和后续修正建议，再决定是否继续微调或进入 P1。
+
+### 下一步
+- 同步 README、V3 阶段文档、V3 P0 测试文档与本地 MySQL 文档。
+- 汇总已完成项、已知问题和下一步建议，准备向用户做阶段汇报。
+
+## 2026-04-15 MySQL-only 测试切换与全量回归
+
+### 已完成
+- 已确认 `MySQL84` 服务处于 `Running / Automatic` 状态，并执行启动保障命令。
+- 已按 TDD 补齐 MySQL-only 基线测试：
+  - 新增 `service_tests/test_service_bootstrap.py::test_platform_service_test_settings_also_use_formal_mysql_baseline`
+  - 红灯结果：`platform_service.test_settings` 仍指向 `django.db.backends.sqlite3`
+  - 绿灯结果：切换后通过
+- 已将 [test_settings.py](/D:/AI/api-test-platform/platform_service/test_settings.py) 收口为正式 MySQL 基线，并启用真实 migration，移除 SQLite 测试路径。
+- 已完成 MySQL-only 全量回归：
+  - `service_tests` -> `31 passed`
+  - `tests/platform_core` -> `71 passed`
+  - `tests` -> `79 passed`
+  - `api_test/tests` -> `39 passed`
+  - `manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.test_settings` -> `No changes detected in app 'scenario_service'`
+- 已在正式 MySQL 数据源下重新完成工作台浏览器主链路冒烟，截图保存为 `.pytest_tmp/browser_mysql_smoke/v3_p0_workbench_mysql_smoke.png`
+
+### 当前判断
+- 当前仓库已满足“后续不允许通过 SQLite 进行测试”的新约束；服务测试与浏览器主链路验证都已统一到正式 MySQL 基线。
+- 本轮未出现新的阻断性失败，当前不需要继续做额外兼容性修复。
+
+### 下一步
+- 统一向用户汇报 MySQL-only 切换结果、完整回归结果和仍需注意的执行约束。
+
 ## 2026-04-02
 
 ### 已完成
@@ -351,3 +490,81 @@
 
 ### 下一步
 - 执行最终回归、清理运行产物、提交并推送 V2 收口结果。
+
+## 2026-04-10 V2 全量验收
+
+### 已完成
+- 已复核 `V2阶段工作计划文档.md`、`详细测试用例说明书(V2).md`、`README.md`、`task_plan.md`、`findings.md`、`progress.md` 与当前 Git 状态，确认当前尚缺独立的 V2 正式验收报告。
+- 已执行 V2 验收级自动化回归：
+  - `python -m pytest tests/platform_core -q --basetemp=.pytest_tmp/v2_acceptance_platform_core` -> `71 passed`
+  - `python -m pytest tests -q --basetemp=.pytest_tmp/v2_acceptance_root` -> `79 passed`
+  - `python -m pytest api_test/tests -q --basetemp=.pytest_tmp/v2_acceptance_api_test` -> `39 passed`
+  - `$env:DJANGO_SETTINGS_MODULE='platform_service.settings'; .\.venv_service\Scripts\python.exe -m pytest service_tests -q --basetemp=.pytest_tmp/v2_acceptance_service_fixed` -> `19 passed`
+  - `$env:DJANGO_SETTINGS_MODULE='platform_service.settings'; .\.venv_service\Scripts\python.exe manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.migration_settings` -> `No changes detected in app 'scenario_service'`
+- 已确认一次验收命令参数问题并完成纠正：
+  - 首次 `service_tests` 使用 `--basetemp=.pytest_tmp_service/v2_acceptance_service` 因父目录不存在触发 `FileNotFoundError`
+  - 已改用 `.pytest_tmp/v2_acceptance_service_fixed` 重新执行并通过，判定该问题不属于代码缺陷
+- 已启动本地 Django 服务并完成工作台浏览器冒烟：
+  - 页面标题：`V2 场景工作台`
+  - 已验证功能用例导入成功
+  - 已验证审核通过成功
+  - 已验证页面触发执行后结果显示 `passed`
+  - 已验证结果区展示 `latest_execution_id`、`report_path`、`execution_history` 与 `latest_diff_summary`
+
+### 当前判断
+- 当前 V2 验收证据已覆盖文档口径、自动化回归、迁移一致性和真实入口主链路。
+- 现阶段可以进入正式验收报告编写与文档同步，不需要再补新的阻断性开发。
+
+### 下一步
+- 新增 `product_document/阶段文档/V2阶段正式验收报告.md`。
+- 同步更新 README、`V2阶段工作计划文档.md` 和 `详细测试用例说明书(V2).md`，把状态从“待用户验收”切换为“已正式验收通过”。
+
+## 2026-04-14 V3 阶段工作计划文档正式化
+
+### 已完成
+- 已读取并复核 `AGENTS.md`、`全阶段工作规划文档.md`、`V3阶段工作计划文档.md`、`V2阶段工作计划文档.md`、`V2阶段正式验收报告.md`、README 与本地记录文件。
+- 已按头脑风暴方式与用户完成多轮需求沟通，逐项确认：
+  - V3 主轴采用“平台治理优先”
+  - `P0 / P1 / P2` 分层推进
+  - `P0` 优先做多项目与环境治理，并做到执行隔离级
+  - `P0 / P1 / P2` 都需要独立验收
+  - `P1` 承接权限体系、抓包正式执行闭环、产品入口深化和调度中心
+  - `macOS` 保留为后续要做，但当前阶段暂不做正式实现
+  - Windows 路线采用“先 Web 稳定，再轻量套壳到 Windows”，默认 `Tauri` 优先、浏览器先验、阶段性打包复验
+  - V2 历史资产采用“默认项目迁移”
+- 已新增 `docs/superpowers/specs/2026-04-14-v3-stage-plan-design.md`，归档本轮 V3 计划设计结论。
+- 已将 `product_document/阶段文档/V3阶段工作计划文档.md` 从简版占位稿升级为正式规划版，补充范围、设计、测试方案、进度记录、风险记录和阶段完成判断。
+- 已同步更新 `product_document/阶段文档/全阶段工作规划文档.md` 与 README，切换到“V3 正式规划中”的当前口径。
+- 已同步更新 `task_plan.md`、`findings.md` 与 `progress.md`，确保本轮上下文可持续追踪。
+
+### 当前判断
+- 当前仓库状态应判断为：`V3 阶段正式规划已建立，但尚未进入 V3 正式开发与测试执行`。
+- 下一步更合理的动作不是直接写实现代码，而是继续补齐 `V3` 详细测试用例说明书，并据此进入 `P0` 的正式开发与测试。
+
+### 下一步
+- 如用户无进一步调整，后续进入 `V3` 详细测试文档编写。
+- 在测试文档确认后，再进入 `P0` 的正式开发与测试阶段。
+
+## 2026-04-14 V3 详细测试文档包设计
+
+### 已完成
+- 已读取 `V3阶段工作计划文档.md`、`详细测试用例说明书(V2).md` 与 `详细测试用例说明书(V1).md`，确认 V3 不能继续沿用单文件测试说明书模式。
+- 已按头脑风暴方式与用户完成多轮需求沟通，逐项确认：
+  - `V3` 测试文档采用整阶段完整写法，而不是只写 `P0`
+  - 文件按阶段拆分，并明确至少需要 `P1`、`P2` 独立文件
+  - `P0` 也单独成文件
+  - 最终采用 `1 个总索引 + 3 个分文档`
+  - 编号体系采用 `TC-V3-Px-LAYER-XXX`
+  - 总索引只写索引、规则和矩阵，不重复详细用例
+  - `P0 / P1 / P2` 三份分文档都使用超详细执行模板
+  - 每份分文档内部按测试层分章
+- 已新增 `docs/superpowers/specs/2026-04-14-v3-test-docs-design.md`，归档本轮 V3 测试文档包设计结论。
+- 已同步更新 `task_plan.md`、`findings.md` 与 `progress.md`，将当前状态切换为“等待用户审阅设计说明”。
+
+### 当前判断
+- 当前已经具备进入 `V3` 测试文档正式编写的设计前提，但按当前流程仍需先让用户审阅设计说明。
+- 在用户确认设计说明前，不应直接开始写 `V3-总索引 / P0 / P1 / P2` 四份正式测试文档。
+
+### 下一步
+- 请用户审阅 `docs/superpowers/specs/2026-04-14-v3-test-docs-design.md`。
+- 用户确认后，再正式编写 `V3` 测试文档包。

@@ -8,15 +8,17 @@
 
 ## 当前状态
 
-截至 2026-04-10，在 V1 正式验收完成、V2 P0 主线闭环通过后，仓库当前工作重点已切换到 V2 P1 扩展轮开发，核心方向为：
+截至 2026-04-15，V1 已正式验收通过，V2 也已完成正式验收；V3 `P0` 已完成详细验收与 MySQL 保留数据复验。当前仓库状态应判断为：
 
-- 功能测试用例驱动优先；
-- 场景模型、变量绑定、依赖编排与审核确认能力；
-- Django + DRF + MySQL 服务化正式落地；
-- 抓包驱动草稿化接入；
-- 可用型 Web / Windows 入口承接；
-- 来源追溯、执行历史、差异摘要与 AI 建议治理等 P1 核心事实层增强；
-- V2 详细测试用例说明书已建立，当前正在按扩展实施计划继续执行 TDD。
+- V3 当前主轴已确认为“平台治理优先”，并采用 `P0 / P1 / P2` 分层推进；
+- V3 `P0` 已完成多项目 / 环境 / 场景集 / 基线版本治理、默认项目迁移、执行隔离、导出隔离和最小治理入口首轮交付；
+- V3 `P0` 当前验证结果为：`P0专项=11 passed`、`service_tests=32 passed`、`tests/platform_core=71 passed`、`tests=79 passed`、`api_test/tests=39 passed`；
+- `scenario_service` 已生成并应用 `0005_baselineversionrecord_governancemigrationrecord_and_more.py`，迁移一致性检查结果为 `No changes detected in app 'scenario_service'`，本地 MySQL 已完成 `0005` 落库；
+- 服务测试已彻底切换到正式 MySQL 基线，`platform_service.test_settings` 不再保留 SQLite 路径，且运行时连接已验证直连 `api_test_platform`；
+- `service_tests` 已改为正式 MySQL 保留数据模式：不再清库、不再走 SQLite、测试用例改为运行期唯一业务标识，可重复回归；
+- 工作台 `/ui/v2/workbench/` 已通过正式 MySQL 数据源下的真实浏览器主链路冒烟，验证链路为“导入 -> 审核通过 -> 触发执行 -> 回看结果”，且默认示例 ID 会自动换新，便于重复点测；
+- 抓包导入接口已补齐治理上下文承接，当前 `project_code / environment_code / scenario_set_code` 不再被后端忽略；
+- V3 `P1 / P2` 尚未开始正式实现，Windows 路线仍保持“先 Web 稳定验证，再轻量套壳到 Windows”，默认采用 `Tauri` 优先、浏览器先验、阶段性打包复验的方案。
 
 当前已完成的 V2 第一实施子阶段首批落地包括：
 
@@ -413,16 +415,25 @@ api-test-platform/
 
 - 公开接口测试基线统一使用 `https://jsonplaceholder.typicode.com/`
 - V1 当前只开放文档驱动最小闭环
-- V2 当前优先围绕功能测试用例驱动、场景编排、审核确认、服务化落地和可用型入口承接推进
+- V3 当前以“平台治理优先”为主轴：`P0` 聚焦多项目与环境治理，`P1` 承接权限体系、抓包正式执行闭环、产品入口深化和调度中心，`P2` 仅保留高级 AI 治理边界
+- V3 当前坚持 `P0 / P1 / P2` 分层推进，且每层都需要独立验收
 - `api_test/` 的目标是“通用 HTTP 测试底座 + JSON 配置驱动 + 公开示例适配”
 - 所有全局配置最终统一收口到 `api_test/api_config.json`
-- 可用型入口的页面探索当前已补充移动端引导页原型，后续 Web / Windows 正式实现可据此继续拆分组件与交互
+- Windows 端当前采用“浏览器先验、Tauri 优先、阶段性打包复验”的验证路线，`macOS` 保留为后续方向但当前阶段暂不做正式实现
 
 ## 当前建议查看顺序
 
 开始任何需求、设计或开发前，优先查看：
 
 - [AGENTS.md](/D:/AI/api-test-platform/AGENTS.md)
+- [V3阶段工作计划文档.md](/D:/AI/api-test-platform/product_document/阶段文档/V3阶段工作计划文档.md)
+- [详细测试用例说明书(V3-总索引).md](/D:/AI/api-test-platform/product_document/测试文档/详细测试用例说明书(V3-总索引).md)
+- [详细测试用例说明书(V3-P0).md](/D:/AI/api-test-platform/product_document/测试文档/详细测试用例说明书(V3-P0).md)
+- [详细测试用例说明书(V3-P1).md](/D:/AI/api-test-platform/product_document/测试文档/详细测试用例说明书(V3-P1).md)
+- [详细测试用例说明书(V3-P2).md](/D:/AI/api-test-platform/product_document/测试文档/详细测试用例说明书(V3-P2).md)
+- [v3-stage-plan-design.md](/D:/AI/api-test-platform/docs/superpowers/specs/2026-04-14-v3-stage-plan-design.md)
+- [v3-test-docs-design.md](/D:/AI/api-test-platform/docs/superpowers/specs/2026-04-14-v3-test-docs-design.md)
+- [V2阶段正式验收报告.md](/D:/AI/api-test-platform/product_document/阶段文档/V2阶段正式验收报告.md)
 - [V2阶段工作计划文档.md](/D:/AI/api-test-platform/product_document/阶段文档/V2阶段工作计划文档.md)
 - [详细测试用例说明书(V2).md](/D:/AI/api-test-platform/product_document/测试文档/详细测试用例说明书(V2).md)
 - [产品需求说明书(全局).md](/D:/AI/api-test-platform/product_document/产品需求说明书(全局).md)
@@ -456,6 +467,17 @@ api-test-platform/
 
 ```bash
 python -m pytest tests/platform_core -v
+```
+
+V3 P0 当前验收验证：
+
+```bash
+$env:DJANGO_SETTINGS_MODULE='platform_service.test_settings'; .\.venv_service\Scripts\python.exe -m pytest service_tests\test_v3_p0_governance_flow.py service_tests\test_v3_p0_isolation.py service_tests\test_v3_p0_workbench_ui.py -q --basetemp=.pytest_tmp\v3_p0_acceptance_targeted_mysql
+$env:DJANGO_SETTINGS_MODULE='platform_service.test_settings'; .\.venv_service\Scripts\python.exe -m pytest service_tests -q --basetemp=.pytest_tmp\service_tests_mysql_full
+$env:DJANGO_SETTINGS_MODULE='platform_service.test_settings'; .\.venv_service\Scripts\python.exe manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.test_settings
+python -m pytest tests/platform_core -q --basetemp=.pytest_tmp\mysql_platform_core_acceptance
+python -m pytest tests -q --basetemp=.pytest_tmp\mysql_root_acceptance
+python -m pytest api_test/tests -q --basetemp=.pytest_tmp\mysql_api_test_acceptance
 ```
 
 V1 验收回归验证：
@@ -506,5 +528,5 @@ V2 第四实施子阶段审核修订回归验证：
 
 ## 备注
 
-- 当前 README 以 V1 验收事实为基础，并已同步补记 V2 第一、第二、第三、第四实施子阶段以及本地真实 MySQL 基线的实际进展。
-- 当前已进入 V2 阶段正式实现与测试执行，后续新增能力应优先进入 V2 阶段文档和对应测试文档，再按新的 TDD 轮次推进实现与回归。
+- 当前 README 以 V1 / V2 正式验收事实为基础，并已同步切换到“V3 P0 详细验收已完成、服务测试已切换为 MySQL 保留数据模式”的当前口径。
+- 后续新增能力应继续以 `V3-总索引 / V3-P0 / V3-P1 / V3-P2` 为边界基线，先完成当前问题收口与用户确认，再决定是否进入 `P1`。

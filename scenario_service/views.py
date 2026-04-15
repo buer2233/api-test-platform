@@ -8,8 +8,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from scenario_service.serializers import (
+    BaselineVersionActivateSerializer,
     FunctionalCaseImportRequestSerializer,
     ScenarioListQuerySerializer,
+    ScenarioExportRequestSerializer,
     ScenarioRevisionRequestSerializer,
     ScenarioReviewRequestSerializer,
     ScenarioSuggestionApplyRequestSerializer,
@@ -64,6 +66,9 @@ class TrafficCaptureImportView(APIView):
             scenario = SCENARIO_SERVICE.import_traffic_capture(
                 capture_name=serializer.validated_data["capture_name"],
                 capture_payload=serializer.validated_data["capture_payload"],
+                project_code=serializer.validated_data.get("project_code"),
+                environment_code=serializer.validated_data.get("environment_code"),
+                scenario_set_code=serializer.validated_data.get("scenario_set_code"),
             )
         except ScenarioServiceError as error:
             return build_error_response(error)
@@ -81,6 +86,37 @@ class ScenarioListView(APIView):
         serializer = ScenarioListQuerySerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
         return Response({"success": True, "data": SCENARIO_SERVICE.list_scenarios(serializer.validated_data)})
+
+
+class GovernanceContextQueryView(APIView):
+    """返回治理入口使用的项目树摘要。"""
+
+    def get(self, request):
+        """处理治理上下文查询。"""
+        return Response({"success": True, "data": SCENARIO_SERVICE.get_governance_context()})
+
+
+class GovernanceMigrationStatusView(APIView):
+    """返回默认项目迁移状态摘要。"""
+
+    def get(self, request):
+        """处理迁移状态查询。"""
+        return Response({"success": True, "data": SCENARIO_SERVICE.governance_service.get_migration_status_summary()})
+
+
+class BaselineVersionActivateView(APIView):
+    """处理当前生效版本切换请求。"""
+
+    def post(self, request):
+        """激活目标基线版本。"""
+        serializer = BaselineVersionActivateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(
+            {
+                "success": True,
+                "data": SCENARIO_SERVICE.activate_baseline_version(**serializer.validated_data),
+            }
+        )
 
 
 class ScenarioDetailView(APIView):
@@ -149,10 +185,16 @@ class ScenarioExecuteView(APIView):
         """处理执行触发动作。"""
         try:
             workspace_root = None
+            project_code = None
+            environment_code = None
             if isinstance(request.data, dict):
                 workspace_root = request.data.get("workspace_root")
+                project_code = request.data.get("project_code")
+                environment_code = request.data.get("environment_code")
             execution = SCENARIO_SERVICE.request_execution(
                 scenario_id=scenario_id,
+                project_code=project_code,
+                environment_code=environment_code,
                 workspace_root=workspace_root,
             )
         except ScenarioServiceError as error:
@@ -168,6 +210,24 @@ class ScenarioExecuteView(APIView):
             },
             status=status.HTTP_202_ACCEPTED,
         )
+
+
+class ScenarioExportView(APIView):
+    """处理场景导出请求。"""
+
+    def post(self, request, scenario_id: str):
+        """按项目归属导出场景详情快照。"""
+        serializer = ScenarioExportRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            export_result = SCENARIO_SERVICE.export_scenario_bundle(
+                scenario_id=scenario_id,
+                project_code=serializer.validated_data["project_code"],
+                export_root=serializer.validated_data.get("export_root", ""),
+            )
+        except ScenarioServiceError as error:
+            return build_error_response(error)
+        return Response({"success": True, "data": export_result})
 
 
 class ScenarioResultView(APIView):

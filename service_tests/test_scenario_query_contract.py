@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import pytest
 from rest_framework.test import APIClient
 
 
-pytestmark = pytest.mark.django_db
+DEFAULT_PROJECT_CODE = "default-project"
+DEFAULT_ENVIRONMENT_CODE = "default-env"
 
 
 def build_minimal_capture_payload() -> dict:
@@ -44,12 +44,20 @@ def build_minimal_capture_payload() -> dict:
     }
 
 
-def test_list_and_result_contract_support_filters_history_and_diff(tmp_path):
+def test_list_and_result_contract_support_filters_history_and_diff(tmp_path, service_test_token: str):
     """列表和结果接口应支持筛选、历史和差异摘要。"""
     client = APIClient()
+    project_code = f"default-project-{service_test_token}"
+    environment_code = f"default-env-{service_test_token}"
+    scenario_set_code = f"default-scenario-set-{service_test_token}"
+    case_id = f"fc-query-001-{service_test_token}"
+    case_code = f"query_contract_user_profile_{service_test_token}"
     payload = {
-        "case_id": "fc-query-001",
-        "case_code": "query_contract_user_profile",
+        "project_code": project_code,
+        "environment_code": environment_code,
+        "scenario_set_code": scenario_set_code,
+        "case_id": case_id,
+        "case_code": case_code,
         "case_name": "查询契约场景",
         "steps": [
             {
@@ -74,14 +82,22 @@ def test_list_and_result_contract_support_filters_history_and_diff(tmp_path):
 
     execute_first_response = client.post(
         f"/api/v2/scenarios/{scenario_id}/execute/",
-        {"workspace_root": str(tmp_path / "run-1")},
+        {
+            "project_code": project_code,
+            "environment_code": environment_code,
+            "workspace_root": str(tmp_path / "run-1"),
+        },
         format="json",
     )
     assert execute_first_response.status_code == 202
 
     execute_second_response = client.post(
         f"/api/v2/scenarios/{scenario_id}/execute/",
-        {"workspace_root": str(tmp_path / "run-2")},
+        {
+            "project_code": project_code,
+            "environment_code": environment_code,
+            "workspace_root": str(tmp_path / "run-2"),
+        },
         format="json",
     )
     assert execute_second_response.status_code == 202
@@ -89,7 +105,7 @@ def test_list_and_result_contract_support_filters_history_and_diff(tmp_path):
     capture_response = client.post(
         "/api/v2/scenarios/import-traffic-capture/",
         {
-            "capture_name": "筛选查询抓包样例",
+            "capture_name": f"筛选查询抓包样例-{service_test_token}",
             "capture_payload": build_minimal_capture_payload(),
         },
         format="json",
@@ -98,7 +114,14 @@ def test_list_and_result_contract_support_filters_history_and_diff(tmp_path):
 
     list_response = client.get(
         "/api/v2/scenarios/",
-        {"source_type": "functional_case", "review_status": "approved", "ordering": "updated_desc"},
+        {
+            "project_code": project_code,
+            "environment_code": environment_code,
+            "scenario_set_code": scenario_set_code,
+            "source_type": "functional_case",
+            "review_status": "approved",
+            "ordering": "updated_desc",
+        },
     )
     detail_response = client.get(f"/api/v2/scenarios/{scenario_id}/")
     result_response = client.get(f"/api/v2/scenarios/{scenario_id}/result/")
@@ -116,5 +139,7 @@ def test_list_and_result_contract_support_filters_history_and_diff(tmp_path):
     assert result_response.status_code == 200
     result_data = result_response.json()["data"]
     assert len(result_data["execution_history"]) == 2
+    assert result_data["project"]["project_code"] == project_code
+    assert result_data["environment"]["environment_code"] == environment_code
     assert result_data["latest_diff_summary"]["status_changed"] is False
     assert "passed_count_delta" in result_data["latest_diff_summary"]

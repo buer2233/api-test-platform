@@ -9,14 +9,15 @@ import pytest
 from scenario_service.services import FunctionalCaseScenarioService, ScenarioServiceError
 
 
-pytestmark = pytest.mark.django_db
+DEFAULT_PROJECT_CODE = "default-project"
+DEFAULT_ENVIRONMENT_CODE = "default-env"
 
 
-def build_executable_payload() -> dict:
+def build_executable_payload(service_test_token: str) -> dict:
     """构造可在公开基线站点执行的最小场景。"""
     return {
-        "case_id": "fc-user-003",
-        "case_code": "query_user_and_user_todos",
+        "case_id": f"fc-user-003-{service_test_token}",
+        "case_code": f"query_user_and_user_todos_{service_test_token}",
         "case_name": "查询用户并获取该用户待办列表",
         "steps": [
             {
@@ -48,10 +49,10 @@ def build_executable_payload() -> dict:
     }
 
 
-def test_execute_approved_scenario_exports_workspace_and_persists_passed_result(tmp_path):
+def test_execute_approved_scenario_exports_workspace_and_persists_passed_result(tmp_path, service_test_token: str):
     """TC-V2-EXEC-001/005/006 已确认场景执行后应导出工作区并回写结果。"""
     service = FunctionalCaseScenarioService()
-    scenario = service.import_functional_case(build_executable_payload())
+    scenario = service.import_functional_case(build_executable_payload(service_test_token))
     service.review_scenario(
         scenario_id=scenario.scenario_id,
         review_status="approved",
@@ -61,6 +62,8 @@ def test_execute_approved_scenario_exports_workspace_and_persists_passed_result(
 
     execution = service.request_execution(
         scenario_id=scenario.scenario_id,
+        project_code=DEFAULT_PROJECT_CODE,
+        environment_code=DEFAULT_ENVIRONMENT_CODE,
         workspace_root=tmp_path / "scenario_workspace",
     )
     scenario.refresh_from_db()
@@ -73,20 +76,22 @@ def test_execute_approved_scenario_exports_workspace_and_persists_passed_result(
     assert scenario.passed_count == 1
     assert scenario.failed_count == 0
     assert scenario.skipped_count == 0
+    assert execution.project.project_code == DEFAULT_PROJECT_CODE
+    assert execution.environment.environment_code == DEFAULT_ENVIRONMENT_CODE
     assert workspace_root.exists()
-    assert (workspace_root / "generated" / "tests" / "test_query_user_and_user_todos.py").exists()
+    assert (workspace_root / "generated" / "tests" / f"test_{scenario.scenario_code}.py").exists()
     assert (workspace_root / "generated" / "records" / "asset_manifest.json").exists()
     assert Path(scenario.report_path or "").exists()
     assert execution.report_path == scenario.report_path
 
 
-def test_execute_scenario_blocks_unsupported_operation_binding_before_running_pytest(tmp_path):
+def test_execute_scenario_blocks_unsupported_operation_binding_before_running_pytest(tmp_path, service_test_token: str):
     """TC-V2-EXEC-004 未绑定可执行公开基线操作的场景应在执行前阻断。"""
     service = FunctionalCaseScenarioService()
     scenario = service.import_functional_case(
         {
-            "case_id": "fc-user-004",
-            "case_code": "unsupported_operation_binding",
+            "case_id": f"fc-user-004-{service_test_token}",
+            "case_code": f"unsupported_operation_binding_{service_test_token}",
             "case_name": "包含未支持操作绑定的场景",
             "steps": [
                 {
@@ -107,6 +112,8 @@ def test_execute_scenario_blocks_unsupported_operation_binding_before_running_py
     with pytest.raises(ScenarioServiceError, match="未绑定可执行的公开基线操作"):
         service.request_execution(
             scenario_id=scenario.scenario_id,
+            project_code=DEFAULT_PROJECT_CODE,
+            environment_code=DEFAULT_ENVIRONMENT_CODE,
             workspace_root=tmp_path / "scenario_workspace",
         )
 
@@ -114,4 +121,3 @@ def test_execute_scenario_blocks_unsupported_operation_binding_before_running_py
     assert scenario.execution_status == "not_started"
     assert scenario.workspace_root is None
     assert scenario.executions.count() == 0
-

@@ -2,23 +2,19 @@
 
 from __future__ import annotations
 
-import pytest
 from rest_framework.test import APIClient
 
 from scenario_service.models import ScenarioRevisionRecord
 
 
-pytestmark = pytest.mark.django_db
-
-
-def test_suggestion_creation_and_apply_flow_requires_revision_record():
+def test_suggestion_creation_and_apply_flow_requires_revision_record(service_test_token: str):
     """AI 建议采纳后必须转成标准修订记录。"""
     client = APIClient()
     import_response = client.post(
         "/api/v2/scenarios/import-functional-case/",
         {
-            "case_id": "fc-ai-001",
-            "case_code": "ai_suggestion_user_profile",
+            "case_id": f"fc-ai-001-{service_test_token}",
+            "case_code": f"ai_suggestion_user_profile_{service_test_token}",
             "case_name": "AI 建议场景",
             "steps": [
                 {

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import json
 from pathlib import Path
 from uuid import uuid4
 
@@ -13,6 +14,7 @@ from platform_core.models import FunctionalCaseDraft
 from platform_core.scenario_execution import ScenarioExecutionBindingError, ScenarioExecutionPipeline
 from platform_core.services import PlatformApplicationService
 from platform_core.traffic_capture import TrafficCaptureDraftParser
+from scenario_service.governance import GovernanceBootstrapService
 from scenario_service.models import (
     ScenarioExecutionRecord,
     ScenarioRecord,
@@ -46,6 +48,7 @@ class FunctionalCaseScenarioService:
         application_service: PlatformApplicationService | None = None,
         scenario_execution_pipeline: ScenarioExecutionPipeline | None = None,
         suggestion_provider: BaseSuggestionProvider | None = None,
+        governance_service: GovernanceBootstrapService | None = None,
     ) -> None:
         """装配解析器与状态校验能力。"""
         self.parser = parser or FunctionalCaseDraftParser()
@@ -53,6 +56,7 @@ class FunctionalCaseScenarioService:
         self.application_service = application_service or PlatformApplicationService()
         self.scenario_execution_pipeline = scenario_execution_pipeline or ScenarioExecutionPipeline()
         self.suggestion_provider = suggestion_provider or RuleBasedSuggestionProvider()
+        self.governance_service = governance_service or GovernanceBootstrapService()
 
     @transaction.atomic
     def import_functional_case(self, payload: dict) -> ScenarioRecord:
@@ -61,30 +65,56 @@ class FunctionalCaseScenarioService:
             raw_case=payload,
             source_name=payload.get("case_code") or payload.get("case_id") or "api_request",
         )
-        return self._persist_scenario_draft(draft=draft)
+        governance_context = self.governance_service.resolve_context(
+            project_code=payload.get("project_code"),
+            environment_code=payload.get("environment_code"),
+            scenario_set_code=payload.get("scenario_set_code"),
+        )
+        return self._persist_scenario_draft(draft=draft, governance_context=governance_context)
 
     @transaction.atomic
-    def import_traffic_capture(self, capture_name: str, capture_payload: dict) -> ScenarioRecord:
+    def import_traffic_capture(
+        self,
+        capture_name: str,
+        capture_payload: dict,
+        project_code: str | None = None,
+        environment_code: str | None = None,
+        scenario_set_code: str | None = None,
+    ) -> ScenarioRecord:
         """导入抓包数据并持久化为场景草稿。"""
         draft = self.traffic_capture_parser.parse_payload(
             raw_capture=capture_payload,
             source_name=capture_name or "traffic_capture",
         )
-        return self._persist_scenario_draft(draft=draft)
+        governance_context = self.governance_service.resolve_context(
+            project_code=project_code,
+            environment_code=environment_code,
+            scenario_set_code=scenario_set_code,
+        )
+        return self._persist_scenario_draft(draft=draft, governance_context=governance_context)
 
-    @staticmethod
-    def _persist_scenario_draft(draft: FunctionalCaseDraft) -> ScenarioRecord:
+    def _persist_scenario_draft(self, draft: FunctionalCaseDraft, governance_context) -> ScenarioRecord:
         """把统一场景草稿对象持久化为场景与步骤记录。"""
-        if ScenarioRecord.objects.filter(scenario_id=draft.scenario.scenario_id).exists():
+        scoped_scenario_id = self.governance_service.build_project_scoped_scenario_id(
+            project_code=governance_context.project.project_code,
+            scenario_id=draft.scenario.scenario_id,
+        )
+        if ScenarioRecord.objects.filter(
+            project=governance_context.project,
+            scenario_code=draft.scenario.scenario_code,
+        ).exists():
             raise ScenarioServiceError(
                 code="scenario_already_exists",
                 message="场景已存在，请修改场景标识后再导入。",
                 status_code=400,
             )
         scenario = ScenarioRecord.objects.create(
-            scenario_id=draft.scenario.scenario_id,
+            scenario_id=scoped_scenario_id,
             scenario_code=draft.scenario.scenario_code,
             scenario_name=draft.scenario.scenario_name,
+            project=governance_context.project,
+            environment=governance_context.environment,
+            scenario_set=governance_context.scenario_set,
             module_id=draft.scenario.module_id,
             scenario_desc=draft.scenario.scenario_desc,
             source_ids=draft.scenario.source_ids,
@@ -111,7 +141,10 @@ class FunctionalCaseScenarioService:
             [
                 ScenarioStepRecord(
                     scenario=scenario,
-                    step_id=step.step_id,
+                    step_id=self.governance_service.build_project_scoped_step_id(
+                        project_code=governance_context.project.project_code,
+                        step_id=step.step_id,
+                    ),
                     step_order=step.step_order,
                     step_name=step.step_name,
                     operation_id=step.operation_id,
@@ -161,6 +194,27 @@ class FunctionalCaseScenarioService:
                 )
             )
         ScenarioSourceRecord.objects.bulk_create(source_records)
+
+    def _build_governance_summary(self, scenario: ScenarioRecord) -> dict:
+        """构造场景级治理上下文摘要。"""
+        self.governance_service.ensure_bootstrap()
+        project = scenario.project
+        environment = scenario.environment
+        scenario_set = scenario.scenario_set
+        if project is None or environment is None or scenario_set is None:
+            default_context = self.governance_service.ensure_bootstrap()
+            project = project or default_context.project
+            environment = environment or default_context.environment
+            scenario_set = scenario_set or default_context.scenario_set
+        baseline_version = self.governance_service.get_active_baseline_version(scenario_set=scenario_set)
+        return {
+            "project": self.governance_service.build_project_summary(project),
+            "environment": self.governance_service.build_environment_summary(environment),
+            "scenario_set": self.governance_service.build_scenario_set_summary(scenario_set),
+            "baseline_version": self.governance_service.build_baseline_version_summary(baseline_version)
+            if baseline_version
+            else None,
+        }
 
     @staticmethod
     def _build_source_traces(scenario: ScenarioRecord) -> list[dict]:
@@ -285,6 +339,7 @@ class FunctionalCaseScenarioService:
 
     def get_scenario_detail(self, scenario_id: str) -> dict:
         """返回场景详情结构。"""
+        self.governance_service.ensure_bootstrap()
         scenario = self._get_scenario(scenario_id=scenario_id)
         return {
             **self.build_scenario_summary(scenario),
@@ -324,12 +379,26 @@ class FunctionalCaseScenarioService:
             ],
             "suggestions": self._build_suggestion_records(scenario),
             "source_traces": self._build_source_traces(scenario),
+            **self._build_governance_summary(scenario),
         }
 
     def list_scenarios(self, filters: dict | None = None) -> list[dict]:
         """按筛选条件返回供入口页消费的场景摘要列表。"""
+        self.governance_service.ensure_bootstrap()
         filters = filters or {}
         queryset = ScenarioRecord.objects.all()
+
+        project_code = filters.get("project_code")
+        if project_code:
+            queryset = queryset.filter(project__project_code=project_code)
+
+        environment_code = filters.get("environment_code")
+        if environment_code:
+            queryset = queryset.filter(environment__environment_code=environment_code)
+
+        scenario_set_code = filters.get("scenario_set_code")
+        if scenario_set_code:
+            queryset = queryset.filter(scenario_set__scenario_set_code=scenario_set_code)
 
         source_type = filters.get("source_type")
         if source_type:
@@ -358,6 +427,68 @@ class FunctionalCaseScenarioService:
                 if issue_code in self._build_issue_codes(scenario)
             ]
         return [self.build_scenario_summary(scenario) for scenario in scenarios]
+
+    def get_governance_context(self) -> dict:
+        """返回治理入口使用的上下文树。"""
+        return self.governance_service.build_context_tree()
+
+    def activate_baseline_version(
+        self,
+        *,
+        project_code: str,
+        scenario_set_code: str,
+        version_code: str,
+        version_name: str | None = None,
+    ) -> dict:
+        """切换场景集当前生效版本并返回更新后的治理摘要。"""
+        context = self.governance_service.activate_baseline_version(
+            project_code=project_code,
+            scenario_set_code=scenario_set_code,
+            version_code=version_code,
+            version_name=version_name,
+        )
+        return self.governance_service.build_context_summary(context)
+
+    def export_scenario_bundle(
+        self,
+        scenario_id: str,
+        *,
+        project_code: str,
+        export_root: str | Path | None = None,
+    ) -> dict:
+        """按项目归属导出场景详情快照。"""
+        self.governance_service.ensure_bootstrap()
+        scenario = self._get_scenario(scenario_id=scenario_id)
+        try:
+            governance_context = self.governance_service.resolve_export_context(
+                scenario=scenario,
+                project_code=project_code,
+            )
+        except ValueError as error:
+            if str(error) == "project_context_mismatch":
+                raise ScenarioServiceError(
+                    code="project_context_mismatch",
+                    message="导出请求中的项目上下文与场景归属不一致。",
+                    status_code=400,
+                ) from error
+            raise
+        target_root = Path(export_root) if export_root else None
+        export_path = self.governance_service.build_export_path(
+            context=governance_context,
+            scenario=scenario,
+            export_root=target_root,
+        )
+        export_path.parent.mkdir(parents=True, exist_ok=True)
+        export_payload = self.get_scenario_detail(scenario_id=scenario_id)
+        export_path.write_text(json.dumps(export_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        return {
+            "scenario_id": scenario.scenario_id,
+            "project": self.governance_service.build_project_summary(governance_context.project),
+            "environment": self.governance_service.build_environment_summary(governance_context.environment),
+            "scenario_set": self.governance_service.build_scenario_set_summary(governance_context.scenario_set),
+            "baseline_version": self.governance_service.build_baseline_version_summary(governance_context.baseline_version),
+            "export_path": str(export_path),
+        }
 
     @transaction.atomic
     def create_suggestions(self, scenario_id: str, requester: str, suggestion_type: str) -> list[dict]:
@@ -512,9 +643,12 @@ class FunctionalCaseScenarioService:
     def request_execution(
         self,
         scenario_id: str,
+        project_code: str | None = None,
+        environment_code: str | None = None,
         workspace_root: str | Path | None = None,
     ) -> ScenarioExecutionRecord:
         """执行场景并回写统一结果摘要。"""
+        self.governance_service.ensure_bootstrap()
         scenario = self._get_scenario(scenario_id=scenario_id)
         if scenario.review_status != "approved":
             raise ScenarioServiceError(
@@ -522,7 +656,38 @@ class FunctionalCaseScenarioService:
                 message="场景未确认，禁止触发正式执行。",
                 status_code=400,
             )
-        resolved_workspace_root = Path(workspace_root) if workspace_root else self._build_default_workspace_root(scenario)
+        if not project_code or not environment_code:
+            raise ScenarioServiceError(
+                code="governance_context_required",
+                message="执行必须显式指定项目和环境。",
+                status_code=400,
+            )
+        try:
+            governance_context = self.governance_service.resolve_execution_context(
+                scenario=scenario,
+                project_code=project_code,
+                environment_code=environment_code,
+            )
+        except ValueError as error:
+            if str(error) == "project_context_mismatch":
+                raise ScenarioServiceError(
+                    code="project_context_mismatch",
+                    message="执行请求中的项目上下文与场景归属不一致。",
+                    status_code=400,
+                ) from error
+            if str(error) == "environment_context_mismatch":
+                raise ScenarioServiceError(
+                    code="environment_context_mismatch",
+                    message="执行请求中的环境上下文与场景绑定不一致。",
+                    status_code=400,
+                ) from error
+            raise
+        baseline_version = governance_context.baseline_version
+        resolved_workspace_root = (
+            Path(workspace_root)
+            if workspace_root
+            else self._build_default_workspace_root(scenario=scenario, governance_context=governance_context)
+        )
         try:
             pipeline_result = self.scenario_execution_pipeline.run(
                 scenario=scenario,
@@ -551,11 +716,16 @@ class FunctionalCaseScenarioService:
         )
         execution = ScenarioExecutionRecord.objects.create(
             scenario=scenario,
+            project=scenario.project,
+            environment=scenario.environment,
+            scenario_set=scenario.scenario_set,
+            baseline_version=baseline_version,
             execution_id=execution_id,
             execution_status=execution_status,
             passed_count=pipeline_result.execution_record.passed_count,
             failed_count=failed_count,
             skipped_count=pipeline_result.execution_record.skipped_count,
+            workspace_root=pipeline_result.asset_manifest.workspace_root,
             report_path=pipeline_result.execution_record.report_path or "",
             failure_summary=failure_summary,
             trigger_source="manual",
@@ -600,6 +770,7 @@ class FunctionalCaseScenarioService:
             "scenario_id": scenario.scenario_id,
             "scenario_code": scenario.scenario_code,
             "scenario_name": scenario.scenario_name,
+            **self._build_governance_summary(scenario),
             "review_status": scenario.review_status,
             "execution_status": execution_status,
             "latest_execution_id": execution.execution_id if execution else scenario.latest_execution_id,
@@ -608,6 +779,7 @@ class FunctionalCaseScenarioService:
             "passed_count": execution.passed_count if execution else scenario.passed_count,
             "failed_count": execution.failed_count if execution else scenario.failed_count,
             "skipped_count": execution.skipped_count if execution else scenario.skipped_count,
+            "workspace_root": execution.workspace_root if execution and execution.workspace_root else scenario.workspace_root,
             "report_path": execution.report_path if execution and execution.report_path else scenario.report_path,
             "failure_summary": execution.failure_summary if execution else "",
             "execution_history": execution_history,
@@ -616,6 +788,7 @@ class FunctionalCaseScenarioService:
 
     def build_scenario_summary(self, scenario: ScenarioRecord) -> dict:
         """构造统一场景摘要。"""
+        governance_summary = self._build_governance_summary(scenario)
         return {
             "scenario_id": scenario.scenario_id,
             "scenario_code": scenario.scenario_code,
@@ -634,6 +807,7 @@ class FunctionalCaseScenarioService:
             "source_summary": self._build_source_summary(scenario),
             "issue_codes": self._build_issue_codes(scenario),
             "latest_diff_summary": self._build_latest_diff_summary(scenario),
+            **governance_summary,
         }
 
     @staticmethod
@@ -661,14 +835,11 @@ class FunctionalCaseScenarioService:
                 status_code=404,
             ) from error
 
-    @staticmethod
-    def _build_default_workspace_root(scenario: ScenarioRecord) -> Path:
+    def _build_default_workspace_root(self, *, scenario: ScenarioRecord, governance_context) -> Path:
         """为未显式指定路径的执行请求构造默认工作区目录。"""
-        return (
-            Path(__file__).resolve().parent.parent
-            / "report"
-            / "scenario_workspaces"
-            / f"{scenario.scenario_code}_{uuid4().hex[:8]}"
+        return self.governance_service.build_workspace_root(
+            context=governance_context,
+            scenario=scenario,
         )
 
     @staticmethod

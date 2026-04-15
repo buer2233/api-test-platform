@@ -1,5 +1,97 @@
 # 当前发现
 
+## 2026-04-15 V3 P0 详细验收与数据保留发现
+- `platform_service.test_settings` 虽然已经切到 MySQL，但如果继续沿用 `pytest.mark.django_db + 清库夹具`，测试数据仍不会保留；本轮已确认真正的冲突点在 `service_tests/conftest.py` 和固定业务标识，而不只是数据库引擎本身。
+- 当前更稳妥的数据保留方案不是强行让 pytest-django 接管正式库，而是：
+  - 取消 `service_tests` 的 `django_db` 标记与清库逻辑；
+  - 通过 `django_db_blocker.unblock()` 直接访问正式 MySQL；
+  - 为每条服务测试生成运行期唯一 `case_id / case_code / capture_name`。
+- `TrafficCaptureImportView` 原先虽然接收 `project_code / environment_code / scenario_set_code`，但后端会直接忽略这些字段并总是落默认项目；本轮已补齐到 `scenario_service.views` 与 `scenario_service.services.import_traffic_capture()`。
+- `scenario_service/templates/scenario_service/workbench.html` 原先默认示例 ID 固定，保留测试数据后重复点“导入功能用例”会高频撞重复；当前已改为页面加载和成功导入后都自动换新示例标识。
+- 当前正式 MySQL 留存数据快照表明数据保留策略已生效：
+  - `project_count=21`
+  - `environment_count=21`
+  - `scenario_set_count=21`
+  - `baseline_version_count=22`
+  - `migration_count=4`
+  - `scenario_count=40`
+  - `execution_count=16`
+- 最新一轮正式 MySQL 详细验收结果为：
+  - `P0专项=11 passed`
+  - `service_tests=32 passed`
+  - `tests/platform_core=71 passed`
+  - `tests=79 passed`
+  - `api_test/tests=39 passed`
+  - 浏览器主链路已通过，执行结果为 `passed`
+
+## 2026-04-14 V3 详细测试文档收口发现
+- `product_document/测试文档/详细测试用例说明书(V3-总索引).md`、`详细测试用例说明书(V3-P0).md`、`详细测试用例说明书(V3-P1).md`、`详细测试用例说明书(V3-P2).md` 已建立，形成 V3 当前测试文档包。
+- 对四份 V3 测试文档执行 `rg -n "TODO|TBD|待补|待定"` 未发现占位词残留。
+- 三份阶段详细测试文档共定义 65 个用例：`P0=23`、`P1=25`、`P2=17`。
+- 所有用例编号均符合 `TC-V3-Px-LAYER-XXX` 规则，当前未发现重复编号。
+- 三份阶段文档中的跨用例引用均已定义，未发现悬空引用。
+- `详细测试用例说明书(V3-总索引).md` 原结论段仍停留在“下一步编写 P0 / P1 / P2 文档”，已在本轮同步修正为“文档包已建立，待评审后进入 P0 开发准备”。
+- `V3阶段工作计划文档.md` 原 `V3-DOC-005`、`V3-TEST-002`、`V3-TEST-003`、`V3-TEST-004`、`V3-TEST-005` 仍停留在待开始状态，已在本轮同步回填为已完成。
+- `README.md` 与 `全阶段工作规划文档.md` 原先仅反映“V3 阶段工作计划已确认”，本轮已补记 V3 详细测试文档包已建立的当前状态。
+- 本轮未执行任何 V3 自动化测试；当前阶段仍属于文档与测试设计收口阶段，不应新增实现或验收结果口径。
+
+## 2026-04-14 V3 P0 开发准备发现
+- 当前 `scenario_service` 已经是 V2 的统一事实源承载层，P0 最合理的落点不是新建平行模块，而是在现有 `ScenarioRecord / ScenarioExecutionRecord` 等模型基础上扩展项目、环境、场景集与基线版本治理。
+- 当前 `scenario_service/views.py` 和 `platform_service/urls.py` 已经暴露 `/api/v2/scenarios/*` 与 `/ui/v2/workbench/`，说明 P0 的“最小治理入口”可以在现有工作台基础上迭代，而不是另起一套前端工程。
+- 当前 `scenario_service/templates/scenario_service/workbench.html` 明确仍是 V2 口径，页面只支持导入、审核、执行和结果回看；P0 需要把它提升为项目切换、环境切换、场景集筛选和版本查看可见的治理入口。
+- 当前 `scenario_service/services.py` 的执行默认工作区由 `_build_default_workspace_root()` 生成，但尚未引入项目级、环境级和场景集级隔离信息；P0 的工作区隔离和执行记录隔离需要首先从这里切入。
+- 当前服务测试集中已有 `test_service_persistence.py`、`test_scenario_query_contract.py`、`test_execution_closure.py`、`test_workbench_ui.py` 等稳定切点，适合按 TDD 继续扩展 P0 模型、API、隔离和 UI 用例。
+- 当前 `platform_service/urls.py` 仍统一挂载 `/api/v2/scenarios/` 与 `/ui/v2/workbench/`；P0 先在既有入口上做治理增强更稳妥，暂不额外引入 `v3` 路由层分叉。
+- 当前服务测试使用 `platform_service.test_settings` 下的 SQLite + `MIGRATION_MODULES = {"scenario_service": None}`，适合快速做 TDD；而正式迁移一致性仍需继续通过 `manage.py makemigrations --check --dry-run --settings=platform_service.migration_settings` 验证。
+
+## 2026-04-14 V3 P0 第一批实现发现
+- 第一批红灯 `service_tests/test_v3_p0_governance_flow.py::test_import_functional_case_assigns_default_governance_context` 失败原因为场景详情缺少 `project / environment / scenario_set / baseline_version`，说明 P0 缺口准确落在服务摘要层而不是测试误报。
+- 已新增 `scenario_service/governance.py`，开始把默认项目引导、治理上下文解析和基线版本切换从 `scenario_service/services.py` 中拆出，避免继续堆叠单文件逻辑。
+- 已在 `scenario_service/models.py` 中补入 `ProjectRecord`、`TestEnvironmentRecord`、`ScenarioSetRecord`、`BaselineVersionRecord`、`GovernanceMigrationRecord` 以及 `ScenarioRecord / ScenarioExecutionRecord` 的治理关联字段。
+- 当前选择继续沿用现有 `/api/v2/scenarios/*` 入口，但在返回结构中增加 V3 P0 治理上下文；这是一种“服务事实源升级、入口路径暂不分叉”的兼容策略。
+- 第一批隔离红灯暴露了一个真实实现问题：`BaselineVersionRecord` 的默认 `baseline_version_id` 初版写成全局常量，导致跨项目创建场景集时触发唯一键冲突；已修正为按 `项目 + 场景集 + 版本` 生成稳定标识。
+- 已把 `request_execution()` 收紧为必须显式接收 `project_code` 和 `environment_code`，并在执行记录中写回 `project / environment / scenario_set / baseline_version / workspace_root`，开始满足 P0 对执行上下文硬绑定的要求。
+- 当前第一批已通过的新增测试包括：
+  - 默认治理上下文导入
+  - 治理上下文查询
+  - 基线版本激活
+  - 同名场景跨项目导入隔离
+  - 缺少项目 / 环境上下文的执行阻断
+  - 项目级工作区与结果上下文隔离
+
+## 2026-04-14 V3 P0 首轮验收发现
+- 当前 `P0` 选择继续在现有 `/api/v2/scenarios/*` 和 `/ui/v2/workbench/` 上增量升级是正确的，服务回归已恢复为 `30 passed`，说明没有把 V2 事实源升级成一套平行系统。
+- `request_execution()` 的显式上下文绑定要求会直接打破旧的无上下文执行测试；本轮已选择“更新旧测试契约显式传 `project_code / environment_code`”而不是回退 P0 约束，这个取舍与 P0 验收标准一致。
+- `scenario_service` 已补齐此前缺失的导出边界能力：
+  - 新增 `<scenario_id>/export/` 路由；
+  - 导出路径按 `项目 / 环境 / 场景集` 归档；
+  - 跨项目导出请求会返回 `project_context_mismatch`。
+- 默认工作区路径已从旧的“场景编码 + 随机后缀”收口为 `report/scenario_workspaces/<project>/<environment>/<scenario_set>/...`，浏览器端与服务层回写路径现在能直接体现治理归属。
+- 浏览器端最小治理入口已完成真实主链路冒烟：导入、审核、执行、结果回看都能直接带出 `project / environment / scenario_set / baseline_version` 上下文，截图证据已保存在 `.pytest_tmp/browser_smoke/v3_p0_workbench_smoke.png`。
+- 本地 MySQL 基线已完成 `scenario_service.0005` 落库，新增表包括：
+  - `scenario_service_projectrecord`
+  - `scenario_service_testenvironmentrecord`
+  - `scenario_service_scenariosetrecord`
+  - `scenario_service_baselineversionrecord`
+  - `scenario_service_governancemigrationrecord`
+- 当前残余风险已明显收敛，但仍需在向用户汇报时明确：
+  - 当前已补齐 MySQL 浏览器自动化主链路冒烟，SQLite 路径已从 `platform_service.test_settings` 移除；
+  - 后续若继续扩展 UI 自动化，应继续复用正式 MySQL 基线，而不是重新引入独立测试库。
+
+## 2026-04-15 MySQL-only 测试切换发现
+- `platform_service.test_settings` 原先仍指向 SQLite，并通过 `MIGRATION_MODULES = {"scenario_service": None}` 跳过真实 migration；这与“所有测试和数据必须使用正式 MySQL 数据库”的新要求冲突。
+- 本轮已新增 `test_platform_service_test_settings_also_use_formal_mysql_baseline`，并完成红绿验证，确保测试设置固定为：
+  - `ENGINE = django.db.backends.mysql`
+  - `NAME = api_test_platform`
+  - `MIGRATION_MODULES = {}`
+- 当前 MySQL-only 切换后的最新验证结果为：
+  - `service_tests=31 passed`
+  - `tests/platform_core=71 passed`
+  - `tests=79 passed`
+  - `api_test/tests=39 passed`
+  - `makemigrations --check --dry-run` -> `No changes detected in app 'scenario_service'`
+- 当前工作台 `/ui/v2/workbench/` 已在 `platform_service.test_settings` 指向正式 MySQL 后，重新完成“导入 -> 审核通过 -> 触发执行 -> 回看结果”主链路浏览器冒烟，截图为 `.pytest_tmp/browser_mysql_smoke/v3_p0_workbench_mysql_smoke.png`。
+
 ## 2026-04-03 V1 正式验收复验
 - `jsonplaceholder.typicode.com` 相关公网用例在代理开启下稳定通过，`cd api_test && python -m pytest tests -m jsonplaceholder -v --basetemp ..\\.pytest_tmp\\api_test_jsonplaceholder_acceptance` 结果为 `12 passed, 27 deselected`。
 - `python api_test/run_test.py --public-baseline` 与 `cd api_test && python run_test.py --public-baseline` 在代理开启下均为 `12 passed, 27 deselected`。
@@ -310,3 +402,47 @@
   - 更复杂执行历史治理、更多公开基线操作目录和复杂变量编排
 - 浏览器冒烟期间还额外发现了一个入口可用性问题：工作台默认功能用例示例在数据库中已存在时，重复导入会把 `ScenarioRecord.scenario_id` 唯一键冲突直接抛成 `500`。
 - 根因已确认在服务层：`_persist_scenario_draft()` 直接写库，没有在业务层把重复场景标识转换成结构化错误；当前已补齐重复导入检查，并通过 `service_tests/test_workbench_ui.py` 新增用例锁定为 `400 + scenario_already_exists`。
+
+## 2026-04-10 V2 全量验收发现
+- 当前仓库中尚不存在 `product_document/阶段文档/V2阶段正式验收报告.md`，说明虽然 V2 阶段文档与测试文档已写明“P0 主线与本轮 P1 扩展均已完成”，但仍缺少正式收口文档。
+- `git status --short --untracked-files=all` 当前仅显示 `?? .bytro` 与 `?? .idea/*`，未见新的代码脏改动，适合直接做正式验收归档。
+- 最近 5 条主线提交均为 2026-04-10 的 V2 P1 扩展提交，表明当前验收对象应包含 P0 主线和本轮 P1 扩展，而不是仅按 2026-04-09 的 P0 状态验收。
+- 本轮验收级自动化回归结果已复核：
+  - `python -m pytest tests/platform_core -q --basetemp=.pytest_tmp/v2_acceptance_platform_core` -> `71 passed`
+  - `python -m pytest tests -q --basetemp=.pytest_tmp/v2_acceptance_root` -> `79 passed`
+  - `python -m pytest api_test/tests -q --basetemp=.pytest_tmp/v2_acceptance_api_test` -> `39 passed`
+  - `$env:DJANGO_SETTINGS_MODULE='platform_service.settings'; .\.venv_service\Scripts\python.exe -m pytest service_tests -q --basetemp=.pytest_tmp/v2_acceptance_service_fixed` -> `19 passed`
+  - `$env:DJANGO_SETTINGS_MODULE='platform_service.settings'; .\.venv_service\Scripts\python.exe manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.migration_settings` -> `No changes detected in app 'scenario_service'`
+- `service_tests` 首次使用 `--basetemp=.pytest_tmp_service/v2_acceptance_service` 执行时出现 `FileNotFoundError`，原因是 pytest 不会自动创建缺失的父目录；该问题属于验收命令参数问题，不属于服务层功能缺陷。
+- 本轮真实浏览器冒烟已新增一轮 2026-04-10 证据：
+  - `http://127.0.0.1:18080/ui/v2/workbench/` 可正常加载，页面标题为 `V2 场景工作台`
+  - 工作台可从默认功能用例文本框导入 `ui_console_query_user_profile`
+  - 场景可通过页面按钮完成“审核通过 -> 触发执行”
+  - 页面结果区显示 `review_status=approved`、`execution_status=passed`、`passed_count=1`、`failed_count=0`、`skipped_count=0`
+  - 页面可展示 `latest_execution_id`、`report_path`、`execution_history` 和 `latest_diff_summary`
+- 基于本轮复核，V2 当前更适合形成“正式验收通过”结论，而不是继续停留在“待用户验收/汇总推送”的阶段性表述。
+
+## 2026-04-14 V3 阶段计划正式化发现
+- `全阶段工作规划文档.md`、`V2阶段工作计划文档.md` 与 `V2阶段正式验收报告.md` 当前共同指向同一个事实：V2 已完成正式验收，V3 不应再写成“待启动占位”，而应进入正式规划状态。
+- 本轮用户已明确确认 V3 的第一主轴为“平台治理优先”，而不是执行中台优先或产品入口优先。
+- 本轮已确认 V3 采用 `P0 / P1 / P2` 分层推进，且 **P0、P1、P2 都必须各自形成独立验收**，不再只依赖最终总体验收。
+- `P0` 已确认聚焦“多项目与环境治理”，并明确做到“执行隔离级”；其入口形态不是完整控制台，而是浏览器端最小治理入口。
+- 环境管理深度已确认到“测试环境层”，场景集与版本治理深度已确认到“基线版本级”。
+- V2 历史资产承接策略已确认采用“默认项目迁移”，要求场景、修订、建议和执行记录统一迁入默认项目 / 默认环境 / 默认场景集，并保持可追溯。
+- `P1` 已确认承接权限体系、抓包正式执行闭环、产品入口深化和调度与执行中心，但它们都必须建立在 `P0` 稳定验收之后。
+- Windows 路线已确认采用“先 Web 稳定，再轻量套壳到 Windows”；默认壳方案写为“`Tauri` 优先，浏览器先验，阶段性打包复验”，以满足后续真实测试和反复修改验证的便捷性要求。
+- `macOS` 已明确调整为“保留为后续要做，但当前阶段暂不做正式实现”，因此它应写入后续承接建议，而不是当前轮必达范围。
+- 当前 V3 文档中最需要提前写死的风险边界包括：范围膨胀、跨项目串扰、历史数据迁移一致性、入口反向耦合、AI 越权、调度先于治理，以及 Windows Demo 反向牵引治理主线的风险。
+
+## 2026-04-14 V3 详细测试文档包设计发现
+- `V3` 测试文档不再适合沿用 V1 / V2 的单文件模式，因为当前阶段已明确 `P0 / P1 / P2` 都需要独立验收。
+- 本轮已确认 `V3` 测试文档采用 **1 个总索引 + 3 个分文档** 的结构，其中：
+  - 总索引只写规则、矩阵、映射和验收原则；
+  - `P0 / P1 / P2` 三份分文档分别承载详细测试用例。
+- 本轮已确认 `P0 / P1 / P2` 三份分文档都需要写得很详细，而不是只细写 `P0`。
+- 本轮已确认每份分文档内部按测试层分章，而不是按任务组分章。
+- 本轮已确认统一编号体系采用 `TC-V3-Px-LAYER-XXX`，例如 `TC-V3-P0-DOC-001`、`TC-V3-P1-API-012`、`TC-V3-P2-INT-003`。
+- 本轮已确认单条用例使用超详细执行模板，至少包含：编号、名称、目标、背景、前置条件、输入、执行步骤、检查点、失败判定、优先级、预期结果、归属阶段验收、后续联动测试。
+- `P0` 的测试重点是：历史资产迁移、执行隔离、最小治理入口和独立验收闭环。
+- `P1` 的测试重点是：权限体系、抓包正式执行、Web 正式入口深化、Windows Demo 和调度中心。
+- `P2` 的测试重点是：AI 建议边界、审批门禁、回退、留痕以及“AI 不能越权成为事实源”的治理闭环。

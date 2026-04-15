@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
 from rest_framework.test import APIClient
-
-
-pytestmark = pytest.mark.django_db
 
 
 def build_traffic_capture_payload() -> dict:
@@ -93,11 +89,17 @@ def build_traffic_capture_payload() -> dict:
     }
 
 
-def test_drf_contract_imports_traffic_capture_into_reviewable_scenario_draft():
+def test_drf_contract_imports_traffic_capture_into_reviewable_scenario_draft(service_test_token: str):
     """TC-V2-SVC-009/011 抓包导入接口应创建可审核场景草稿。"""
     client = APIClient()
+    project_code = f"traffic-project-{service_test_token}"
+    environment_code = f"traffic-env-{service_test_token}"
+    scenario_set_code = f"traffic-set-{service_test_token}"
     payload = {
-        "capture_name": "登录后查询用户详情",
+        "project_code": project_code,
+        "environment_code": environment_code,
+        "scenario_set_code": scenario_set_code,
+        "capture_name": f"登录后查询用户详情-{service_test_token}",
         "capture_payload": build_traffic_capture_payload(),
     }
 
@@ -109,6 +111,9 @@ def test_drf_contract_imports_traffic_capture_into_reviewable_scenario_draft():
     assert data["execution_status"] == "not_started"
     assert data["step_count"] == 2
     assert data["issue_count"] >= 1
+    assert data["project"]["project_code"] == project_code
+    assert data["environment"]["environment_code"] == environment_code
+    assert data["scenario_set"]["scenario_set_code"] == scenario_set_code
 
     scenario_id = data["scenario_id"]
     detail_response = client.get(f"/api/v2/scenarios/{scenario_id}/")
@@ -116,6 +121,9 @@ def test_drf_contract_imports_traffic_capture_into_reviewable_scenario_draft():
     assert detail_response.status_code == 200
     detail = detail_response.json()["data"]
     assert len(detail["steps"]) == 2
+    assert detail["project"]["project_code"] == project_code
+    assert detail["environment"]["environment_code"] == environment_code
+    assert detail["scenario_set"]["scenario_set_code"] == scenario_set_code
     assert any(issue["issue_code"] == "capture_operation_needs_review" for issue in detail["issues"])
     assert any(
         trace["entity_type"] == "step"

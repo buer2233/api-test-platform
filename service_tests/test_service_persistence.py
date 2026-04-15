@@ -2,20 +2,17 @@
 
 from __future__ import annotations
 
-import pytest
-
 from scenario_service.services import FunctionalCaseScenarioService
 
 
-pytestmark = pytest.mark.django_db
-
-
-def test_scenario_record_persists_functional_case_draft():
+def test_scenario_record_persists_functional_case_draft(service_test_token: str):
     """TC-V2-SVC-001 场景草稿导入服务应能持久化场景与步骤。"""
     service = FunctionalCaseScenarioService()
+    case_id = f"fc-order-001-{service_test_token}"
+    case_code = f"create_order_and_query_order_detail_{service_test_token}"
     payload = {
-        "case_id": "fc-order-001",
-        "case_code": "create_order_and_query_order_detail",
+        "case_id": case_id,
+        "case_code": case_code,
         "case_name": "创建订单后查询订单详情",
         "steps": [
             {
@@ -29,6 +26,6 @@ def test_scenario_record_persists_functional_case_draft():
     scenario = service.import_functional_case(payload)
 
     assert scenario.scenario_id.startswith("scenario-")
-    assert scenario.scenario_code == "create_order_and_query_order_detail"
+    assert scenario.scenario_code == case_code
     assert scenario.review_status == "pending"
     assert scenario.steps.count() == 1

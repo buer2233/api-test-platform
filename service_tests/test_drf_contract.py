@@ -2,19 +2,21 @@
 
 from __future__ import annotations
 
-import pytest
 from rest_framework.test import APIClient
 
 
-pytestmark = pytest.mark.django_db
+DEFAULT_PROJECT_CODE = "default-project"
+DEFAULT_ENVIRONMENT_CODE = "default-env"
 
 
-def test_drf_contract_covers_import_detail_review_execute_and_result(tmp_path):
+def test_drf_contract_covers_import_detail_review_execute_and_result(tmp_path, service_test_token: str):
     """TC-V2-SVC-011/012 DRF 接口应覆盖导入、详情、审核、执行与结果查询。"""
     client = APIClient()
+    case_id = f"fc-user-001-{service_test_token}"
+    case_code = f"query_user_profile_{service_test_token}"
     payload = {
-        "case_id": "fc-user-001",
-        "case_code": "query_user_profile",
+        "case_id": case_id,
+        "case_code": case_code,
         "case_name": "查询用户详情",
         "steps": [
             {
@@ -51,7 +53,11 @@ def test_drf_contract_covers_import_detail_review_execute_and_result(tmp_path):
 
     execute_response = client.post(
         f"/api/v2/scenarios/{scenario_id}/execute/",
-        {"workspace_root": str(tmp_path / "scenario_workspace")},
+        {
+            "project_code": DEFAULT_PROJECT_CODE,
+            "environment_code": DEFAULT_ENVIRONMENT_CODE,
+            "workspace_root": str(tmp_path / "scenario_workspace"),
+        },
         format="json",
     )
     assert execute_response.status_code == 202
@@ -59,17 +65,21 @@ def test_drf_contract_covers_import_detail_review_execute_and_result(tmp_path):
     result_response = client.get(f"/api/v2/scenarios/{scenario_id}/result/")
     assert result_response.status_code == 200
     assert result_response.json()["data"]["review_status"] == "approved"
+    assert result_response.json()["data"]["project"]["project_code"] == DEFAULT_PROJECT_CODE
+    assert result_response.json()["data"]["environment"]["environment_code"] == DEFAULT_ENVIRONMENT_CODE
     assert "execution_status" in result_response.json()["data"]
     assert len(result_response.json()["data"]["execution_history"]) == 1
     assert "latest_diff_summary" in result_response.json()["data"]
 
 
-def test_result_summary_returns_report_path_and_statistics_after_execution(tmp_path):
+def test_result_summary_returns_report_path_and_statistics_after_execution(tmp_path, service_test_token: str):
     """TC-V2-SVC-012 结果查询接口应返回执行后的报告路径与统计摘要。"""
     client = APIClient()
+    case_id = f"fc-user-003-{service_test_token}"
+    case_code = f"query_user_and_user_todos_{service_test_token}"
     payload = {
-        "case_id": "fc-user-003",
-        "case_code": "query_user_and_user_todos",
+        "case_id": case_id,
+        "case_code": case_code,
         "case_name": "查询用户并获取该用户待办列表",
         "steps": [
             {
@@ -113,7 +123,11 @@ def test_result_summary_returns_report_path_and_statistics_after_execution(tmp_p
 
     execute_response = client.post(
         f"/api/v2/scenarios/{scenario_id}/execute/",
-        {"workspace_root": str(tmp_path / "scenario_workspace")},
+        {
+            "project_code": DEFAULT_PROJECT_CODE,
+            "environment_code": DEFAULT_ENVIRONMENT_CODE,
+            "workspace_root": str(tmp_path / "scenario_workspace"),
+        },
         format="json",
     )
     assert execute_response.status_code == 202
@@ -125,17 +139,21 @@ def test_result_summary_returns_report_path_and_statistics_after_execution(tmp_p
     assert data["passed_count"] == 1
     assert data["failed_count"] == 0
     assert data["skipped_count"] == 0
+    assert data["project"]["project_code"] == DEFAULT_PROJECT_CODE
+    assert data["environment"]["environment_code"] == DEFAULT_ENVIRONMENT_CODE
     assert data["report_path"]
     assert len(data["execution_history"]) == 1
     assert data["latest_diff_summary"]["status_changed"] is False
 
 
-def test_execute_endpoint_blocks_unapproved_scenario_with_structured_error():
+def test_execute_endpoint_blocks_unapproved_scenario_with_structured_error(service_test_token: str):
     """TC-V2-SVC-011 未确认场景的执行接口应返回结构化错误。"""
     client = APIClient()
+    case_id = f"fc-user-002-{service_test_token}"
+    case_code = f"query_user_profile_without_review_{service_test_token}"
     payload = {
-        "case_id": "fc-user-002",
-        "case_code": "query_user_profile_without_review",
+        "case_id": case_id,
+        "case_code": case_code,
         "case_name": "未审核直接执行",
         "steps": [
             {

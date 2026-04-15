@@ -5,12 +5,149 @@ from __future__ import annotations
 from django.db import models
 
 
+class ProjectRecord(models.Model):
+    """项目治理根对象。"""
+
+    project_id = models.CharField(max_length=128, unique=True)
+    project_code = models.CharField(max_length=128, unique=True)
+    project_name = models.CharField(max_length=255)
+    lifecycle_status = models.CharField(max_length=32, default="active")
+    is_archived = models.BooleanField(default=False)
+    metadata = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["project_code", "id"]
+
+    def __str__(self) -> str:
+        """返回便于后台查看的项目标识。"""
+        return f"{self.project_code}({self.lifecycle_status})"
+
+
+class TestEnvironmentRecord(models.Model):
+    """测试环境治理对象。"""
+
+    __test__ = False
+
+    environment_id = models.CharField(max_length=128, unique=True)
+    project = models.ForeignKey(ProjectRecord, related_name="environments", on_delete=models.CASCADE)
+    environment_code = models.CharField(max_length=128)
+    environment_name = models.CharField(max_length=255)
+    base_url = models.CharField(max_length=255, blank=True, default="")
+    auth_config = models.JSONField(default=dict)
+    request_headers = models.JSONField(default=dict)
+    variable_set = models.JSONField(default=dict)
+    proxy_config = models.JSONField(default=dict)
+    timeout_seconds = models.PositiveIntegerField(default=30)
+    isolation_key = models.CharField(max_length=128, blank=True, default="")
+    is_default = models.BooleanField(default=False)
+    metadata = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["project__project_code", "environment_code", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["project", "environment_code"], name="uniq_project_environment_code"),
+        ]
+
+    def __str__(self) -> str:
+        """返回便于后台查看的环境标识。"""
+        return f"{self.project.project_code}/{self.environment_code}"
+
+
+class ScenarioSetRecord(models.Model):
+    """场景集治理对象。"""
+
+    scenario_set_id = models.CharField(max_length=128, unique=True)
+    project = models.ForeignKey(ProjectRecord, related_name="scenario_sets", on_delete=models.CASCADE)
+    scenario_set_code = models.CharField(max_length=128)
+    scenario_set_name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
+    tags = models.JSONField(default=list)
+    is_archived = models.BooleanField(default=False)
+    metadata = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["project__project_code", "scenario_set_code", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["project", "scenario_set_code"], name="uniq_project_scenario_set_code"),
+        ]
+
+    def __str__(self) -> str:
+        """返回便于后台查看的场景集标识。"""
+        return f"{self.project.project_code}/{self.scenario_set_code}"
+
+
+class BaselineVersionRecord(models.Model):
+    """场景集基线版本治理对象。"""
+
+    baseline_version_id = models.CharField(max_length=128, unique=True)
+    scenario_set = models.ForeignKey(ScenarioSetRecord, related_name="baseline_versions", on_delete=models.CASCADE)
+    version_code = models.CharField(max_length=128)
+    version_name = models.CharField(max_length=255)
+    is_frozen = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=False)
+    metadata = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["scenario_set__scenario_set_code", "-is_active", "version_code", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["scenario_set", "version_code"],
+                name="uniq_scenario_set_baseline_version_code",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        """返回便于后台查看的基线版本标识。"""
+        return f"{self.scenario_set.scenario_set_code}/{self.version_code}"
+
+
+class GovernanceMigrationRecord(models.Model):
+    """默认项目迁移与治理引导记录。"""
+
+    migration_id = models.CharField(max_length=128, unique=True)
+    migration_name = models.CharField(max_length=128)
+    migration_scope = models.CharField(max_length=64, default="default_project_bootstrap")
+    status = models.CharField(max_length=32, default="completed")
+    migrated_scenario_count = models.PositiveIntegerField(default=0)
+    migrated_execution_count = models.PositiveIntegerField(default=0)
+    failed_entity_count = models.PositiveIntegerField(default=0)
+    metadata = models.JSONField(default=dict)
+    executed_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-executed_at", "-id"]
+
+
 class ScenarioRecord(models.Model):
     """场景草稿与正式场景的持久化记录。"""
 
     scenario_id = models.CharField(max_length=128, unique=True)
     scenario_code = models.CharField(max_length=128)
     scenario_name = models.CharField(max_length=255)
+    project = models.ForeignKey(ProjectRecord, related_name="scenarios", on_delete=models.PROTECT, null=True, blank=True)
+    environment = models.ForeignKey(
+        TestEnvironmentRecord,
+        related_name="scenarios",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+    )
+    scenario_set = models.ForeignKey(
+        ScenarioSetRecord,
+        related_name="scenarios",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+    )
     module_id = models.CharField(max_length=128, null=True, blank=True)
     scenario_desc = models.TextField(null=True, blank=True)
     source_ids = models.JSONField(default=list)
@@ -129,11 +266,34 @@ class ScenarioExecutionRecord(models.Model):
     """场景执行请求与结果记录。"""
 
     scenario = models.ForeignKey(ScenarioRecord, related_name="executions", on_delete=models.CASCADE)
+    project = models.ForeignKey(ProjectRecord, related_name="executions", on_delete=models.PROTECT, null=True, blank=True)
+    environment = models.ForeignKey(
+        TestEnvironmentRecord,
+        related_name="executions",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+    )
+    scenario_set = models.ForeignKey(
+        ScenarioSetRecord,
+        related_name="executions",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+    )
+    baseline_version = models.ForeignKey(
+        BaselineVersionRecord,
+        related_name="executions",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+    )
     execution_id = models.CharField(max_length=128, unique=True)
     execution_status = models.CharField(max_length=32, default="not_started")
     passed_count = models.PositiveIntegerField(default=0)
     failed_count = models.PositiveIntegerField(default=0)
     skipped_count = models.PositiveIntegerField(default=0)
+    workspace_root = models.CharField(max_length=255, null=True, blank=True)
     report_path = models.CharField(max_length=255, null=True, blank=True)
     failure_summary = models.TextField(null=True, blank=True)
     trigger_source = models.CharField(max_length=32, default="manual")

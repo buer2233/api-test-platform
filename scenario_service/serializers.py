@@ -8,6 +8,9 @@ from rest_framework import serializers
 class FunctionalCaseImportRequestSerializer(serializers.Serializer):
     """功能测试用例导入请求校验器。"""
 
+    project_code = serializers.CharField(required=False, allow_blank=True)
+    environment_code = serializers.CharField(required=False, allow_blank=True)
+    scenario_set_code = serializers.CharField(required=False, allow_blank=True)
     case_id = serializers.CharField()
     case_code = serializers.CharField(required=False, allow_blank=True)
     case_name = serializers.CharField()
@@ -21,6 +24,9 @@ class FunctionalCaseImportRequestSerializer(serializers.Serializer):
 class TrafficCaptureImportRequestSerializer(serializers.Serializer):
     """抓包导入请求校验器。"""
 
+    project_code = serializers.CharField(required=False, allow_blank=True)
+    environment_code = serializers.CharField(required=False, allow_blank=True)
+    scenario_set_code = serializers.CharField(required=False, allow_blank=True)
     capture_name = serializers.CharField()
     capture_payload = serializers.JSONField()
 
@@ -28,6 +34,9 @@ class TrafficCaptureImportRequestSerializer(serializers.Serializer):
 class ScenarioListQuerySerializer(serializers.Serializer):
     """场景列表筛选查询参数校验器。"""
 
+    project_code = serializers.CharField(required=False, allow_blank=True)
+    environment_code = serializers.CharField(required=False, allow_blank=True)
+    scenario_set_code = serializers.CharField(required=False, allow_blank=True)
     source_type = serializers.ChoiceField(
         choices=["functional_case", "traffic_capture", "ai_suggestion"],
         required=False,
@@ -46,6 +55,22 @@ class ScenarioListQuerySerializer(serializers.Serializer):
         required=False,
         default="updated_desc",
     )
+
+
+class BaselineVersionActivateSerializer(serializers.Serializer):
+    """基线版本激活请求校验器。"""
+
+    project_code = serializers.CharField()
+    scenario_set_code = serializers.CharField()
+    version_code = serializers.CharField()
+    version_name = serializers.CharField(required=False, allow_blank=True)
+
+
+class ScenarioExportRequestSerializer(serializers.Serializer):
+    """场景导出请求校验器。"""
+
+    project_code = serializers.CharField()
+    export_root = serializers.CharField(required=False, allow_blank=True)
 
 
 class ScenarioSuggestionRequestSerializer(serializers.Serializer):

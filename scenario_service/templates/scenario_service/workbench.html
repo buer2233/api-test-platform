@@ -236,9 +236,30 @@
         <article class="panel">
             <div class="panel-header">
                 <h2>场景队列</h2>
-                <p>展示最近更新的场景摘要。</p>
+                <p>展示最近更新的场景摘要，并按治理上下文筛选。</p>
             </div>
             <div class="panel-body">
+                <section class="result-box" data-testid="governance-summary">
+                    <span class="field-label">治理上下文</span>
+                    <div class="summary-grid">
+                        <div class="summary-cell" data-testid="project-switcher">
+                            <span class="summary-key">项目</span>
+                            <input id="filter-project-code" name="project_code" placeholder="default-project">
+                        </div>
+                        <div class="summary-cell" data-testid="environment-switcher">
+                            <span class="summary-key">环境</span>
+                            <input id="filter-environment-code" name="environment_code" placeholder="default-env">
+                        </div>
+                        <div class="summary-cell" data-testid="scenario-set-switcher">
+                            <span class="summary-key">场景集</span>
+                            <input id="filter-scenario-set-code" name="scenario_set_code" placeholder="default-scenario-set">
+                        </div>
+                        <div class="summary-cell" data-testid="baseline-version-panel">
+                            <span class="summary-key">当前基线版本</span>
+                            <span class="summary-value" id="active-baseline-version">等待加载治理上下文。</span>
+                        </div>
+                    </div>
+                </section>
                 <section class="result-box" data-testid="scenario-filter-panel">
                     <span class="field-label">场景筛选</span>
                     <div class="summary-grid">
@@ -312,6 +333,7 @@
 <script>
 window.SCENARIO_ENDPOINTS = {
     list: "/api/v2/scenarios/",
+    governanceContext: "/api/v2/scenarios/governance/context/",
     importFunctionalCase: "/api/v2/scenarios/import-functional-case/",
     importTrafficCapture: "/api/v2/scenarios/import-traffic-capture/",
     detail: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/"; },
@@ -323,7 +345,7 @@ window.SCENARIO_ENDPOINTS = {
 
 (function () {
     const api = window.SCENARIO_ENDPOINTS;
-    const state = { selectedScenarioId: null, scenarios: [] };
+    const state = { selectedScenarioId: null, scenarios: [], governance: null };
     const toast = document.getElementById("toast");
     const summaryGrid = document.getElementById("summary-grid");
     const stepList = document.getElementById("step-list");
@@ -334,8 +356,14 @@ window.SCENARIO_ENDPOINTS = {
     const suggestionList = document.getElementById("suggestion-list");
     const previewTitle = document.getElementById("preview-title");
     const scenarioList = document.getElementById("scenario-list");
+    const functionalCaseEditor = document.getElementById("functional-case-editor");
+    const trafficCaptureNameInput = document.getElementById("traffic-capture-name");
+    const filterProjectCode = document.getElementById("filter-project-code");
+    const filterEnvironmentCode = document.getElementById("filter-environment-code");
+    const filterScenarioSetCode = document.getElementById("filter-scenario-set-code");
     const filterSourceType = document.getElementById("filter-source-type");
     const filterIssueCode = document.getElementById("filter-issue-code");
+    const activeBaselineVersion = document.getElementById("active-baseline-version");
 
     function showToast(message, isError) {
         toast.textContent = message;
@@ -343,6 +371,35 @@ window.SCENARIO_ENDPOINTS = {
         toast.classList.toggle("error", Boolean(isError));
         window.clearTimeout(showToast.timer);
         showToast.timer = window.setTimeout(function () { toast.classList.remove("show"); }, 2600);
+    }
+
+    function buildDemoSuffix() {
+        return Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+    }
+
+    function buildFunctionalCaseDemoPayload() {
+        const suffix = buildDemoSuffix();
+        return {
+            case_id: "fc-ui-demo-" + suffix,
+            case_code: "ui_console_query_user_profile_" + suffix.replace(/-/g, "_"),
+            case_name: "入口页示例：查询用户详情",
+            steps: [
+                {
+                    step_name: "查询用户详情",
+                    operation_id: "operation-get-user",
+                    request: { path_params: { user_id: 1 } },
+                    expected: { status_code: 200 }
+                }
+            ]
+        };
+    }
+
+    function refreshFunctionalCaseDemoPayload() {
+        functionalCaseEditor.value = JSON.stringify(buildFunctionalCaseDemoPayload(), null, 2);
+    }
+
+    function refreshTrafficCaptureDemoName() {
+        trafficCaptureNameInput.value = "入口页示例：登录后查询用户详情-" + buildDemoSuffix();
     }
 
     function parseEditor(editorId, label) {
@@ -362,6 +419,23 @@ window.SCENARIO_ENDPOINTS = {
             throw new Error(payload && payload.error ? payload.error.message : "请求失败");
         }
         return payload.data;
+    }
+
+    function renderGovernanceContext() {
+        const projects = state.governance && state.governance.projects ? state.governance.projects : [];
+        if (!projects.length) {
+            activeBaselineVersion.textContent = "未发现治理上下文。";
+            return;
+        }
+        const targetProject = projects.find(function (item) { return item.project_code === filterProjectCode.value; }) || projects[0];
+        if (!filterProjectCode.value) { filterProjectCode.value = targetProject.project_code; }
+        const targetEnvironment = (targetProject.environments || []).find(function (item) { return item.environment_code === filterEnvironmentCode.value; }) || (targetProject.environments || [])[0];
+        if (targetEnvironment && !filterEnvironmentCode.value) { filterEnvironmentCode.value = targetEnvironment.environment_code; }
+        const targetScenarioSet = (targetProject.scenario_sets || []).find(function (item) { return item.scenario_set_code === filterScenarioSetCode.value; }) || (targetProject.scenario_sets || [])[0];
+        if (targetScenarioSet && !filterScenarioSetCode.value) { filterScenarioSetCode.value = targetScenarioSet.scenario_set_code; }
+        activeBaselineVersion.textContent = targetScenarioSet && targetScenarioSet.active_version
+            ? targetScenarioSet.active_version.version_code
+            : "暂无生效版本";
     }
 
     function renderSummary(detail) {
@@ -449,9 +523,17 @@ window.SCENARIO_ENDPOINTS = {
 
     function buildListQuery() {
         const params = new URLSearchParams();
+        if (filterProjectCode.value) { params.set("project_code", filterProjectCode.value); }
+        if (filterEnvironmentCode.value) { params.set("environment_code", filterEnvironmentCode.value); }
+        if (filterScenarioSetCode.value) { params.set("scenario_set_code", filterScenarioSetCode.value); }
         if (filterSourceType.value) { params.set("source_type", filterSourceType.value); }
         if (filterIssueCode.value) { params.set("issue_code", filterIssueCode.value); }
         return params.toString();
+    }
+
+    async function loadGovernanceContext() {
+        state.governance = await request(api.governanceContext);
+        renderGovernanceContext();
     }
 
     async function loadScenarioList(preferredScenarioId) {
@@ -494,11 +576,16 @@ window.SCENARIO_ENDPOINTS = {
     }
 
     async function importFunctionalCase() {
+        const payload = parseEditor("functional-case-editor", "功能测试用例");
+        payload.project_code = filterProjectCode.value;
+        payload.environment_code = filterEnvironmentCode.value;
+        payload.scenario_set_code = filterScenarioSetCode.value;
         const data = await request(api.importFunctionalCase, {
             method: "POST",
-            body: JSON.stringify(parseEditor("functional-case-editor", "功能测试用例"))
+            body: JSON.stringify(payload)
         });
         showToast("功能测试用例已导入。");
+        refreshFunctionalCaseDemoPayload();
         await loadScenarioList(data.scenario_id);
     }
 
@@ -506,11 +593,15 @@ window.SCENARIO_ENDPOINTS = {
         const data = await request(api.importTrafficCapture, {
             method: "POST",
             body: JSON.stringify({
+                project_code: filterProjectCode.value,
+                environment_code: filterEnvironmentCode.value,
+                scenario_set_code: filterScenarioSetCode.value,
                 capture_name: document.getElementById("traffic-capture-name").value || "抓包草稿",
                 capture_payload: parseEditor("traffic-capture-editor", "抓包数据")
             })
         });
         showToast("抓包草稿已导入。");
+        refreshTrafficCaptureDemoName();
         await loadScenarioList(data.scenario_id);
     }
 
@@ -530,7 +621,13 @@ window.SCENARIO_ENDPOINTS = {
 
     async function executeScenario() {
         if (!state.selectedScenarioId) { showToast("请先选择场景。", true); return; }
-        await request(api.execute(state.selectedScenarioId), { method: "POST", body: JSON.stringify({}) });
+        await request(api.execute(state.selectedScenarioId), {
+            method: "POST",
+            body: JSON.stringify({
+                project_code: filterProjectCode.value,
+                environment_code: filterEnvironmentCode.value
+            })
+        });
         showToast("已触发执行。");
         await loadScenarioList(state.selectedScenarioId);
     }
@@ -545,7 +642,11 @@ window.SCENARIO_ENDPOINTS = {
     document.getElementById("reject-button").addEventListener("click", function () { reviewScenario("rejected").catch(function (error) { showToast(error.message, true); }); });
     document.getElementById("execute-button").addEventListener("click", function () { executeScenario().catch(function (error) { showToast(error.message, true); }); });
 
-    loadScenarioList().catch(function (error) { showToast(error.message, true); });
+    refreshFunctionalCaseDemoPayload();
+    refreshTrafficCaptureDemoName();
+    loadGovernanceContext()
+        .then(function () { return loadScenarioList(); })
+        .catch(function (error) { showToast(error.message, true); });
 }());
 </script>
 </body>

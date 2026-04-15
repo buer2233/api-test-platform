@@ -2,19 +2,23 @@
 
 from __future__ import annotations
 
-import pytest
 from rest_framework.test import APIClient
 
 
-pytestmark = pytest.mark.django_db
-
-
-def test_scenario_list_endpoint_returns_summaries_for_workbench():
+def test_scenario_list_endpoint_returns_summaries_for_workbench(service_test_token: str):
     """TC-V2-UI-001/007 入口页需要稳定的场景摘要列表接口。"""
     client = APIClient()
+    project_code = f"default-project-{service_test_token}"
+    environment_code = f"default-env-{service_test_token}"
+    scenario_set_code = f"default-scenario-set-{service_test_token}"
+    case_id = f"fc-ui-001-{service_test_token}"
+    case_code = f"ui_query_user_profile_{service_test_token}"
     payload = {
-        "case_id": "fc-ui-001",
-        "case_code": "ui_query_user_profile",
+        "project_code": project_code,
+        "environment_code": environment_code,
+        "scenario_set_code": scenario_set_code,
+        "case_id": case_id,
+        "case_code": case_code,
         "case_name": "入口页列表场景",
         "steps": [
             {
@@ -27,13 +31,22 @@ def test_scenario_list_endpoint_returns_summaries_for_workbench():
 
     import_response = client.post("/api/v2/scenarios/import-functional-case/", payload, format="json")
     assert import_response.status_code == 201
+    scenario_id = import_response.json()["data"]["scenario_id"]
 
-    list_response = client.get("/api/v2/scenarios/")
+    list_response = client.get(
+        "/api/v2/scenarios/",
+        {
+            "project_code": project_code,
+            "environment_code": environment_code,
+            "scenario_set_code": scenario_set_code,
+        },
+    )
 
     assert list_response.status_code == 200
     assert list_response.json()["success"] is True
     assert len(list_response.json()["data"]) == 1
-    assert list_response.json()["data"][0]["scenario_code"] == "ui_query_user_profile"
+    assert list_response.json()["data"][0]["scenario_id"] == scenario_id
+    assert list_response.json()["data"][0]["scenario_code"] == case_code
 
 
 def test_workbench_page_renders_import_preview_and_result_regions():
@@ -70,12 +83,12 @@ def test_workbench_renders_filter_history_diff_and_suggestion_regions():
     assert "suggestions" in content
 
 
-def test_workbench_duplicate_functional_case_import_returns_structured_error():
+def test_workbench_duplicate_functional_case_import_returns_structured_error(service_test_token: str):
     """TC-V2-UI-001 重复导入默认示例时不应抛出 500。"""
     client = APIClient()
     payload = {
-        "case_id": "fc-ui-demo-001",
-        "case_code": "ui_console_query_user_profile",
+        "case_id": f"fc-ui-demo-001-{service_test_token}",
+        "case_code": f"ui_console_query_user_profile_{service_test_token}",
         "case_name": "入口页示例：查询用户详情",
         "steps": [
             {

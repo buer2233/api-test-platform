@@ -8,14 +8,15 @@ from rest_framework.test import APIClient
 from scenario_service.services import FunctionalCaseScenarioService, ScenarioServiceError
 
 
-pytestmark = pytest.mark.django_db
+DEFAULT_PROJECT_CODE = "default-project"
+DEFAULT_ENVIRONMENT_CODE = "default-env"
 
 
-def build_reviewable_payload() -> dict:
+def build_reviewable_payload(service_test_token: str) -> dict:
     """构造可用于审核修订链路验证的最小场景。"""
     return {
-        "case_id": "fc-user-revision-001",
-        "case_code": "query_user_profile_for_revision",
+        "case_id": f"fc-user-revision-001-{service_test_token}",
+        "case_code": f"query_user_profile_for_revision_{service_test_token}",
         "case_name": "查询用户详情待修订场景",
         "steps": [
             {
@@ -32,10 +33,10 @@ def build_reviewable_payload() -> dict:
     }
 
 
-def test_revise_rejected_scenario_persists_revision_record_and_updates_step_payload():
+def test_revise_rejected_scenario_persists_revision_record_and_updates_step_payload(service_test_token: str):
     """TC-V2-SVC-004/INT-003 驳回后的结构化修订应落库并更新步骤原始载荷。"""
     service = FunctionalCaseScenarioService()
-    scenario = service.import_functional_case(build_reviewable_payload())
+    scenario = service.import_functional_case(build_reviewable_payload(service_test_token))
     service.review_scenario(
         scenario_id=scenario.scenario_id,
         review_status="rejected",
@@ -87,10 +88,14 @@ def test_revise_rejected_scenario_persists_revision_record_and_updates_step_payl
     assert step.expected_bindings == ["status_code", "extract"]
 
 
-def test_revise_endpoint_supports_rejected_to_approved_execution_flow(tmp_path):
+def test_revise_endpoint_supports_rejected_to_approved_execution_flow(tmp_path, service_test_token: str):
     """TC-V2-INT-003 驳回后修订再确认的生命周期闭环应成立。"""
     client = APIClient()
-    import_response = client.post("/api/v2/scenarios/import-functional-case/", build_reviewable_payload(), format="json")
+    import_response = client.post(
+        "/api/v2/scenarios/import-functional-case/",
+        build_reviewable_payload(service_test_token),
+        format="json",
+    )
     assert import_response.status_code == 201
     scenario_id = import_response.json()["data"]["scenario_id"]
 
@@ -137,7 +142,11 @@ def test_revise_endpoint_supports_rejected_to_approved_execution_flow(tmp_path):
 
     execute_response = client.post(
         f"/api/v2/scenarios/{scenario_id}/execute/",
-        {"workspace_root": str(tmp_path / "scenario_workspace")},
+        {
+            "project_code": DEFAULT_PROJECT_CODE,
+            "environment_code": DEFAULT_ENVIRONMENT_CODE,
+            "workspace_root": str(tmp_path / "scenario_workspace"),
+        },
         format="json",
     )
     assert execute_response.status_code == 202
@@ -146,6 +155,8 @@ def test_revise_endpoint_supports_rejected_to_approved_execution_flow(tmp_path):
     assert result_response.status_code == 200
     assert result_response.json()["data"]["review_status"] == "approved"
     assert result_response.json()["data"]["execution_status"] == "passed"
+    assert result_response.json()["data"]["project"]["project_code"] == DEFAULT_PROJECT_CODE
+    assert result_response.json()["data"]["environment"]["environment_code"] == DEFAULT_ENVIRONMENT_CODE
 
     detail_after_revision = client.get(f"/api/v2/scenarios/{scenario_id}/")
     assert detail_after_revision.status_code == 200
@@ -154,10 +165,10 @@ def test_revise_endpoint_supports_rejected_to_approved_execution_flow(tmp_path):
     assert [item["review_status"] for item in detail_data["reviews"]] == ["rejected", "revised", "approved"]
 
 
-def test_revise_service_blocks_non_rejected_scenario_from_structured_revision():
+def test_revise_service_blocks_non_rejected_scenario_from_structured_revision(service_test_token: str):
     """已确认场景未回到待修订状态前不应允许直接进入结构化修订。"""
     service = FunctionalCaseScenarioService()
-    scenario = service.import_functional_case(build_reviewable_payload())
+    scenario = service.import_functional_case(build_reviewable_payload(service_test_token))
 
     with pytest.raises(ScenarioServiceError, match="当前场景状态不允许直接修订"):
         service.revise_scenario(
