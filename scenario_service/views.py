@@ -12,6 +12,11 @@ from scenario_service.serializers import (
     FunctionalCaseImportRequestSerializer,
     ProjectRoleAssignmentQuerySerializer,
     ProjectRoleAssignmentRequestSerializer,
+    ScheduleBatchCreateRequestSerializer,
+    ScheduleBatchDetailQuerySerializer,
+    ScheduleBatchListQuerySerializer,
+    ScheduleItemCancelRequestSerializer,
+    ScheduleItemRetryRequestSerializer,
     ScenarioListQuerySerializer,
     ScenarioAuditLogQuerySerializer,
     ScenarioExportRequestSerializer,
@@ -24,6 +29,7 @@ from scenario_service.serializers import (
     TrafficCaptureImportRequestSerializer,
 )
 from scenario_service.services import FunctionalCaseScenarioService, ScenarioServiceError
+from scenario_service.windows_demo import build_windows_demo_manifest
 
 
 SCENARIO_SERVICE = FunctionalCaseScenarioService()
@@ -150,6 +156,15 @@ class GovernanceMigrationStatusView(APIView):
         return Response({"success": True, "data": SCENARIO_SERVICE.governance_service.get_migration_status_summary()})
 
 
+class WindowsDemoManifestView(APIView):
+    """返回 Windows Demo 启动清单。"""
+
+    def get(self, request):
+        """返回浏览器先验与 Windows 启动器共享的 Demo manifest。"""
+        base_url = request.query_params.get("base_url") or request.build_absolute_uri("/").rstrip("/")
+        return Response({"success": True, "data": build_windows_demo_manifest(base_url=base_url)})
+
+
 class BaselineVersionActivateView(APIView):
     """处理当前生效版本切换请求。"""
 
@@ -193,6 +208,85 @@ class ScenarioAuditLogListView(APIView):
         serializer = ScenarioAuditLogQuerySerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
         return Response({"success": True, "data": SCENARIO_SERVICE.list_audit_logs(**serializer.validated_data)})
+
+
+class ScheduleBatchListCreateView(APIView):
+    """处理调度批次的查询与创建请求。"""
+
+    def get(self, request):
+        """按项目边界返回调度批次列表。"""
+        serializer = ScheduleBatchListQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        try:
+            data = SCENARIO_SERVICE.list_schedule_batches(**serializer.validated_data)
+        except ScenarioServiceError as error:
+            return build_error_response(error)
+        return Response({"success": True, "data": data})
+
+    def post(self, request):
+        """创建调度批次并按策略立即执行或排队。"""
+        serializer = ScheduleBatchCreateRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            data = SCENARIO_SERVICE.create_schedule_batch(**serializer.validated_data)
+        except ScenarioServiceError as error:
+            return build_error_response(error)
+        return Response({"success": True, "data": data}, status=status.HTTP_201_CREATED)
+
+
+class ScheduleBatchDetailView(APIView):
+    """处理调度批次详情查询请求。"""
+
+    def get(self, request, schedule_batch_id: str):
+        """返回指定调度批次详情。"""
+        serializer = ScheduleBatchDetailQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        try:
+            data = SCENARIO_SERVICE.get_schedule_batch_detail(
+                schedule_batch_id=schedule_batch_id,
+                actor=serializer.validated_data.get("actor"),
+            )
+        except ScenarioServiceError as error:
+            return build_error_response(error)
+        return Response({"success": True, "data": data})
+
+
+class ScheduleItemRetryView(APIView):
+    """处理调度任务项重试请求。"""
+
+    def post(self, request, schedule_batch_id: str, schedule_item_id: str):
+        """触发指定调度任务项重试。"""
+        serializer = ScheduleItemRetryRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            data = SCENARIO_SERVICE.retry_schedule_item(
+                schedule_batch_id=schedule_batch_id,
+                schedule_item_id=schedule_item_id,
+                scheduler=serializer.validated_data["scheduler"],
+                workspace_root=serializer.validated_data.get("workspace_root", ""),
+            )
+        except ScenarioServiceError as error:
+            return build_error_response(error)
+        return Response({"success": True, "data": data})
+
+
+class ScheduleItemCancelView(APIView):
+    """处理调度任务项取消请求。"""
+
+    def post(self, request, schedule_batch_id: str, schedule_item_id: str):
+        """取消指定调度任务项。"""
+        serializer = ScheduleItemCancelRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            data = SCENARIO_SERVICE.cancel_schedule_item(
+                schedule_batch_id=schedule_batch_id,
+                schedule_item_id=schedule_item_id,
+                scheduler=serializer.validated_data["scheduler"],
+                cancel_reason=serializer.validated_data.get("cancel_reason", ""),
+            )
+        except ScenarioServiceError as error:
+            return build_error_response(error)
+        return Response({"success": True, "data": data})
 
 
 class ScenarioDetailView(APIView):
@@ -373,6 +467,6 @@ class ScenarioSuggestionApplyView(APIView):
 
 
 class ScenarioWorkbenchView(TemplateView):
-    """返回 V2 可用型入口工作台页面。"""
+    """返回 V3 正式入口工作台页面。"""
 
     template_name = "scenario_service/workbench.html"

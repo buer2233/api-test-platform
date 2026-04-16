@@ -8,7 +8,7 @@
 
 ## 当前状态
 
-截至 2026-04-15，V1 已正式验收通过，V2 也已完成正式验收；V3 `P0` 已完成详细验收，`P1-G1 / P1-G2` 已完成首批开发与测试。当前仓库状态应判断为：
+截至 2026-04-16，V1 已正式验收通过，V2 也已完成正式验收；V3 `P0` 已完成详细验收，V3 `P1` 计划内的 `G1 / G2 / G3 / G4` 已完成开发与测试。当前仓库状态应判断为：
 
 - V3 当前主轴已确认为“平台治理优先”，并采用 `P0 / P1 / P2` 分层推进；
 - V3 `P0` 已完成多项目 / 环境 / 场景集 / 基线版本治理、默认项目迁移、执行隔离、导出隔离和最小治理入口首轮交付；
@@ -22,7 +22,10 @@
 - 抓包导入接口已补齐治理上下文承接，当前 `project_code / environment_code / scenario_set_code` 不再被后端忽略；
 - `P1-G1` 首批权限与审计治理验证结果为：`service_tests/test_v3_p1_permission_audit.py=3 passed`、`service_tests=35 passed`、`tests/platform_core=71 passed`、`tests=79 passed`、`api_test/tests=39 passed`；
 - `P1-G2` 首批抓包正式执行闭环验证结果为：`service_tests/test_v3_p1_traffic_capture_execution.py=3 passed`、`service_tests=38 passed`、`tests/platform_core=71 passed`、`tests=79 passed`、`api_test/tests=39 passed`；
-- 当前 `P1` 已完成 `G1 / G2` 首批能力，`G3 / G4` 尚未开始正式实现；Windows 路线仍保持“先 Web 稳定验证，再轻量套壳到 Windows”，默认采用 `Tauri` 优先、浏览器先验、阶段性打包复验的方案。
+- `P1-G3` Web 正式入口深化与 Windows Demo 首批验证结果为：`service_tests/test_v3_p1_entry_windows_demo.py=3 passed`、`service_tests=41 passed`、`tests/platform_core=71 passed`、`tests=79 passed`、`api_test/tests=39 passed`；
+- `P1-G4` 调度与执行中心验证结果为：`service_tests/test_v3_p1_scheduling_execution_center.py=6 passed`、`service_tests=47 passed`、`tests/platform_core=71 passed`、`tests=79 passed`、`api_test/tests=39 passed`，且 `.venv_service\Scripts\python.exe manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.test_settings` 返回 `No changes detected in app 'scenario_service'`；
+- `/ui/v3/workbench/` 已在真实浏览器下完成调度中心复验：页面可见 `调度与执行中心` 区域，先导入示例场景后可创建最小调度批次，浏览器控制台无报错，最新截图已保存为 `v3_p1_g4_schedule_workbench_smoke_20260416.png`；
+- 当前 `P1` 已完成 `G1 / G2 / G3 / G4` 计划内能力；Windows 路线继续保持“浏览器先验 + Windows 本地启动器复验”的可实际测试 Demo，并保留 `Tauri` 作为后续阶段性打包复验优先壳方案。
 
 当前已完成的 V2 第一实施子阶段首批落地包括：
 
@@ -554,5 +557,5 @@ V2 第四实施子阶段审核修订回归验证：
 
 ## 备注
 
-- 当前 README 以 V1 / V2 正式验收事实为基础，并已同步切换到“V3 P0 详细验收已完成、P1 G1 / G2 已完成首批回归”的当前口径。
-- 后续新增能力应继续以 `V3-总索引 / V3-P0 / V3-P1 / V3-P2` 为边界基线，当前应继续沿 `P1-G3 -> P1-G4` 的拆分顺序推进。
+- 当前 README 以 V1 / V2 正式验收事实为基础，并已同步切换到“V3 P0 详细验收已完成、P1 G1 / G2 / G3 / G4 已完成开发测试”的当前口径。
+- 后续新增能力应继续以 `V3-总索引 / V3-P0 / V3-P1 / V3-P2` 为边界基线；当前更合理的下一步是整理 `P1` 阶段验收结论，并评估是否进入后续阶段。

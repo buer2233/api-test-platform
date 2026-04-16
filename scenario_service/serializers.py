@@ -109,6 +109,51 @@ class ScenarioAuditLogQuerySerializer(serializers.Serializer):
     action_result = serializers.ChoiceField(choices=["succeeded", "blocked"], required=False)
 
 
+class ScheduleScenarioItemSerializer(serializers.Serializer):
+    """调度任务项请求校验器。"""
+
+    scenario_id = serializers.CharField()
+    retry_policy = serializers.JSONField(required=False)
+
+
+class ScheduleBatchCreateRequestSerializer(serializers.Serializer):
+    """调度批次创建请求校验器。"""
+
+    project_code = serializers.CharField()
+    environment_code = serializers.CharField()
+    scheduler = serializers.CharField()
+    dispatch_strategy = serializers.ChoiceField(choices=["immediate", "manual_queue"], required=False)
+    workspace_root = serializers.CharField(required=False, allow_blank=True)
+    scenario_items = ScheduleScenarioItemSerializer(many=True)
+
+
+class ScheduleBatchListQuerySerializer(serializers.Serializer):
+    """调度批次列表查询参数校验器。"""
+
+    actor = serializers.CharField(required=False, allow_blank=True)
+    project_code = serializers.CharField(required=False, allow_blank=True)
+
+
+class ScheduleBatchDetailQuerySerializer(serializers.Serializer):
+    """调度批次详情查询参数校验器。"""
+
+    actor = serializers.CharField(required=False, allow_blank=True)
+
+
+class ScheduleItemRetryRequestSerializer(serializers.Serializer):
+    """调度任务项重试请求校验器。"""
+
+    scheduler = serializers.CharField()
+    workspace_root = serializers.CharField(required=False, allow_blank=True)
+
+
+class ScheduleItemCancelRequestSerializer(serializers.Serializer):
+    """调度任务项取消请求校验器。"""
+
+    scheduler = serializers.CharField()
+    cancel_reason = serializers.CharField(required=False, allow_blank=True)
+
+
 class ScenarioExportRequestSerializer(serializers.Serializer):
     """场景导出请求校验器。"""
 

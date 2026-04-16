@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>V2 场景工作台</title>
+    <title>V3 场景工作台</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23081017'/%3E%3Cpath d='M16 42V22h8c7 0 12 4 12 10s-5 10-12 10h-8Zm8-6c3.5 0 6-1.5 6-4s-2.5-4-6-4h-2v8h2Zm16 6V22h6v20h-6Z' fill='%23f2ba68'/%3E%3C/svg%3E">
     <style>
         :root {
@@ -88,8 +88,8 @@
         .panel-body { padding: 18px 20px 20px; display: grid; gap: 16px; }
         .import-box, .card, .result-box { padding: 16px; }
         .field-label { color: var(--muted); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; }
-        input, textarea, button { font: inherit; }
-        input, textarea {
+        input, textarea, button, select { font: inherit; }
+        input, textarea, select {
             width: 100%; margin-top: 10px; padding: 14px; color: var(--text);
             border-radius: 14px; border: 1px solid rgba(255,255,255,0.08);
             background: rgba(4, 9, 14, 0.82); outline: none;
@@ -118,6 +118,8 @@
         .summary-cell { padding: 14px; }
         .summary-key { display: block; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
         .summary-value { display: block; margin-top: 8px; font-family: var(--mono); word-break: break-all; }
+        .ops-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .panel-note { margin-top: 10px; color: var(--muted); font-size: 12px; line-height: 1.6; }
         pre {
             margin: 10px 0 0; padding: 12px; overflow: auto; border-radius: 14px;
             background: rgba(2, 6, 10, 0.86); border: 1px solid rgba(255,255,255,0.05); color: #cfe8ff;
@@ -132,26 +134,27 @@
         .toast.show { opacity: 1; transform: translateY(0); }
         .toast.error { border-color: rgba(255,145,136,0.24); }
         @media (max-width: 1320px) {
-            .hero-grid, .workspace, .metric-grid { grid-template-columns: 1fr; }
+            .hero-grid, .workspace, .metric-grid, .summary-grid, .ops-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
 <main class="shell" data-testid="workbench-root">
     <section class="hero">
-        <span class="eyebrow">V2 Scenario Console</span>
-        <h1>导入事实，保留门禁，执行回写。</h1>
-        <p>入口页只消费稳定服务摘要。功能用例与抓包草稿都进入统一场景链路，审核确认和执行结果继续由服务层与 MySQL 事实源承担。</p>
+        <span class="eyebrow">V3 Governance Console</span>
+        <h1>V3 场景工作台</h1>
+        <p>当前入口统一承接项目治理、权限审计、抓包正式执行和 Windows Demo 启动信息。浏览器端继续承担高频验证，Windows 端通过同一路由和同一服务契约完成阶段性复验。</p>
         <div class="hero-grid">
             <div class="metric-grid">
                 <div class="metric"><span class="field-label">事实源</span><strong>MySQL</strong></div>
-                <div class="metric"><span class="field-label">导入路线</span><strong>CASE / HAR</strong></div>
-                <div class="metric"><span class="field-label">执行载体</span><strong>pytest</strong></div>
+                <div class="metric"><span class="field-label">治理主轴</span><strong>ROLE / AUDIT</strong></div>
+                <div class="metric"><span class="field-label">Windows 路线</span><strong>WEB → DEMO</strong></div>
             </div>
             <div class="workflow">
                 <div class="step"><div class="step-index">01</div><div><strong>导入结构化事实</strong><p>支持功能测试用例 JSON 与抓包 HAR JSON 两条入口。</p></div></div>
-                <div class="step"><div class="step-index">02</div><div><strong>预览与审核确认</strong><p>查看步骤、问题清单和状态摘要，确认后再执行。</p></div></div>
-                <div class="step"><div class="step-index">03</div><div><strong>执行与结果回看</strong><p>统一显示统计摘要、报告路径和最新执行状态。</p></div></div>
+                <div class="step"><div class="step-index">02</div><div><strong>权限与审核留痕</strong><p>查看、审核、执行和授权动作都保留项目级审计轨迹。</p></div></div>
+                <div class="step"><div class="step-index">03</div><div><strong>抓包正式执行</strong><p>先正式确认，再确认绑定，最后才进入真实执行。</p></div></div>
+                <div class="step"><div class="step-index">04</div><div><strong>浏览器先验 / Windows 复验</strong><p>日常改动优先在浏览器验证，Windows Demo 走同一路由复验。</p></div></div>
             </div>
         </div>
     </section>
@@ -159,10 +162,32 @@
     <section class="workspace">
         <article class="panel">
             <div class="panel-header">
-                <h2>数据导入</h2>
-                <p>把功能用例或抓包数据送入草稿链路。</p>
+                <h2>身份与导入</h2>
+                <p>先明确当前操作者，再导入功能用例或抓包草稿。</p>
             </div>
             <div class="panel-body">
+                <section class="result-box" data-testid="actor-panel">
+                    <span class="field-label">治理操作者</span>
+                    <div class="summary-grid">
+                        <div class="summary-cell">
+                            <span class="summary-key">查看人 actor</span>
+                            <input id="actor-input" value="qa-owner" placeholder="qa-owner">
+                        </div>
+                        <div class="summary-cell">
+                            <span class="summary-key">审核人 reviewer</span>
+                            <input id="reviewer-input" value="qa-owner" placeholder="qa-owner">
+                        </div>
+                        <div class="summary-cell">
+                            <span class="summary-key">执行人 operator</span>
+                            <input id="operator-input" value="qa-owner" placeholder="qa-owner">
+                        </div>
+                        <div class="summary-cell">
+                            <span class="summary-key">正式入口</span>
+                            <span class="summary-value">/ui/v3/workbench/</span>
+                        </div>
+                    </div>
+                    <p class="panel-note">当前入口默认继续兼容 `qa-owner / qa-reviewer` 内置操作者，同时允许通过项目授权记录扩展显式角色。</p>
+                </section>
                 <section class="import-box" data-testid="functional-case-import">
                     <span class="field-label">功能测试用例</span>
                     <textarea id="functional-case-editor">{
@@ -235,8 +260,8 @@
 
         <article class="panel">
             <div class="panel-header">
-                <h2>场景队列</h2>
-                <p>展示最近更新的场景摘要，并按治理上下文筛选。</p>
+                <h2>治理队列</h2>
+                <p>同一列里承接治理上下文、场景筛选、项目授权和审计日志查询。</p>
             </div>
             <div class="panel-body">
                 <section class="result-box" data-testid="governance-summary">
@@ -278,13 +303,55 @@
                     </div>
                 </section>
                 <div class="scenario-list" id="scenario-list"></div>
+                <section class="result-box" data-testid="access-grant-panel">
+                    <span class="field-label">项目授权</span>
+                    <div class="ops-grid">
+                        <div>
+                            <span class="summary-key">授权目标</span>
+                            <input id="grant-subject-input" value="qa-guest" placeholder="qa-member">
+                        </div>
+                        <div>
+                            <span class="summary-key">角色</span>
+                            <select id="grant-role-select">
+                                <option value="viewer">viewer</option>
+                                <option value="editor">editor</option>
+                                <option value="executor">executor</option>
+                                <option value="reviewer">reviewer</option>
+                                <option value="scheduler">scheduler</option>
+                                <option value="project_admin">project_admin</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="button-row">
+                        <button class="button secondary" id="assign-role-button">写入授权</button>
+                        <button class="button secondary" id="load-roles-button">查询授权</button>
+                    </div>
+                    <div id="access-grant-list"><div class="empty">等待查询项目授权。</div></div>
+                </section>
+                <section class="result-box" data-testid="audit-log-panel">
+                    <span class="field-label">审计日志</span>
+                    <div class="ops-grid">
+                        <div>
+                            <span class="summary-key">动作类型</span>
+                            <input id="audit-action-type-input" value="" placeholder="execute_scenario">
+                        </div>
+                        <div>
+                            <span class="summary-key">操作者</span>
+                            <input id="audit-actor-input" value="" placeholder="qa-owner">
+                        </div>
+                    </div>
+                    <div class="button-row">
+                        <button class="button secondary" id="load-audit-logs-button">查询审计</button>
+                    </div>
+                    <div id="audit-log-list"><div class="empty">等待查询审计日志。</div></div>
+                </section>
             </div>
         </article>
 
         <article class="panel">
             <div class="panel-header">
-                <h2>预览与结果</h2>
-                <p>查看步骤结构、问题清单和执行摘要。</p>
+                <h2>预览、执行与 Demo</h2>
+                <p>统一查看场景结构、抓包正式执行状态、结果摘要与 Windows Demo 启动信息。</p>
             </div>
             <div class="panel-body">
                 <section class="result-box" data-testid="scenario-preview">
@@ -299,6 +366,15 @@
                     </div>
                     <div class="stack" id="step-list"><div class="empty">当前没有步骤预览。</div></div>
                     <div class="stack" id="issue-list"><div class="empty">当前没有问题清单。</div></div>
+                </section>
+                <section class="result-box" data-testid="traffic-capture-formalization-panel">
+                    <span class="field-label">抓包正式执行治理</span>
+                    <div class="button-row">
+                        <button class="button secondary" id="confirm-traffic-capture-button">正式确认</button>
+                        <button class="button secondary" id="confirm-traffic-bindings-button">确认绑定</button>
+                    </div>
+                    <textarea id="traffic-binding-editor">[]</textarea>
+                    <div id="traffic-formalization-summary"><div class="empty">非抓包场景或尚未加载抓包治理摘要。</div></div>
                 </section>
 
                 <section class="result-box" data-testid="execution-result">
@@ -323,6 +399,38 @@
                     </div>
                     <div id="suggestion-list"><div class="empty">等待加载建议记录。</div></div>
                 </section>
+                <section class="result-box" data-testid="schedule-center-panel">
+                    <span class="field-label">调度与执行中心</span>
+                    <div class="ops-grid">
+                        <div>
+                            <span class="summary-key">调度操作者</span>
+                            <input id="schedule-actor-input" value="qa-owner" placeholder="qa-owner">
+                        </div>
+                        <div>
+                            <span class="summary-key">调度策略</span>
+                            <select id="schedule-dispatch-select">
+                                <option value="immediate">immediate</option>
+                                <option value="manual_queue">manual_queue</option>
+                            </select>
+                        </div>
+                    </div>
+                    <p class="panel-note">当前入口默认以“当前选中场景”创建最小调度批次，用于验证批量执行、队列、重试、取消和聚合契约。</p>
+                    <div class="button-row">
+                        <button class="button secondary" id="create-schedule-batch-button">创建调度批次</button>
+                        <button class="button secondary" id="load-schedule-batches-button">刷新调度批次</button>
+                        <button class="button secondary" id="retry-schedule-item-button">重试最近失败项</button>
+                        <button class="button secondary" id="cancel-schedule-item-button">取消最近排队项</button>
+                    </div>
+                    <div id="schedule-batch-list"><div class="empty">等待创建或查询调度批次。</div></div>
+                </section>
+                <section class="result-box" data-testid="windows-demo-panel">
+                    <span class="field-label">Windows Demo</span>
+                    <div class="button-row">
+                        <button class="button secondary" id="refresh-windows-demo-button">刷新 Demo 清单</button>
+                        <button class="button secondary" id="open-windows-demo-button">打开正式入口</button>
+                    </div>
+                    <div id="windows-demo-summary"><div class="empty">等待加载 Windows Demo 清单。</div></div>
+                </section>
             </div>
         </article>
     </section>
@@ -334,18 +442,35 @@
 window.SCENARIO_ENDPOINTS = {
     list: "/api/v2/scenarios/",
     governanceContext: "/api/v2/scenarios/governance/context/",
+    accessGrants: "/api/v2/scenarios/governance/access-grants/",
+    auditLogs: "/api/v2/scenarios/governance/audit-logs/",
+    scheduleBatches: "/api/v2/scenarios/governance/schedule-batches/",
+    windowsDemo: "/api/v2/scenarios/governance/windows-demo/",
     importFunctionalCase: "/api/v2/scenarios/import-functional-case/",
     importTrafficCapture: "/api/v2/scenarios/import-traffic-capture/",
     detail: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/"; },
     review: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/review/"; },
     execute: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/execute/"; },
     result: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/result/"; },
-    suggestions: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/suggestions/"; }
+    suggestions: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/suggestions/"; },
+    confirmTrafficCapture: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/traffic-capture/confirm/"; },
+    confirmTrafficBindings: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/traffic-capture/bindings/confirm/"; },
+    scheduleBatchDetail: function (scheduleBatchId) { return "/api/v2/scenarios/governance/schedule-batches/" + scheduleBatchId + "/"; },
+    retryScheduleItem: function (scheduleBatchId, scheduleItemId) { return "/api/v2/scenarios/governance/schedule-batches/" + scheduleBatchId + "/items/" + scheduleItemId + "/retry/"; },
+    cancelScheduleItem: function (scheduleBatchId, scheduleItemId) { return "/api/v2/scenarios/governance/schedule-batches/" + scheduleBatchId + "/items/" + scheduleItemId + "/cancel/"; }
 };
 
 (function () {
     const api = window.SCENARIO_ENDPOINTS;
-    const state = { selectedScenarioId: null, scenarios: [], governance: null };
+    const state = {
+        selectedScenarioId: null,
+        scenarios: [],
+        governance: null,
+        currentDetail: null,
+        windowsDemo: null,
+        scheduleBatches: [],
+        selectedScheduleBatchId: null
+    };
     const toast = document.getElementById("toast");
     const summaryGrid = document.getElementById("summary-grid");
     const stepList = document.getElementById("step-list");
@@ -358,12 +483,42 @@ window.SCENARIO_ENDPOINTS = {
     const scenarioList = document.getElementById("scenario-list");
     const functionalCaseEditor = document.getElementById("functional-case-editor");
     const trafficCaptureNameInput = document.getElementById("traffic-capture-name");
+    const trafficBindingEditor = document.getElementById("traffic-binding-editor");
+    const accessGrantList = document.getElementById("access-grant-list");
+    const auditLogList = document.getElementById("audit-log-list");
+    const trafficFormalizationSummary = document.getElementById("traffic-formalization-summary");
+    const windowsDemoSummary = document.getElementById("windows-demo-summary");
+    const scheduleBatchList = document.getElementById("schedule-batch-list");
     const filterProjectCode = document.getElementById("filter-project-code");
     const filterEnvironmentCode = document.getElementById("filter-environment-code");
     const filterScenarioSetCode = document.getElementById("filter-scenario-set-code");
     const filterSourceType = document.getElementById("filter-source-type");
     const filterIssueCode = document.getElementById("filter-issue-code");
     const activeBaselineVersion = document.getElementById("active-baseline-version");
+    const actorInput = document.getElementById("actor-input");
+    const reviewerInput = document.getElementById("reviewer-input");
+    const operatorInput = document.getElementById("operator-input");
+    const grantSubjectInput = document.getElementById("grant-subject-input");
+    const grantRoleSelect = document.getElementById("grant-role-select");
+    const auditActionTypeInput = document.getElementById("audit-action-type-input");
+    const auditActorInput = document.getElementById("audit-actor-input");
+    const scheduleActorInput = document.getElementById("schedule-actor-input");
+    const scheduleDispatchSelect = document.getElementById("schedule-dispatch-select");
+
+    // 转义界面中的动态文本，避免预览区和日志区出现注入内容。
+    function escapeHtml(value) {
+        return String(value === undefined || value === null ? "" : value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/\"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    // 统一格式化对象，供各类预览面板直接展示。
+    function prettyJson(value) {
+        return JSON.stringify(value || {}, null, 2);
+    }
 
     function showToast(message, isError) {
         toast.textContent = message;
@@ -400,6 +555,34 @@ window.SCENARIO_ENDPOINTS = {
 
     function refreshTrafficCaptureDemoName() {
         trafficCaptureNameInput.value = "入口页示例：登录后查询用户详情-" + buildDemoSuffix();
+    }
+
+    function readActorName() {
+        return actorInput.value.trim();
+    }
+
+    function readReviewerName() {
+        return reviewerInput.value.trim();
+    }
+
+    function readOperatorName() {
+        return operatorInput.value.trim();
+    }
+
+    function readScheduleActorName() {
+        return scheduleActorInput.value.trim() || readOperatorName() || readActorName() || "qa-owner";
+    }
+
+    function resolveProjectCode() {
+        return filterProjectCode.value.trim() || (state.currentDetail && state.currentDetail.project ? state.currentDetail.project.project_code : "");
+    }
+
+    function resolveEnvironmentCode() {
+        return filterEnvironmentCode.value.trim() || (state.currentDetail && state.currentDetail.environment ? state.currentDetail.environment.environment_code : "");
+    }
+
+    function resolveScenarioSetCode() {
+        return filterScenarioSetCode.value.trim() || (state.currentDetail && state.currentDetail.scenario_set ? state.currentDetail.scenario_set.scenario_set_code : "");
     }
 
     function parseEditor(editorId, label) {
@@ -439,14 +622,145 @@ window.SCENARIO_ENDPOINTS = {
     }
 
     function renderSummary(detail) {
-        summaryGrid.innerHTML = [
-            ["审核状态", detail.review_status],
-            ["执行状态", detail.execution_status],
-            ["步骤数量", String(detail.step_count)],
-            ["问题数量", String(detail.issue_count)]
-        ].map(function (item) {
-            return '<div class="summary-cell"><span class="summary-key">' + item[0] + '</span><span class="summary-value">' + item[1] + '</span></div>';
+        const items = [
+            ["审核状态", detail.review_status || "pending"],
+            ["执行状态", detail.execution_status || "not_started"],
+            ["当前阶段", detail.current_stage || "draft"],
+            ["步骤数量", String(detail.step_count || 0)],
+            ["问题数量", String(detail.issue_count || 0)],
+            ["项目", detail.project ? detail.project.project_code : ""],
+            ["环境", detail.environment ? detail.environment.environment_code : ""],
+            ["基线版本", detail.baseline_version ? detail.baseline_version.version_code : ""]
+        ];
+        if (detail.traffic_capture_formalization) {
+            items.push(["抓包就绪态", detail.traffic_capture_formalization.execution_readiness || "blocked"]);
+        }
+        summaryGrid.innerHTML = items.map(function (item) {
+            return '<div class="summary-cell"><span class="summary-key">' + escapeHtml(item[0]) + '</span><span class="summary-value">' + escapeHtml(item[1]) + '</span></div>';
         }).join("");
+    }
+
+    function renderAccessGrantRecords(records) {
+        if (!records || !records.length) {
+            accessGrantList.innerHTML = '<div class="empty">当前项目尚未查询到授权记录。</div>';
+            return;
+        }
+        accessGrantList.innerHTML = records.map(function (item) {
+            return '<div class="card"><strong>' + escapeHtml(item.subject_name) + ' / ' + escapeHtml(item.role_code) + '</strong><pre>' + escapeHtml(prettyJson(item)) + '</pre></div>';
+        }).join("");
+    }
+
+    function renderAuditLogs(records) {
+        if (!records || !records.length) {
+            auditLogList.innerHTML = '<div class="empty">当前筛选条件下没有审计日志。</div>';
+            return;
+        }
+        auditLogList.innerHTML = records.map(function (item) {
+            return '<div class="card"><strong>' + escapeHtml(item.action_type) + ' / ' + escapeHtml(item.action_result) + '</strong><pre>' + escapeHtml(prettyJson(item)) + '</pre></div>';
+        }).join("");
+    }
+
+    function buildTrafficBindingDemoPayload(detail) {
+        const steps = detail && detail.steps ? detail.steps : [];
+        if (!steps.length) {
+            return [];
+        }
+        const bindings = [
+            {
+                step_id: steps[0].step_id,
+                operation_id: "operation-get-user",
+                request: { path_params: { user_id: 1 } },
+                expected: { status_code: 200, extract: { user_id: "id" } },
+                uses: {}
+            }
+        ].map(function (item) {
+            return item;
+        });
+        if (steps[1]) {
+            bindings.push({
+                step_id: steps[1].step_id,
+                operation_id: "operation-list-user-todos",
+                request: {},
+                expected: { status_code: 200 },
+                uses: { user_id: "$scenario.user_id" }
+            });
+        }
+        return bindings;
+    }
+
+    function refreshTrafficBindingDemoPayload(detail) {
+        trafficBindingEditor.value = JSON.stringify(buildTrafficBindingDemoPayload(detail), null, 2);
+    }
+
+    function renderTrafficFormalization(formalization) {
+        if (!formalization) {
+            trafficFormalizationSummary.innerHTML = '<div class="empty">非抓包场景或尚未加载抓包治理摘要。</div>';
+            return;
+        }
+        trafficFormalizationSummary.innerHTML = [
+            '<div class="summary-grid">',
+            '<div class="summary-cell"><span class="summary-key">确认状态</span><span class="summary-value">' + escapeHtml(formalization.confirmation_status) + '</span></div>',
+            '<div class="summary-cell"><span class="summary-key">绑定状态</span><span class="summary-value">' + escapeHtml(formalization.binding_status) + '</span></div>',
+            '<div class="summary-cell"><span class="summary-key">执行就绪</span><span class="summary-value">' + escapeHtml(formalization.execution_readiness) + '</span></div>',
+            '<div class="summary-cell"><span class="summary-key">最近执行</span><span class="summary-value">' + escapeHtml(formalization.last_execution_id || "暂无") + '</span></div>',
+            '</div>',
+            '<pre>' + escapeHtml(prettyJson(formalization)) + '</pre>'
+        ].join("");
+    }
+
+    function renderWindowsDemo(manifest) {
+        if (!manifest) {
+            windowsDemoSummary.innerHTML = '<div class="empty">等待加载 Windows Demo 清单。</div>';
+            return;
+        }
+        windowsDemoSummary.innerHTML = [
+            '<div class="summary-grid">',
+            '<div class="summary-cell"><span class="summary-key">正式入口</span><span class="summary-value">' + escapeHtml(manifest.entry_url) + '</span></div>',
+            '<div class="summary-cell"><span class="summary-key">当前壳模式</span><span class="summary-value">' + escapeHtml(manifest.preferred_shell) + '</span></div>',
+            '<div class="summary-cell"><span class="summary-key">打包策略</span><span class="summary-value">' + escapeHtml(manifest.packaging_strategy) + '</span></div>',
+            '<div class="summary-cell"><span class="summary-key">启动脚本</span><span class="summary-value">' + escapeHtml(manifest.launcher_script_path) + '</span></div>',
+            '</div>',
+            '<pre>' + escapeHtml(prettyJson(manifest)) + '</pre>'
+        ].join("");
+    }
+
+    function renderScheduleBatches() {
+        if (!state.scheduleBatches.length) {
+            scheduleBatchList.innerHTML = '<div class="empty">当前还没有调度批次。</div>';
+            return;
+        }
+        scheduleBatchList.innerHTML = state.scheduleBatches.map(function (item) {
+            const active = item.schedule_batch_id === state.selectedScheduleBatchId ? "active" : "";
+            const itemsPreview = item.items && item.items.length
+                ? '<pre>' + escapeHtml(prettyJson(item.items)) + '</pre>'
+                : "";
+            return [
+                '<button class="scenario-button ' + active + '" data-schedule-batch-id="' + item.schedule_batch_id + '">',
+                '<strong>' + escapeHtml(item.schedule_batch_id) + '</strong>',
+                '<div class="meta">',
+                '<span class="tag">' + escapeHtml(item.dispatch_strategy) + '</span>',
+                '<span class="tag">' + escapeHtml(item.queue_status) + '</span>',
+                '<span class="tag">total ' + escapeHtml((item.aggregate_summary || {}).total_count || 0) + '</span>',
+                '<span class="tag">failed ' + escapeHtml((item.aggregate_summary || {}).failed_count || 0) + '</span>',
+                '</div>',
+                '<pre>' + escapeHtml(prettyJson(item.aggregate_summary || {})) + '</pre>',
+                itemsPreview,
+                '</button>'
+            ].join("");
+        }).join("");
+        scheduleBatchList.querySelectorAll("[data-schedule-batch-id]").forEach(function (button) {
+            button.addEventListener("click", function () {
+                loadScheduleBatchDetail(button.getAttribute("data-schedule-batch-id")).catch(function (error) {
+                    showToast(error.message, true);
+                });
+            });
+        });
+    }
+
+    function getSelectedScheduleBatch() {
+        return state.scheduleBatches.find(function (item) {
+            return item.schedule_batch_id === state.selectedScheduleBatchId;
+        }) || null;
     }
 
     function renderScenarioList() {
@@ -464,6 +778,7 @@ window.SCENARIO_ENDPOINTS = {
                 '<span class="tag ' + item.execution_status + '">' + item.execution_status + '</span>',
                 '<span class="tag">steps ' + item.step_count + '</span>',
                 '<span class="tag">issues ' + item.issue_count + '</span>',
+                item.traffic_capture_formalization ? '<span class="tag ' + item.traffic_capture_formalization.execution_readiness + '">capture ' + item.traffic_capture_formalization.execution_readiness + '</span>' : '',
                 '</div>',
                 '</button>'
             ].join("");
@@ -478,51 +793,64 @@ window.SCENARIO_ENDPOINTS = {
     }
 
     function renderDetails(detail) {
+        state.currentDetail = detail;
         previewTitle.textContent = detail.scenario_name + " / " + detail.scenario_code;
         renderSummary(detail);
         stepList.innerHTML = detail.steps.length ? detail.steps.map(function (step) {
-            return '<div class="card"><strong>#' + step.step_order + " " + step.step_name + '</strong><pre>' + JSON.stringify(step, null, 2) + '</pre></div>';
+            return '<div class="card"><strong>#' + step.step_order + " " + escapeHtml(step.step_name) + '</strong><pre>' + escapeHtml(prettyJson(step)) + '</pre></div>';
         }).join("") : '<div class="empty">当前没有步骤预览。</div>';
         issueList.innerHTML = detail.issues.length ? detail.issues.map(function (issue) {
-            return '<div class="card"><strong>' + issue.issue_code + '</strong><p>' + issue.issue_message + '</p></div>';
+            return '<div class="card"><strong>' + escapeHtml(issue.issue_code) + '</strong><pre>' + escapeHtml(prettyJson(issue)) + '</pre></div>';
         }).join("") : '<div class="empty">当前没有问题清单。</div>';
         renderSuggestions(detail.suggestions || []);
+        renderTrafficFormalization(detail.traffic_capture_formalization || null);
+        refreshTrafficBindingDemoPayload(detail);
     }
 
     function renderResult(result) {
+        if (!result || !Object.keys(result).length) {
+            resultPanel.innerHTML = '<div class="empty">等待场景执行后展示结果。</div>';
+            renderExecutionHistory([]);
+            renderDiffSummary({});
+            return;
+        }
         resultPanel.innerHTML = [
             '<div class="summary-grid">',
-            '<div class="summary-cell"><span class="summary-key">执行状态</span><span class="summary-value">' + result.execution_status + '</span></div>',
-            '<div class="summary-cell"><span class="summary-key">最新执行</span><span class="summary-value">' + (result.latest_execution_id || "未执行") + '</span></div>',
-            '<div class="summary-cell"><span class="summary-key">通过 / 失败 / 跳过</span><span class="summary-value">' + [result.passed_count, result.failed_count, result.skipped_count].join(" / ") + '</span></div>',
-            '<div class="summary-cell"><span class="summary-key">报告路径</span><span class="summary-value">' + (result.report_path || "暂无") + '</span></div>',
+            '<div class="summary-cell"><span class="summary-key">执行状态</span><span class="summary-value">' + escapeHtml(result.execution_status) + '</span></div>',
+            '<div class="summary-cell"><span class="summary-key">最新执行</span><span class="summary-value">' + escapeHtml(result.latest_execution_id || "未执行") + '</span></div>',
+            '<div class="summary-cell"><span class="summary-key">通过 / 失败 / 跳过</span><span class="summary-value">' + escapeHtml([result.passed_count || 0, result.failed_count || 0, result.skipped_count || 0].join(" / ")) + '</span></div>',
+            '<div class="summary-cell"><span class="summary-key">报告路径</span><span class="summary-value">' + escapeHtml(result.report_path || "暂无") + '</span></div>',
             '</div>',
-            '<pre>' + JSON.stringify(result, null, 2) + '</pre>'
+            '<pre>' + escapeHtml(prettyJson(result)) + '</pre>'
         ].join("");
         renderExecutionHistory(result.execution_history || []);
         renderDiffSummary(result.latest_diff_summary || {});
+        if (result.traffic_capture_formalization) {
+            renderTrafficFormalization(result.traffic_capture_formalization);
+        }
     }
 
     function renderExecutionHistory(history) {
         executionHistoryList.innerHTML = history.length ? history.map(function (item) {
-            return '<div class="card"><strong>' + item.execution_id + '</strong><pre>' + JSON.stringify(item, null, 2) + '</pre></div>';
+            return '<div class="card"><strong>' + escapeHtml(item.execution_id) + '</strong><pre>' + escapeHtml(prettyJson(item)) + '</pre></div>';
         }).join("") : '<div class="empty">等待加载历史记录。</div>';
     }
 
     function renderDiffSummary(diff) {
         diffSummary.innerHTML = Object.keys(diff).length
-            ? '<pre>' + JSON.stringify(diff, null, 2) + '</pre>'
+            ? '<pre>' + escapeHtml(prettyJson(diff)) + '</pre>'
             : '<div class="empty">等待加载差异摘要。</div>';
     }
 
     function renderSuggestions(suggestions) {
         suggestionList.innerHTML = suggestions.length ? suggestions.map(function (item) {
-            return '<div class="card"><strong>' + item.suggestion_id + '</strong><pre>' + JSON.stringify(item, null, 2) + '</pre></div>';
+            return '<div class="card"><strong>' + escapeHtml(item.suggestion_id) + '</strong><pre>' + escapeHtml(prettyJson(item)) + '</pre></div>';
         }).join("") : '<div class="empty">等待加载建议记录。</div>';
     }
 
     function buildListQuery() {
         const params = new URLSearchParams();
+        if (readActorName()) { params.set("actor", readActorName()); }
         if (filterProjectCode.value) { params.set("project_code", filterProjectCode.value); }
         if (filterEnvironmentCode.value) { params.set("environment_code", filterEnvironmentCode.value); }
         if (filterScenarioSetCode.value) { params.set("scenario_set_code", filterScenarioSetCode.value); }
@@ -534,6 +862,132 @@ window.SCENARIO_ENDPOINTS = {
     async function loadGovernanceContext() {
         state.governance = await request(api.governanceContext);
         renderGovernanceContext();
+    }
+
+    async function loadWindowsDemoManifest() {
+        state.windowsDemo = await request(api.windowsDemo + "?base_url=" + encodeURIComponent(window.location.origin));
+        renderWindowsDemo(state.windowsDemo);
+    }
+
+    async function loadProjectRoles() {
+        const projectCode = resolveProjectCode();
+        if (!projectCode) {
+            renderAccessGrantRecords([]);
+            return;
+        }
+        const params = new URLSearchParams({ project_code: projectCode });
+        if (grantSubjectInput.value.trim()) { params.set("subject_name", grantSubjectInput.value.trim()); }
+        const data = await request(api.accessGrants + "?" + params.toString());
+        renderAccessGrantRecords(data);
+    }
+
+    async function loadAuditLogs() {
+        const params = new URLSearchParams();
+        if (resolveProjectCode()) { params.set("project_code", resolveProjectCode()); }
+        if (auditActionTypeInput.value.trim()) { params.set("action_type", auditActionTypeInput.value.trim()); }
+        if (auditActorInput.value.trim()) { params.set("actor_name", auditActorInput.value.trim()); }
+        const data = await request(params.toString() ? api.auditLogs + "?" + params.toString() : api.auditLogs);
+        renderAuditLogs(data);
+    }
+
+    async function loadScheduleBatches() {
+        const params = new URLSearchParams();
+        if (resolveProjectCode()) { params.set("project_code", resolveProjectCode()); }
+        if (readActorName()) { params.set("actor", readActorName()); }
+        state.scheduleBatches = await request(params.toString() ? api.scheduleBatches + "?" + params.toString() : api.scheduleBatches);
+        if (!state.selectedScheduleBatchId && state.scheduleBatches.length) {
+            state.selectedScheduleBatchId = state.scheduleBatches[0].schedule_batch_id;
+        }
+        renderScheduleBatches();
+        if (state.selectedScheduleBatchId) {
+            await loadScheduleBatchDetail(state.selectedScheduleBatchId);
+        }
+    }
+
+    async function loadScheduleBatchDetail(scheduleBatchId) {
+        const params = new URLSearchParams();
+        if (readActorName()) { params.set("actor", readActorName()); }
+        const detail = await request(
+            params.toString()
+                ? api.scheduleBatchDetail(scheduleBatchId) + "?" + params.toString()
+                : api.scheduleBatchDetail(scheduleBatchId)
+        );
+        state.selectedScheduleBatchId = scheduleBatchId;
+        const currentIndex = state.scheduleBatches.findIndex(function (item) { return item.schedule_batch_id === scheduleBatchId; });
+        if (currentIndex >= 0) {
+            state.scheduleBatches[currentIndex] = detail;
+        } else {
+            state.scheduleBatches.unshift(detail);
+        }
+        renderScheduleBatches();
+    }
+
+    async function createScheduleBatch() {
+        if (!state.selectedScenarioId) { showToast("请先选择场景。", true); return; }
+        const data = await request(api.scheduleBatches, {
+            method: "POST",
+            body: JSON.stringify({
+                project_code: resolveProjectCode(),
+                environment_code: resolveEnvironmentCode(),
+                scheduler: readScheduleActorName(),
+                dispatch_strategy: scheduleDispatchSelect.value,
+                scenario_items: [
+                    {
+                        scenario_id: state.selectedScenarioId,
+                        retry_policy: { max_retry_count: 1 }
+                    }
+                ]
+            })
+        });
+        state.selectedScheduleBatchId = data.schedule_batch_id;
+        showToast("调度批次已创建。");
+        await loadScheduleBatches();
+        await loadAuditLogs();
+    }
+
+    async function retryLatestFailedScheduleItem() {
+        const scheduleBatch = getSelectedScheduleBatch();
+        if (!scheduleBatch || !scheduleBatch.items || !scheduleBatch.items.length) {
+            showToast("请先加载调度批次详情。", true);
+            return;
+        }
+        const failedItem = scheduleBatch.items.find(function (item) { return item.item_status === "failed"; });
+        if (!failedItem) {
+            showToast("当前批次没有可重试的失败任务项。", true);
+            return;
+        }
+        await request(api.retryScheduleItem(scheduleBatch.schedule_batch_id, failedItem.schedule_item_id), {
+            method: "POST",
+            body: JSON.stringify({
+                scheduler: readScheduleActorName()
+            })
+        });
+        showToast("已触发调度任务项重试。");
+        await loadScheduleBatchDetail(scheduleBatch.schedule_batch_id);
+        await loadAuditLogs();
+    }
+
+    async function cancelLatestQueuedScheduleItem() {
+        const scheduleBatch = getSelectedScheduleBatch();
+        if (!scheduleBatch || !scheduleBatch.items || !scheduleBatch.items.length) {
+            showToast("请先加载调度批次详情。", true);
+            return;
+        }
+        const queuedItem = scheduleBatch.items.find(function (item) { return item.item_status === "queued"; });
+        if (!queuedItem) {
+            showToast("当前批次没有可取消的排队任务项。", true);
+            return;
+        }
+        await request(api.cancelScheduleItem(scheduleBatch.schedule_batch_id, queuedItem.schedule_item_id), {
+            method: "POST",
+            body: JSON.stringify({
+                scheduler: readScheduleActorName(),
+                cancel_reason: "入口页取消调度任务项"
+            })
+        });
+        showToast("已取消排队中的调度任务项。");
+        await loadScheduleBatchDetail(scheduleBatch.schedule_batch_id);
+        await loadAuditLogs();
     }
 
     async function loadScenarioList(preferredScenarioId) {
@@ -556,14 +1010,21 @@ window.SCENARIO_ENDPOINTS = {
             issueList.innerHTML = '<div class="empty">当前没有问题清单。</div>';
             renderResult({});
             renderSuggestions([]);
+            renderTrafficFormalization(null);
         }
     }
 
     async function loadScenario(scenarioId, keepList) {
         state.selectedScenarioId = scenarioId;
         if (!keepList) { renderScenarioList(); }
-        const detail = await request(api.detail(scenarioId));
-        const result = await request(api.result(scenarioId));
+        const detailUrl = new URL(api.detail(scenarioId), window.location.origin);
+        const resultUrl = new URL(api.result(scenarioId), window.location.origin);
+        if (readActorName()) {
+            detailUrl.searchParams.set("actor", readActorName());
+            resultUrl.searchParams.set("actor", readActorName());
+        }
+        const detail = await request(detailUrl.pathname + detailUrl.search);
+        const result = await request(resultUrl.pathname + resultUrl.search);
         renderDetails(detail);
         renderResult(result);
     }
@@ -577,9 +1038,9 @@ window.SCENARIO_ENDPOINTS = {
 
     async function importFunctionalCase() {
         const payload = parseEditor("functional-case-editor", "功能测试用例");
-        payload.project_code = filterProjectCode.value;
-        payload.environment_code = filterEnvironmentCode.value;
-        payload.scenario_set_code = filterScenarioSetCode.value;
+        payload.project_code = resolveProjectCode();
+        payload.environment_code = resolveEnvironmentCode();
+        payload.scenario_set_code = resolveScenarioSetCode();
         const data = await request(api.importFunctionalCase, {
             method: "POST",
             body: JSON.stringify(payload)
@@ -593,9 +1054,9 @@ window.SCENARIO_ENDPOINTS = {
         const data = await request(api.importTrafficCapture, {
             method: "POST",
             body: JSON.stringify({
-                project_code: filterProjectCode.value,
-                environment_code: filterEnvironmentCode.value,
-                scenario_set_code: filterScenarioSetCode.value,
+                project_code: resolveProjectCode(),
+                environment_code: resolveEnvironmentCode(),
+                scenario_set_code: resolveScenarioSetCode(),
                 capture_name: document.getElementById("traffic-capture-name").value || "抓包草稿",
                 capture_payload: parseEditor("traffic-capture-editor", "抓包数据")
             })
@@ -605,18 +1066,35 @@ window.SCENARIO_ENDPOINTS = {
         await loadScenarioList(data.scenario_id);
     }
 
+    async function assignProjectRole() {
+        const projectCode = resolveProjectCode();
+        if (!projectCode) { showToast("当前没有可用项目编码，无法写入授权。", true); return; }
+        await request(api.accessGrants, {
+            method: "POST",
+            body: JSON.stringify({
+                project_code: projectCode,
+                operator: readOperatorName() || readActorName() || "qa-owner",
+                subject_name: grantSubjectInput.value.trim(),
+                role_code: grantRoleSelect.value
+            })
+        });
+        showToast("项目授权已写入。");
+        await loadProjectRoles();
+    }
+
     async function reviewScenario(reviewStatus) {
         if (!state.selectedScenarioId) { showToast("请先选择场景。", true); return; }
         await request(api.review(state.selectedScenarioId), {
             method: "POST",
             body: JSON.stringify({
                 review_status: reviewStatus,
-                reviewer: "ui-workbench",
+                reviewer: readReviewerName() || "qa-owner",
                 review_comment: reviewStatus === "approved" ? "入口页确认通过" : "入口页驳回"
             })
         });
         showToast(reviewStatus === "approved" ? "场景已审核通过。" : "场景已驳回。");
         await loadScenarioList(state.selectedScenarioId);
+        await loadAuditLogs();
     }
 
     async function executeScenario() {
@@ -624,28 +1102,76 @@ window.SCENARIO_ENDPOINTS = {
         await request(api.execute(state.selectedScenarioId), {
             method: "POST",
             body: JSON.stringify({
-                project_code: filterProjectCode.value,
-                environment_code: filterEnvironmentCode.value
+                project_code: resolveProjectCode(),
+                environment_code: resolveEnvironmentCode(),
+                operator: readOperatorName() || readActorName() || "qa-owner"
             })
         });
         showToast("已触发执行。");
         await loadScenarioList(state.selectedScenarioId);
+        await loadAuditLogs();
+    }
+
+    async function confirmTrafficCapture() {
+        if (!state.selectedScenarioId) { showToast("请先选择场景。", true); return; }
+        await request(api.confirmTrafficCapture(state.selectedScenarioId), {
+            method: "POST",
+            body: JSON.stringify({
+                confirmer: readReviewerName() || "qa-owner",
+                confirm_comment: "入口页执行抓包正式确认"
+            })
+        });
+        showToast("抓包场景已正式确认。");
+        await loadScenario(state.selectedScenarioId, true);
+        await loadAuditLogs();
+    }
+
+    async function confirmTrafficBindings() {
+        if (!state.selectedScenarioId) { showToast("请先选择场景。", true); return; }
+        await request(api.confirmTrafficBindings(state.selectedScenarioId), {
+            method: "POST",
+            body: JSON.stringify({
+                confirmer: readReviewerName() || "qa-owner",
+                confirm_comment: "入口页执行抓包绑定确认",
+                step_bindings: parseEditor("traffic-binding-editor", "抓包绑定确认")
+            })
+        });
+        showToast("抓包绑定已确认。");
+        await loadScenario(state.selectedScenarioId, true);
+        await loadAuditLogs();
+    }
+
+    function openWindowsDemoEntry() {
+        if (!state.windowsDemo || !state.windowsDemo.entry_url) { showToast("请先刷新 Windows Demo 清单。", true); return; }
+        window.open(state.windowsDemo.entry_url, "_blank", "noopener");
     }
 
     document.getElementById("import-functional-case-button").addEventListener("click", function () { importFunctionalCase().catch(function (error) { showToast(error.message, true); }); });
     document.getElementById("import-traffic-capture-button").addEventListener("click", function () { importTrafficCapture().catch(function (error) { showToast(error.message, true); }); });
     document.getElementById("apply-filter-button").addEventListener("click", function () { loadScenarioList(null).catch(function (error) { showToast(error.message, true); }); });
     document.getElementById("refresh-list-button").addEventListener("click", function () { loadScenarioList(state.selectedScenarioId).catch(function (error) { showToast(error.message, true); }); });
+    document.getElementById("assign-role-button").addEventListener("click", function () { assignProjectRole().catch(function (error) { showToast(error.message, true); }); });
+    document.getElementById("load-roles-button").addEventListener("click", function () { loadProjectRoles().catch(function (error) { showToast(error.message, true); }); });
+    document.getElementById("load-audit-logs-button").addEventListener("click", function () { loadAuditLogs().catch(function (error) { showToast(error.message, true); }); });
     document.getElementById("refresh-result-button").addEventListener("click", function () { if (!state.selectedScenarioId) { showToast("请先选择场景。", true); return; } loadScenario(state.selectedScenarioId, true).catch(function (error) { showToast(error.message, true); }); });
     document.getElementById("load-suggestions-button").addEventListener("click", function () { loadSuggestions().catch(function (error) { showToast(error.message, true); }); });
     document.getElementById("approve-button").addEventListener("click", function () { reviewScenario("approved").catch(function (error) { showToast(error.message, true); }); });
     document.getElementById("reject-button").addEventListener("click", function () { reviewScenario("rejected").catch(function (error) { showToast(error.message, true); }); });
     document.getElementById("execute-button").addEventListener("click", function () { executeScenario().catch(function (error) { showToast(error.message, true); }); });
+    document.getElementById("confirm-traffic-capture-button").addEventListener("click", function () { confirmTrafficCapture().catch(function (error) { showToast(error.message, true); }); });
+    document.getElementById("confirm-traffic-bindings-button").addEventListener("click", function () { confirmTrafficBindings().catch(function (error) { showToast(error.message, true); }); });
+    document.getElementById("create-schedule-batch-button").addEventListener("click", function () { createScheduleBatch().catch(function (error) { showToast(error.message, true); }); });
+    document.getElementById("load-schedule-batches-button").addEventListener("click", function () { loadScheduleBatches().catch(function (error) { showToast(error.message, true); }); });
+    document.getElementById("retry-schedule-item-button").addEventListener("click", function () { retryLatestFailedScheduleItem().catch(function (error) { showToast(error.message, true); }); });
+    document.getElementById("cancel-schedule-item-button").addEventListener("click", function () { cancelLatestQueuedScheduleItem().catch(function (error) { showToast(error.message, true); }); });
+    document.getElementById("refresh-windows-demo-button").addEventListener("click", function () { loadWindowsDemoManifest().catch(function (error) { showToast(error.message, true); }); });
+    document.getElementById("open-windows-demo-button").addEventListener("click", openWindowsDemoEntry);
 
     refreshFunctionalCaseDemoPayload();
     refreshTrafficCaptureDemoName();
+    trafficBindingEditor.value = "[]";
     loadGovernanceContext()
-        .then(function () { return loadScenarioList(); })
+        .then(function () { return Promise.all([loadWindowsDemoManifest(), loadScenarioList(), loadProjectRoles(), loadAuditLogs(), loadScheduleBatches()]); })
         .catch(function (error) { showToast(error.message, true); });
 }());
 </script>

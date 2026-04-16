@@ -1,5 +1,49 @@
 # 当前任务计划
 
+## 2026-04-16 V3 P1 G4 调度与执行中心
+
+### 目标
+- 在已完成 `P1-G1` 权限与审计治理、`P1-G2` 抓包正式执行闭环和 `P1-G3` Web 正式入口 / Windows Demo 的基础上，补齐 `P1-G4` 调度与执行中心。
+- 形成“授权 -> 批量执行 -> 重试 -> 取消 -> 聚合 -> 审计”的正式治理闭环，并继续复用正式 MySQL 基线与现有执行底座。
+- 保持浏览器端为日常高频验证主路径，同时补充真实浏览器调度中心冒烟，不引入第二套执行引擎或桌面事实层。
+
+### 本轮范围
+1. 编写 `P1-G4` 独立实施计划，并按 TDD 新增调度模型、调度服务、调度 API 和工作台调度中心红灯测试。
+2. 在 `scenario_service` 中新增调度批次 / 任务项模型、批量创建 / 重试 / 取消 / 聚合能力，并继续复用 `request_execution()`。
+3. 为 `/ui/v3/workbench/` 增加调度与执行中心面板，并完成正式 MySQL 浏览器冒烟。
+4. 同步 README、V3 阶段文档、V3 P1 测试文档、本地 MySQL 文档与本地记录。
+
+### 当前阶段状态
+| 阶段 | 状态 | 说明 |
+| --- | --- | --- |
+| `P1-G4` 实施计划 | 已完成 | 已新增 `docs/superpowers/plans/2026-04-15-v3-p1-g4-scheduling-execution-center.md` |
+| `P1-G4` 红灯测试 | 已完成 | 已新增 `service_tests/test_v3_p1_scheduling_execution_center.py`，并确认缺口落在调度模型、批量调度服务、重试 / 取消接口与工作台承接区域 |
+| `P1-G4` 最小实现与回归 | 已完成 | 已完成 `6 passed` 定向验证、`service_tests=47 passed`、`tests/platform_core=71 passed`、`tests=79 passed`、`api_test/tests=39 passed` 与 `0008` 迁移一致性检查 |
+| `P1-G4` 浏览器冒烟 | 已完成 | 已在 `/ui/v3/workbench/` 验证 `调度与执行中心` 面板可见、最小调度批次可创建、浏览器控制台无报错 |
+| `P1` 后续子项 | 已完成当前轮 | `P1` 计划内 `G1 / G2 / G3 / G4` 已全部完成，下一步进入 `P1` 独立验收收口 |
+
+## 2026-04-15 V3 P1 G3 Web 正式入口深化与 Windows Demo
+
+### 目标
+- 在已完成 `P1-G1` 权限与审计治理、`P1-G2` 抓包正式执行闭环的基础上，把当前工作台升级为 `V3` 正式入口。
+- 交付一个可在 Windows 上直接启动、直接进入真实测试页面的 Demo 启动方案，同时保持浏览器端为日常高频验证主路径。
+- 全程继续复用正式 MySQL 基线和现有 `/api/v2/scenarios/*` 服务契约，不新建第二套前端工程或第二套事实缓存。
+
+### 本轮范围
+1. 编写 `P1-G3` 独立实施计划，并按 TDD 新增 Web 入口与 Windows Demo 红灯测试。
+2. 在现有 Django 模板工作台上接入 `actor / reviewer / operator`、项目授权、审计日志、抓包正式确认与 Windows Demo 区域。
+3. 新增 Windows Demo manifest 接口与 PowerShell 启动器脚本，并建立浏览器先验 + Windows dry-run 复验链路。
+4. 同步 README、V3 阶段文档、V3 P1 测试文档与本地记录。
+
+### 当前阶段状态
+| 阶段 | 状态 | 说明 |
+| --- | --- | --- |
+| `P1-G3` 实施计划 | 已完成 | 已新增 `docs/superpowers/plans/2026-04-15-v3-p1-g3-web-entry-windows-demo.md` |
+| `P1-G3` 红灯测试 | 已完成 | 已新增 `service_tests/test_v3_p1_entry_windows_demo.py`，并确认缺口落在 `/ui/v3/workbench/`、Windows Demo manifest 与启动器脚本 |
+| `P1-G3` 最小实现与回归 | 已完成 | 已完成 `3 passed` 定向验证、`service_tests=41 passed`、`tests/platform_core=71 passed`、`tests=79 passed`、`api_test/tests=39 passed` 与迁移一致性检查 |
+| `P1-G3` 文档同步 | 已完成 | 已同步 README、V3 阶段文档、V3 P1 测试文档与本地记录 |
+| `P1` 后续子项 | 待开始 | 下一步应继续进入 `P1-G4` 调度与执行中心 |
+
 ## 2026-04-15 V3 P1 G2 抓包正式执行闭环
 
 ### 目标
@@ -20,7 +64,7 @@
 | `P1-G2` 红灯测试 | 已完成 | 已新增 `service_tests/test_v3_p1_traffic_capture_execution.py`，并确认缺口落在正式确认、绑定确认和执行前门禁 |
 | `P1-G2` 最小实现与回归 | 已完成 | 已完成 `3 passed` 定向验证、`service_tests=38 passed`、`tests/platform_core=71 passed`、`tests=79 passed`、`api_test/tests=39 passed` 与 `0007` 迁移检查 |
 | `P1-G2` 文档同步 | 已完成 | 已同步 README、V3 阶段文档、V3 P1 测试文档、本地 MySQL 文档与本地记录 |
-| `P1` 后续子项 | 待开始 | 下一步应继续进入 `P1-G3` Web 正式入口深化与 Windows Demo |
+| `P1` 后续子项 | 待开始 | 下一步应继续进入 `P1-G4` 调度与执行中心 |
 
 ## 2026-04-15 V3 P1 G1 权限与审计治理
 

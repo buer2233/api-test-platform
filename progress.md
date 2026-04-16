@@ -1,5 +1,59 @@
 # 会话进展
 
+## 2026-04-16 V3 P1 G4 调度与执行中心
+
+### 已完成
+- 已新增 `docs/superpowers/plans/2026-04-15-v3-p1-g4-scheduling-execution-center.md`，将 `P1-G4` 拆分为独立执行批次，明确本轮只覆盖调度批次、任务项、批量执行、重试 / 取消、聚合与入口承接。
+- 已新增 `service_tests/test_v3_p1_scheduling_execution_center.py`，按 TDD 覆盖六条主线：
+  - 调度对象应能表达任务、队列、重试和聚合摘要；
+  - 调度中心不得跨项目 / 环境 / 场景集串扰；
+  - 调度创建、重试、取消与聚合查询接口应返回稳定契约；
+  - 批量执行、重试和取消后的聚合摘要应保持正确；
+  - 调度中心独立验收链路应形成“授权 -> 批量执行 -> 重试 -> 聚合 -> 审计”闭环；
+  - `/ui/v3/workbench/` 应承接调度中心面板。
+- 已完成 `P1-G4` 首批最小实现：
+  - 新增 `ScenarioScheduleBatchRecord` 与 `ScenarioScheduleItemRecord`，并生成迁移 `0008_scenarioschedulebatchrecord_and_more.py`；
+  - 在 `scenario_service/services.py` 中新增批量创建、详情查询、重试、取消和聚合摘要服务，并复用既有 `request_execution()`；
+  - 新增 `/api/v2/scenarios/governance/schedule-batches/` 及批次详情、任务项重试、任务项取消接口；
+  - 将工作台升级为可展示并触发 `调度与执行中心` 的 `V3` 正式入口补充分区。
+- 已完成本轮验证：
+  - `service_tests/test_v3_p1_scheduling_execution_center.py` -> `6 passed`
+  - `service_tests` -> `47 passed`
+  - `tests/platform_core` -> `71 passed`
+  - `tests` -> `79 passed`
+  - `api_test/tests` -> `39 passed`
+  - `manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.test_settings` -> `No changes detected in app 'scenario_service'`
+  - `/ui/v3/workbench/` 浏览器复验通过：未选择场景时会提示阻断，导入并选中示例场景后可成功创建最小调度批次，截图已保存为 `v3_p1_g4_schedule_workbench_smoke_20260416.png`
+
+### 下一步
+- 进入 `P1` 独立验收收口，统一整理 `G1 / G2 / G3 / G4` 的自动化与浏览器证据。
+- 在不扩大 `P2` 范围的前提下，继续保持正式 MySQL 基线和浏览器优先的验证节奏。
+
+## 2026-04-15 V3 P1 G3 Web 正式入口与 Windows Demo
+
+### 已完成
+- 已新增 `docs/superpowers/plans/2026-04-15-v3-p1-g3-web-entry-windows-demo.md`，将 `P1-G3` 拆分为独立执行批次，明确本轮只覆盖 Web 正式入口深化与 Windows Demo。
+- 已新增 `service_tests/test_v3_p1_entry_windows_demo.py`，按 TDD 覆盖三条主线：
+  - `/ui/v3/workbench/` 应承接权限、审计、抓包正式执行和 Windows Demo 区域；
+  - Windows Demo manifest 应与浏览器入口共享同一服务契约；
+  - PowerShell 启动器 dry-run 应输出浏览器先验入口命令。
+- 已完成 `P1-G3` 首批最小实现：
+  - 新增 `/ui/v3/workbench/` 路由，并保留 `/ui/v2/workbench/` 兼容入口；
+  - 新增 `/api/v2/scenarios/governance/windows-demo/` manifest 接口；
+  - 新增 `windows_demo/launch_v3_workbench_demo.ps1`，支持 `-DryRun`、`-BaseUrl` 和 `-SkipServiceStartup`；
+  - 将现有工作台升级为承接 `actor / reviewer / operator`、项目授权、审计日志、抓包正式确认 / 绑定确认和 Windows Demo 区域的 `V3` 正式入口。
+- 已完成本轮验证：
+  - `service_tests/test_v3_p1_entry_windows_demo.py` -> `3 passed`
+  - `service_tests` -> `41 passed`
+  - `tests/platform_core` -> `71 passed`
+  - `tests` -> `79 passed`
+  - `api_test/tests` -> `39 passed`
+  - `manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.test_settings` -> `No changes detected in app 'scenario_service'`
+
+### 下一步
+- 进入 `P1-G4` 调度与执行中心。
+- 保持当前 Windows Demo 继续复用浏览器入口和统一服务契约，不再分叉第二套桌面事实层。
+
 ## 2026-04-15 V3 P1 G2 抓包正式执行闭环
 
 ### 已完成
@@ -33,8 +87,8 @@
   - `progress.md`
 
 ### 下一步
-- 继续进入 `P1-G3` Web 正式入口深化与 Windows Demo。
-- 保持 `P1-G1 / G2` 已建立的权限、审计和抓包正式执行契约，不引入第二套事实源或并行门禁逻辑。
+- 继续进入 `P1-G4` 调度与执行中心。
+- 保持 `P1-G1 / G2 / G3` 已建立的权限、审计、抓包正式执行与统一入口契约，不引入第二套事实源或并行门禁逻辑。
 
 ## 2026-04-15 V3 P1 G1 启动
 

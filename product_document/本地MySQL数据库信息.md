@@ -3,7 +3,7 @@
 ## 1. 文档说明
 - 文档名称：本地 MySQL 数据库信息
 - 所属项目：接口自动化测试平台
-- 生成时间：2026-04-15
+- 生成时间：2026-04-16
 - 适用范围：当前本地开发与测试环境
 
 ---
@@ -42,6 +42,8 @@
 - `scenario_service_scenariorecord`
 - `scenario_service_scenarioreviewrecord`
 - `scenario_service_scenariorevisionrecord`
+- `scenario_service_scenarioschedulebatchrecord`
+- `scenario_service_scenarioscheduleitemrecord`
 - `scenario_service_scenariosetrecord`
 - `scenario_service_scenariosourcerecord`
 - `scenario_service_scenariosuggestionrecord`
@@ -58,18 +60,21 @@
 - 2026-04-14 已应用 `scenario_service.0005_baselineversionrecord_governancemigrationrecord_and_more`，新增项目、测试环境、场景集、基线版本和治理迁移记录相关表。
 - 2026-04-15 已应用 `scenario_service.0006_scenarioauditlogrecord_projectroleassignmentrecord`，新增项目角色授权记录表和关键治理动作审计日志表。
 - 2026-04-15 已应用 `scenario_service.0007_trafficcaptureformalizationrecord`，新增抓包正式执行治理对象表，用于承接正式确认、绑定确认和最近一次执行回写。
+- 2026-04-16 已应用 `scenario_service.0008_scenarioschedulebatchrecord_and_more`，新增调度批次表和调度任务项表，用于承接批量执行、队列状态、重试、取消和聚合摘要。
 - 2026-04-14 已基于本地 MySQL 完成一轮 V3 P0 服务层真实冒烟，执行结果为 `passed`，治理上下文为 `mysql-p0-project / mysql-p0-env / mysql-p0-set / baseline-v1`。
 - 2026-04-15 起 `platform_service.test_settings` 已切换为正式 MySQL 基线配置，后续服务测试与浏览器冒烟不再允许回退到 SQLite。
 - 2026-04-15 已验证服务测试运行期数据库连接直接指向 `api_test_platform`，`SELECT DATABASE()` 返回 `api_test_platform`。
 - 2026-04-15 起 `service_tests` 已取消自动清库策略，测试数据、浏览器点测数据和数据库事实数据默认保留。
-- 2026-04-15 已完成 `P1-G1 / P1-G2` 首批权限审计与抓包正式执行回归，最新验证结果为：`service_tests/test_v3_p1_permission_audit.py=3 passed`、`service_tests/test_v3_p1_traffic_capture_execution.py=3 passed`、`service_tests=38 passed`。
-- 2026-04-15 最近一次留存数据快照：
-  - `project_count=84`
-  - `environment_count=99`
-  - `scenario_set_count=99`
-  - `baseline_version_count=100`
-  - `migration_count=7`
-  - `scenario_count=140`
-  - `execution_count=48`
-  - `traffic_capture_formalization_count=13`
+- 2026-04-16 已完成 `P1-G1 / P1-G2 / P1-G3 / P1-G4` 首批权限审计、抓包正式执行、Web / Windows Demo 与调度中心回归，最新验证结果为：`service_tests/test_v3_p1_permission_audit.py=3 passed`、`service_tests/test_v3_p1_traffic_capture_execution.py=3 passed`、`service_tests/test_v3_p1_entry_windows_demo.py=3 passed`、`service_tests/test_v3_p1_scheduling_execution_center.py=6 passed`、`service_tests=47 passed`。
+- 2026-04-16 最近一次留存数据快照：
+  - `project_count=146`
+  - `environment_count=196`
+  - `scenario_set_count=196`
+  - `baseline_version_count=197`
+  - `migration_count=9`
+  - `scenario_count=249`
+  - `execution_count=86`
+  - `traffic_capture_formalization_count=23`
+  - `schedule_batch_count=25`
+  - `schedule_item_count=37`
 - 如后续执行新的 Django migration，本文件中的表清单需要同步更新。

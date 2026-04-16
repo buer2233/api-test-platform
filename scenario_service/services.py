@@ -19,6 +19,8 @@ from scenario_service.models import (
     ProjectRoleAssignmentRecord,
     ScenarioExecutionRecord,
     ScenarioAuditLogRecord,
+    ScenarioScheduleBatchRecord,
+    ScenarioScheduleItemRecord,
     ScenarioRecord,
     ScenarioRevisionRecord,
     ScenarioReviewRecord,
@@ -336,6 +338,85 @@ class FunctionalCaseScenarioService:
             "metadata": formalization.metadata,
             "created_at": formalization.created_at.isoformat(),
             "updated_at": formalization.updated_at.isoformat(),
+        }
+
+    @staticmethod
+    def _build_schedule_item_summary(schedule_item: ScenarioScheduleItemRecord) -> dict:
+        """构造调度任务项摘要。"""
+        execution = schedule_item.execution
+        scenario = schedule_item.scenario
+        return {
+            "schedule_item_id": schedule_item.schedule_item_id,
+            "schedule_batch_id": schedule_item.schedule_batch.schedule_batch_id,
+            "scenario_id": scenario.scenario_id,
+            "scenario_code": scenario.scenario_code,
+            "scenario_name": scenario.scenario_name,
+            "item_order": schedule_item.item_order,
+            "item_status": schedule_item.item_status,
+            "retry_policy": schedule_item.retry_policy,
+            "retry_count": schedule_item.retry_count,
+            "max_retry_count": schedule_item.max_retry_count,
+            "failure_reason": schedule_item.failure_reason,
+            "canceled_reason": schedule_item.canceled_reason,
+            "latest_result_summary": schedule_item.latest_result_summary,
+            "execution_id": execution.execution_id if execution else "",
+            "execution_status": execution.execution_status if execution else "",
+            "created_at": schedule_item.created_at.isoformat(),
+            "updated_at": schedule_item.updated_at.isoformat(),
+        }
+
+    @staticmethod
+    def _calculate_schedule_aggregate_summary(items: list[ScenarioScheduleItemRecord]) -> dict:
+        """根据任务项列表计算调度聚合摘要。"""
+        summary = {
+            "total_count": len(items),
+            "queued_count": 0,
+            "running_count": 0,
+            "succeeded_count": 0,
+            "failed_count": 0,
+            "canceled_count": 0,
+            "retried_count": 0,
+        }
+        for item in items:
+            if item.item_status == "queued":
+                summary["queued_count"] += 1
+            elif item.item_status == "running":
+                summary["running_count"] += 1
+            elif item.item_status == "succeeded":
+                summary["succeeded_count"] += 1
+            elif item.item_status == "failed":
+                summary["failed_count"] += 1
+            elif item.item_status == "canceled":
+                summary["canceled_count"] += 1
+            summary["retried_count"] += item.retry_count
+        return summary
+
+    def _build_schedule_batch_summary(
+        self,
+        schedule_batch: ScenarioScheduleBatchRecord,
+        *,
+        include_items: bool = True,
+    ) -> dict:
+        """构造调度批次摘要。"""
+        items = list(schedule_batch.items.all().order_by("item_order", "id"))
+        aggregate_summary = schedule_batch.aggregate_summary or self._calculate_schedule_aggregate_summary(items)
+        return {
+            "schedule_batch_id": schedule_batch.schedule_batch_id,
+            "project_code": schedule_batch.project.project_code,
+            "environment_code": schedule_batch.environment.environment_code,
+            "scenario_set_code": schedule_batch.scenario_set.scenario_set_code if schedule_batch.scenario_set else "",
+            "baseline_version": self.governance_service.build_baseline_version_summary(schedule_batch.baseline_version)
+            if schedule_batch.baseline_version
+            else None,
+            "created_by": schedule_batch.created_by,
+            "queue_status": schedule_batch.queue_status,
+            "dispatch_strategy": schedule_batch.dispatch_strategy,
+            "trigger_source": schedule_batch.trigger_source,
+            "workspace_root": schedule_batch.workspace_root,
+            "aggregate_summary": aggregate_summary,
+            "items": [self._build_schedule_item_summary(item) for item in items] if include_items else [],
+            "created_at": schedule_batch.created_at.isoformat(),
+            "updated_at": schedule_batch.updated_at.isoformat(),
         }
 
     @staticmethod
@@ -758,6 +839,482 @@ class FunctionalCaseScenarioService:
         if action_result:
             queryset = queryset.filter(action_result=action_result)
         return [self._build_audit_log_summary(item) for item in queryset.order_by("-created_at", "-id")]
+
+    @staticmethod
+    def _get_schedule_batch(schedule_batch_id: str) -> ScenarioScheduleBatchRecord:
+        """按调度批次标识加载调度批次记录。"""
+        try:
+            return ScenarioScheduleBatchRecord.objects.select_related(
+                "project",
+                "environment",
+                "scenario_set",
+                "baseline_version",
+            ).get(schedule_batch_id=schedule_batch_id)
+        except ScenarioScheduleBatchRecord.DoesNotExist as error:
+            raise ScenarioServiceError(
+                code="schedule_batch_not_found",
+                message=f"未找到调度批次: {schedule_batch_id}",
+                status_code=404,
+            ) from error
+
+    @staticmethod
+    def _get_schedule_item(
+        *,
+        schedule_batch: ScenarioScheduleBatchRecord,
+        schedule_item_id: str,
+    ) -> ScenarioScheduleItemRecord:
+        """按任务项标识加载调度任务项记录。"""
+        try:
+            return schedule_batch.items.select_related("scenario", "execution").get(schedule_item_id=schedule_item_id)
+        except ScenarioScheduleItemRecord.DoesNotExist as error:
+            raise ScenarioServiceError(
+                code="schedule_item_not_found",
+                message=f"未找到调度任务项: {schedule_item_id}",
+                status_code=404,
+            ) from error
+
+    def _resolve_schedule_batch_context(
+        self,
+        *,
+        project_code: str,
+        environment_code: str,
+        scenario_items: list[dict],
+    ):
+        """校验调度批次输入并解析统一治理上下文。"""
+        if not scenario_items:
+            raise ScenarioServiceError(
+                code="schedule_batch_items_required",
+                message="调度批次至少需要一个场景任务项。",
+                status_code=400,
+            )
+        scenario_pairs: list[tuple[ScenarioRecord, dict]] = []
+        scenario_set_code: str | None = None
+        for item_payload in scenario_items:
+            scenario_id = item_payload.get("scenario_id")
+            if not scenario_id:
+                raise ScenarioServiceError(
+                    code="schedule_item_scenario_id_required",
+                    message="调度任务项缺少 scenario_id。",
+                    status_code=400,
+                )
+            scenario = self._get_scenario(scenario_id=scenario_id)
+            if scenario.project is None or scenario.environment is None or scenario.scenario_set is None:
+                raise ScenarioServiceError(
+                    code="schedule_batch_context_missing",
+                    message="调度任务项缺少完整项目治理上下文。",
+                    status_code=400,
+                )
+            if scenario.project.project_code != project_code:
+                raise ScenarioServiceError(
+                    code="schedule_batch_project_mismatch",
+                    message="调度批次中存在跨项目场景，已阻断。",
+                    status_code=400,
+                )
+            if scenario.environment.environment_code != environment_code:
+                raise ScenarioServiceError(
+                    code="schedule_batch_environment_mismatch",
+                    message="调度批次中存在跨环境场景，已阻断。",
+                    status_code=400,
+                )
+            current_scenario_set_code = scenario.scenario_set.scenario_set_code
+            if scenario_set_code is None:
+                scenario_set_code = current_scenario_set_code
+            elif current_scenario_set_code != scenario_set_code:
+                raise ScenarioServiceError(
+                    code="schedule_batch_scenario_set_mismatch",
+                    message="调度批次中的场景集不一致，无法聚合到同一基线版本。",
+                    status_code=400,
+                )
+            scenario_pairs.append((scenario, item_payload))
+        context = self.governance_service.resolve_context(
+            project_code=project_code,
+            environment_code=environment_code,
+            scenario_set_code=scenario_set_code,
+        )
+        return context, scenario_pairs
+
+    @staticmethod
+    def _resolve_schedule_item_workspace_root(
+        *,
+        schedule_batch: ScenarioScheduleBatchRecord,
+        schedule_item: ScenarioScheduleItemRecord,
+        workspace_root: str | Path | None,
+    ) -> Path:
+        """为调度任务项构造隔离工作区目录。"""
+        batch_root = (
+            Path(workspace_root)
+            if workspace_root
+            else Path(schedule_batch.workspace_root)
+            if schedule_batch.workspace_root
+            else Path("report") / "schedule_batches" / schedule_batch.schedule_batch_id
+        )
+        return batch_root / schedule_item.schedule_item_id
+
+    def _refresh_schedule_batch_aggregate(
+        self,
+        schedule_batch: ScenarioScheduleBatchRecord,
+    ) -> ScenarioScheduleBatchRecord:
+        """刷新调度批次聚合摘要和批次状态。"""
+        items = list(schedule_batch.items.all().order_by("item_order", "id"))
+        aggregate_summary = self._calculate_schedule_aggregate_summary(items)
+        if aggregate_summary["running_count"] > 0:
+            queue_status = "running"
+        elif aggregate_summary["queued_count"] == aggregate_summary["total_count"] and aggregate_summary["total_count"] > 0:
+            queue_status = "queued"
+        elif aggregate_summary["queued_count"] > 0:
+            queue_status = "partially_queued"
+        else:
+            queue_status = "completed"
+        schedule_batch.aggregate_summary = aggregate_summary
+        schedule_batch.queue_status = queue_status
+        schedule_batch.save(update_fields=["aggregate_summary", "queue_status", "updated_at"])
+        return schedule_batch
+
+    def _execute_schedule_item(
+        self,
+        *,
+        schedule_item: ScenarioScheduleItemRecord,
+        scheduler: str,
+        workspace_root: str | Path | None = None,
+    ) -> ScenarioScheduleItemRecord:
+        """执行单个调度任务项并刷新结果摘要。"""
+        schedule_batch = schedule_item.schedule_batch
+        schedule_item.item_status = "running"
+        schedule_item.failure_reason = ""
+        schedule_item.canceled_reason = ""
+        schedule_item.save(update_fields=["item_status", "failure_reason", "canceled_reason", "updated_at"])
+        resolved_workspace_root = self._resolve_schedule_item_workspace_root(
+            schedule_batch=schedule_batch,
+            schedule_item=schedule_item,
+            workspace_root=workspace_root,
+        )
+        try:
+            execution = self.request_execution(
+                scenario_id=schedule_item.scenario.scenario_id,
+                project_code=schedule_batch.project.project_code,
+                environment_code=schedule_batch.environment.environment_code,
+                workspace_root=resolved_workspace_root,
+                operator=scheduler,
+                trigger_source="schedule_retry" if schedule_item.retry_count else "schedule_batch",
+            )
+            schedule_item.execution = execution
+            schedule_item.item_status = "succeeded" if execution.execution_status == "passed" else "failed"
+            schedule_item.failure_reason = (
+                ""
+                if execution.execution_status == "passed"
+                else execution.failure_summary or "场景执行失败。"
+            )
+            schedule_item.latest_result_summary = {
+                "execution_id": execution.execution_id,
+                "execution_status": execution.execution_status,
+                "passed_count": execution.passed_count,
+                "failed_count": execution.failed_count,
+                "skipped_count": execution.skipped_count,
+                "trigger_source": execution.trigger_source,
+            }
+        except ScenarioServiceError as error:
+            schedule_item.execution = None
+            schedule_item.item_status = "failed"
+            schedule_item.failure_reason = error.message
+            schedule_item.latest_result_summary = {
+                "error_code": error.code,
+                "error_message": error.message,
+            }
+        except Exception as error:  # pragma: no cover - 兜底保障调度批次能继续聚合
+            schedule_item.execution = None
+            schedule_item.item_status = "failed"
+            schedule_item.failure_reason = str(error)
+            schedule_item.latest_result_summary = {
+                "error_code": "schedule_item_unhandled_error",
+                "error_message": str(error),
+            }
+        schedule_item.save(
+            update_fields=[
+                "execution",
+                "item_status",
+                "failure_reason",
+                "latest_result_summary",
+                "updated_at",
+            ]
+        )
+        self._refresh_schedule_batch_aggregate(schedule_batch)
+        return schedule_item
+
+    def list_schedule_batches(
+        self,
+        *,
+        project_code: str | None = None,
+        actor: str | None = None,
+    ) -> list[dict]:
+        """按项目边界查询调度批次列表。"""
+        queryset = ScenarioScheduleBatchRecord.objects.select_related(
+            "project",
+            "environment",
+            "scenario_set",
+            "baseline_version",
+        )
+        if project_code:
+            queryset = queryset.filter(project__project_code=project_code)
+            if actor:
+                project = self.governance_service.resolve_context(project_code=project_code).project
+                self._authorize_project_action(
+                    project=project,
+                    actor_name=actor,
+                    action_type="list_schedule_batches",
+                    required_permission="can_view",
+                    target_type="project",
+                    target_id=project.project_id,
+                    detail_message="尝试查看调度批次列表。",
+                )
+        elif actor and not BUILTIN_ACTOR_PERMISSIONS.get(actor, {}).get("can_view"):
+            assignments = ProjectRoleAssignmentRecord.objects.filter(subject_name=actor, is_active=True, can_view=True)
+            queryset = queryset.filter(project__in=[item.project for item in assignments])
+        return [
+            self._build_schedule_batch_summary(schedule_batch, include_items=False)
+            for schedule_batch in queryset.order_by("-created_at", "-id")
+        ]
+
+    def create_schedule_batch(
+        self,
+        *,
+        project_code: str,
+        environment_code: str,
+        scheduler: str,
+        scenario_items: list[dict],
+        dispatch_strategy: str = "immediate",
+        workspace_root: str | Path | None = None,
+    ) -> dict:
+        """创建调度批次，并按策略执行或排队。"""
+        self.governance_service.ensure_bootstrap()
+        context, scenario_pairs = self._resolve_schedule_batch_context(
+            project_code=project_code,
+            environment_code=environment_code,
+            scenario_items=scenario_items,
+        )
+        self._authorize_project_action(
+            project=context.project,
+            actor_name=scheduler,
+            action_type="create_schedule_batch",
+            required_permission="can_schedule",
+            target_type="project",
+            target_id=context.project.project_id,
+            detail_message="尝试创建调度批次。",
+        )
+        batch_workspace_root = (
+            Path(workspace_root)
+            if workspace_root
+            else Path("report") / "schedule_batches" / f"batch-{uuid4().hex[:12]}"
+        )
+        schedule_batch_id = f"schedule-batch-{uuid4().hex[:12]}"
+        with transaction.atomic():
+            schedule_batch = ScenarioScheduleBatchRecord.objects.create(
+                schedule_batch_id=schedule_batch_id,
+                project=context.project,
+                environment=context.environment,
+                scenario_set=context.scenario_set,
+                baseline_version=context.baseline_version,
+                created_by=scheduler,
+                queue_status="queued",
+                dispatch_strategy=dispatch_strategy,
+                trigger_source="schedule_batch",
+                workspace_root=str(batch_workspace_root),
+                aggregate_summary={},
+                metadata={"scenario_count": len(scenario_pairs)},
+            )
+            ScenarioScheduleItemRecord.objects.bulk_create(
+                [
+                    ScenarioScheduleItemRecord(
+                        schedule_item_id=f"schedule-item-{uuid4().hex[:12]}",
+                        schedule_batch=schedule_batch,
+                        scenario=scenario,
+                        item_order=index,
+                        item_status="queued",
+                        retry_policy=item_payload.get("retry_policy") or {},
+                        retry_count=0,
+                        max_retry_count=int((item_payload.get("retry_policy") or {}).get("max_retry_count") or 0),
+                        latest_result_summary={},
+                        metadata={},
+                    )
+                    for index, (scenario, item_payload) in enumerate(scenario_pairs, start=1)
+                ]
+            )
+        schedule_batch = self._refresh_schedule_batch_aggregate(schedule_batch)
+        if dispatch_strategy == "immediate":
+            for schedule_item in schedule_batch.items.all().order_by("item_order", "id"):
+                self._execute_schedule_item(
+                    schedule_item=schedule_item,
+                    scheduler=scheduler,
+                    workspace_root=batch_workspace_root,
+                )
+            schedule_batch = self._refresh_schedule_batch_aggregate(schedule_batch)
+        self._create_audit_log(
+            project=context.project,
+            actor_name=scheduler,
+            action_type="create_schedule_batch",
+            action_result="succeeded",
+            target_type="schedule_batch",
+            target_id=schedule_batch.schedule_batch_id,
+            detail_message="已创建调度批次。",
+            metadata={
+                "dispatch_strategy": dispatch_strategy,
+                "scenario_count": len(scenario_pairs),
+            },
+        )
+        return self._build_schedule_batch_summary(schedule_batch)
+
+    def get_schedule_batch_detail(
+        self,
+        *,
+        schedule_batch_id: str,
+        actor: str | None = None,
+    ) -> dict:
+        """返回调度批次详情。"""
+        schedule_batch = self._get_schedule_batch(schedule_batch_id=schedule_batch_id)
+        if actor:
+            self._authorize_project_action(
+                project=schedule_batch.project,
+                actor_name=actor,
+                action_type="view_schedule_batch",
+                required_permission="can_view",
+                target_type="schedule_batch",
+                target_id=schedule_batch.schedule_batch_id,
+                detail_message="尝试查看调度批次详情。",
+            )
+            self._create_audit_log(
+                project=schedule_batch.project,
+                actor_name=actor,
+                action_type="view_schedule_batch",
+                action_result="succeeded",
+                target_type="schedule_batch",
+                target_id=schedule_batch.schedule_batch_id,
+                detail_message="已查看调度批次详情。",
+            )
+        return self._build_schedule_batch_summary(schedule_batch)
+
+    def retry_schedule_item(
+        self,
+        *,
+        schedule_batch_id: str,
+        schedule_item_id: str,
+        scheduler: str,
+        workspace_root: str | Path | None = None,
+    ) -> dict:
+        """重试指定调度任务项。"""
+        schedule_batch = self._get_schedule_batch(schedule_batch_id=schedule_batch_id)
+        schedule_item = self._get_schedule_item(
+            schedule_batch=schedule_batch,
+            schedule_item_id=schedule_item_id,
+        )
+        self._authorize_project_action(
+            project=schedule_batch.project,
+            actor_name=scheduler,
+            action_type="retry_schedule_item",
+            required_permission="can_schedule",
+            target_type="schedule_item",
+            target_id=schedule_item.schedule_item_id,
+            scenario=schedule_item.scenario,
+            detail_message="尝试重试调度任务项。",
+        )
+        if schedule_item.item_status not in {"failed", "canceled"}:
+            raise ScenarioServiceError(
+                code="schedule_item_retry_not_allowed",
+                message="当前调度任务项状态不允许重试。",
+                status_code=400,
+            )
+        if schedule_item.max_retry_count and schedule_item.retry_count >= schedule_item.max_retry_count:
+            raise ScenarioServiceError(
+                code="schedule_item_retry_limit_exceeded",
+                message="当前调度任务项已达到最大重试次数。",
+                status_code=400,
+            )
+        schedule_item.retry_count += 1
+        schedule_item.item_status = "queued"
+        schedule_item.failure_reason = ""
+        schedule_item.canceled_reason = ""
+        schedule_item.execution = None
+        schedule_item.save(
+            update_fields=[
+                "retry_count",
+                "item_status",
+                "failure_reason",
+                "canceled_reason",
+                "execution",
+                "updated_at",
+            ]
+        )
+        retried_item = self._execute_schedule_item(
+            schedule_item=schedule_item,
+            scheduler=scheduler,
+            workspace_root=workspace_root,
+        )
+        self._create_audit_log(
+            project=schedule_batch.project,
+            actor_name=scheduler,
+            action_type="retry_schedule_item",
+            action_result="succeeded",
+            target_type="schedule_item",
+            target_id=retried_item.schedule_item_id,
+            scenario=retried_item.scenario,
+            execution=retried_item.execution,
+            detail_message="已重试调度任务项。",
+            metadata={"retry_count": retried_item.retry_count},
+        )
+        return self._build_schedule_item_summary(retried_item)
+
+    def cancel_schedule_item(
+        self,
+        *,
+        schedule_batch_id: str,
+        schedule_item_id: str,
+        scheduler: str,
+        cancel_reason: str = "",
+    ) -> dict:
+        """取消指定排队中的调度任务项。"""
+        schedule_batch = self._get_schedule_batch(schedule_batch_id=schedule_batch_id)
+        schedule_item = self._get_schedule_item(
+            schedule_batch=schedule_batch,
+            schedule_item_id=schedule_item_id,
+        )
+        self._authorize_project_action(
+            project=schedule_batch.project,
+            actor_name=scheduler,
+            action_type="cancel_schedule_item",
+            required_permission="can_schedule",
+            target_type="schedule_item",
+            target_id=schedule_item.schedule_item_id,
+            scenario=schedule_item.scenario,
+            detail_message="尝试取消调度任务项。",
+        )
+        if schedule_item.item_status != "queued":
+            raise ScenarioServiceError(
+                code="schedule_item_cancel_not_allowed",
+                message="当前调度任务项状态不允许取消。",
+                status_code=400,
+            )
+        schedule_item.item_status = "canceled"
+        schedule_item.canceled_reason = cancel_reason or "手动取消调度任务项。"
+        schedule_item.latest_result_summary = {"canceled_reason": schedule_item.canceled_reason}
+        schedule_item.save(
+            update_fields=[
+                "item_status",
+                "canceled_reason",
+                "latest_result_summary",
+                "updated_at",
+            ]
+        )
+        self._refresh_schedule_batch_aggregate(schedule_batch)
+        self._create_audit_log(
+            project=schedule_batch.project,
+            actor_name=scheduler,
+            action_type="cancel_schedule_item",
+            action_result="succeeded",
+            target_type="schedule_item",
+            target_id=schedule_item.schedule_item_id,
+            scenario=schedule_item.scenario,
+            detail_message="已取消调度任务项。",
+            metadata={"cancel_reason": schedule_item.canceled_reason},
+        )
+        return self._build_schedule_item_summary(schedule_item)
 
     def _build_governance_summary(self, scenario: ScenarioRecord) -> dict:
         """构造场景级治理上下文摘要。"""
@@ -1267,6 +1824,7 @@ class FunctionalCaseScenarioService:
         environment_code: str | None = None,
         workspace_root: str | Path | None = None,
         operator: str | None = None,
+        trigger_source: str = "manual",
     ) -> ScenarioExecutionRecord:
         """执行场景并回写统一结果摘要。"""
         self.governance_service.ensure_bootstrap()
@@ -1362,7 +1920,7 @@ class FunctionalCaseScenarioService:
                 workspace_root=pipeline_result.asset_manifest.workspace_root,
                 report_path=pipeline_result.execution_record.report_path or "",
                 failure_summary=failure_summary,
-                trigger_source="manual",
+                trigger_source=trigger_source,
                 based_on_revision_id=self._get_latest_revision_id(scenario),
                 based_on_suggestion_id=self._get_latest_applied_suggestion_id(scenario),
                 change_summary={},

@@ -1,5 +1,44 @@
 # 当前发现
 
+## 2026-04-16 V3 P1 G4 调度与执行中心发现
+- 当前 `P1-G4` 的真正缺口不是“再造一个执行引擎”，而是现有平台缺少正式的调度事实层；如果直接把批量执行、重试和取消写成临时脚本，会破坏 `scenario_service` 已建立的统一事实源方向。
+- 本轮首批实现采用“调度批次对象 + 调度任务项对象 + 继续复用 `request_execution()`”的方案：
+  - 不新建第二套执行器；
+  - 不引入独立异步 worker 或消息队列；
+  - 先把当前阶段真正需要验收的队列状态、重试、取消和聚合摘要落到正式 MySQL 表结构。
+- 调度中心的隔离边界必须继续前置在服务层，而不是交给 UI 或调用方约定：
+  - 同一批次内混入跨项目场景会被直接阻断；
+  - 混入跨环境或跨场景集场景同样会被阻断；
+  - 重试只允许作用于 `failed / canceled` 项，取消只允许作用于 `queued` 项。
+- 本轮为了在正式 MySQL 和公开基线场景下稳定复现失败分支，失败用例继续采用“不受支持的公开基线操作绑定”来构造；这样既能稳定触发 `failed`，又不会污染项目边界判断。
+- 工作台调度中心当前刻意保持最小可验收形态：
+  - 可查看调度中心面板；
+  - 可基于当前选中场景创建最小调度批次；
+  - 可查看批次详情、任务项状态与聚合摘要；
+  - 目前不扩张到复杂 cron、异步 worker 或跨项目编排。
+- 当前 `P1-G4` 首批结果已成立：
+  - `service_tests/test_v3_p1_scheduling_execution_center.py` -> `6 passed`
+  - `service_tests` -> `47 passed`
+  - `tests/platform_core` -> `71 passed`
+  - `tests` -> `79 passed`
+  - `api_test/tests` -> `39 passed`
+  - `/ui/v3/workbench/` 浏览器调度中心冒烟通过，控制台无报错
+
+## 2026-04-15 V3 P1 G3 Web 正式入口与 Windows Demo 发现
+- 当前 `P1-G3` 的真正缺口不是“页面不够新”，而是当前工作台仍停留在 `V2` 语义：没有承接 `actor / reviewer / operator`，也没有消费 `P1-G1 / G2` 已经落地的授权、审计和抓包正式执行契约。
+- 当前仓库没有 React/Tauri/Electron 工程，也没有 Rust 工具链；在这个前提下，继续强行新建 Tauri 工程只会把 `G3` 从入口深化做成工具链阻塞。
+- 本轮首批实现采用“`/ui/v3/workbench/` + Windows Demo manifest + PowerShell 启动器”的方案：
+  - 浏览器端和 Windows Demo 共用同一工作台路由；
+  - Windows 端通过本地启动器进入同一 URL，而不是引入独立缓存或二次转换层；
+  - `Tauri` 继续保留为后续阶段性打包复验优先壳方案，不在当前无工具链条件下伪落地。
+- Windows PowerShell 5 对无 BOM 的非 ASCII 脚本解析不稳定；为了让 dry-run 和启动器在当前机器上稳定执行，本轮把 `launch_v3_workbench_demo.ps1` 收口为 ASCII 脚本，并把中文策略说明保留在文档和 manifest 中。
+- 当前 `P1-G3` 首批结果已成立：
+  - `service_tests/test_v3_p1_entry_windows_demo.py` -> `3 passed`
+  - `service_tests` -> `41 passed`
+  - `tests/platform_core` -> `71 passed`
+  - `tests` -> `79 passed`
+  - `api_test/tests` -> `39 passed`
+
 ## 2026-04-15 V3 P1 G2 抓包正式执行闭环发现
 - 当前 `P1-G2` 的真正缺口不是“抓包导入”，而是导入后的正式治理层缺失：没有正式确认对象、没有绑定确认动作，也没有执行前门禁，因此执行入口会直接落到旧的 `unsupported_public_baseline_operation` 错误。
 - 本轮首批实现采用“抓包场景继续复用 `ScenarioRecord`，另增 `TrafficCaptureFormalizationRecord` 承接确认态与绑定态”的方案，避免为抓包路线再造一套平行场景或执行体系。

@@ -9,6 +9,8 @@ from scenario_service.models import (
     GovernanceMigrationRecord,
     ProjectRecord,
     ScenarioExecutionRecord,
+    ScenarioScheduleBatchRecord,
+    ScenarioScheduleItemRecord,
     ScenarioRecord,
     ScenarioReviewRecord,
     ScenarioSetRecord,
@@ -26,3 +28,5 @@ admin.site.register(ScenarioRecord)
 admin.site.register(ScenarioStepRecord)
 admin.site.register(ScenarioReviewRecord)
 admin.site.register(ScenarioExecutionRecord)
+admin.site.register(ScenarioScheduleBatchRecord)
+admin.site.register(ScenarioScheduleItemRecord)

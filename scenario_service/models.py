@@ -375,6 +375,81 @@ class ScenarioExecutionRecord(models.Model):
         ordering = ["-created_at", "-id"]
 
 
+class ScenarioScheduleBatchRecord(models.Model):
+    """调度批次治理对象。"""
+
+    schedule_batch_id = models.CharField(max_length=128, unique=True)
+    project = models.ForeignKey(ProjectRecord, related_name="schedule_batches", on_delete=models.PROTECT)
+    environment = models.ForeignKey(TestEnvironmentRecord, related_name="schedule_batches", on_delete=models.PROTECT)
+    scenario_set = models.ForeignKey(
+        ScenarioSetRecord,
+        related_name="schedule_batches",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+    )
+    baseline_version = models.ForeignKey(
+        BaselineVersionRecord,
+        related_name="schedule_batches",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+    )
+    created_by = models.CharField(max_length=128)
+    queue_status = models.CharField(max_length=32, default="queued")
+    dispatch_strategy = models.CharField(max_length=32, default="immediate")
+    trigger_source = models.CharField(max_length=32, default="schedule_batch")
+    workspace_root = models.CharField(max_length=255, blank=True, default="")
+    aggregate_summary = models.JSONField(default=dict)
+    metadata = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self) -> str:
+        """返回便于后台查看的调度批次标识。"""
+        return f"{self.project.project_code}/{self.schedule_batch_id}({self.queue_status})"
+
+
+class ScenarioScheduleItemRecord(models.Model):
+    """调度批次中的场景级任务项。"""
+
+    schedule_item_id = models.CharField(max_length=128, unique=True)
+    schedule_batch = models.ForeignKey(
+        ScenarioScheduleBatchRecord,
+        related_name="items",
+        on_delete=models.CASCADE,
+    )
+    scenario = models.ForeignKey(ScenarioRecord, related_name="schedule_items", on_delete=models.PROTECT)
+    execution = models.ForeignKey(
+        ScenarioExecutionRecord,
+        related_name="schedule_items",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    item_order = models.PositiveIntegerField(default=1)
+    item_status = models.CharField(max_length=32, default="queued")
+    retry_policy = models.JSONField(default=dict)
+    retry_count = models.PositiveIntegerField(default=0)
+    max_retry_count = models.PositiveIntegerField(default=0)
+    failure_reason = models.TextField(blank=True, default="")
+    canceled_reason = models.TextField(blank=True, default="")
+    latest_result_summary = models.JSONField(default=dict)
+    metadata = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["item_order", "id"]
+
+    def __str__(self) -> str:
+        """返回便于后台查看的调度任务项标识。"""
+        return f"{self.schedule_batch.schedule_batch_id}/{self.schedule_item_id}({self.item_status})"
+
+
 class ScenarioAuditLogRecord(models.Model):
     """关键治理动作审计日志记录。"""
 

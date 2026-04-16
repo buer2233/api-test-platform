@@ -10,6 +10,10 @@ from scenario_service.views import (
     GovernanceContextQueryView,
     GovernanceMigrationStatusView,
     ProjectRoleAssignmentView,
+    ScheduleBatchDetailView,
+    ScheduleBatchListCreateView,
+    ScheduleItemCancelView,
+    ScheduleItemRetryView,
     ScenarioListView,
     ScenarioAuditLogListView,
     ScenarioDetailView,
@@ -23,6 +27,7 @@ from scenario_service.views import (
     TrafficCaptureBindingConfirmView,
     TrafficCaptureConfirmView,
     TrafficCaptureImportView,
+    WindowsDemoManifestView,
 )
 
 
@@ -30,8 +35,25 @@ urlpatterns = [
     path("", ScenarioListView.as_view(), name="scenario-list"),
     path("governance/context/", GovernanceContextQueryView.as_view(), name="governance-context"),
     path("governance/migration-status/", GovernanceMigrationStatusView.as_view(), name="governance-migration-status"),
+    path("governance/windows-demo/", WindowsDemoManifestView.as_view(), name="governance-windows-demo"),
     path("governance/access-grants/", ProjectRoleAssignmentView.as_view(), name="governance-access-grants"),
     path("governance/audit-logs/", ScenarioAuditLogListView.as_view(), name="governance-audit-logs"),
+    path("governance/schedule-batches/", ScheduleBatchListCreateView.as_view(), name="governance-schedule-batches"),
+    path(
+        "governance/schedule-batches/<str:schedule_batch_id>/",
+        ScheduleBatchDetailView.as_view(),
+        name="governance-schedule-batch-detail",
+    ),
+    path(
+        "governance/schedule-batches/<str:schedule_batch_id>/items/<str:schedule_item_id>/retry/",
+        ScheduleItemRetryView.as_view(),
+        name="governance-schedule-item-retry",
+    ),
+    path(
+        "governance/schedule-batches/<str:schedule_batch_id>/items/<str:schedule_item_id>/cancel/",
+        ScheduleItemCancelView.as_view(),
+        name="governance-schedule-item-cancel",
+    ),
     path(
         "governance/baseline-versions/activate/",
         BaselineVersionActivateView.as_view(),
