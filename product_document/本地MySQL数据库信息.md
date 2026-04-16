@@ -65,16 +65,16 @@
 - 2026-04-15 起 `platform_service.test_settings` 已切换为正式 MySQL 基线配置，后续服务测试与浏览器冒烟不再允许回退到 SQLite。
 - 2026-04-15 已验证服务测试运行期数据库连接直接指向 `api_test_platform`，`SELECT DATABASE()` 返回 `api_test_platform`。
 - 2026-04-15 起 `service_tests` 已取消自动清库策略，测试数据、浏览器点测数据和数据库事实数据默认保留。
-- 2026-04-16 已完成 `P1-G1 / P1-G2 / P1-G3 / P1-G4` 首批权限审计、抓包正式执行、Web / Windows Demo 与调度中心回归，最新验证结果为：`service_tests/test_v3_p1_permission_audit.py=3 passed`、`service_tests/test_v3_p1_traffic_capture_execution.py=3 passed`、`service_tests/test_v3_p1_entry_windows_demo.py=3 passed`、`service_tests/test_v3_p1_scheduling_execution_center.py=6 passed`、`service_tests=47 passed`。
+- 2026-04-16 已完成 `P1-G1 / P1-G2 / P1-G3 / P1-G4` 首批权限审计、抓包正式执行、Web / Windows Demo 与调度中心回归，并完成 `P1` 独立验收收口；最新验证结果为：`P1验收级专项=15 passed`、`service_tests=47 passed`、`tests/platform_core=71 passed`、`tests=79 passed`、`api_test/tests=39 passed`、`windows_demo/launch_v3_workbench_demo.ps1 -DryRun` 返回稳定启动清单。
 - 2026-04-16 最近一次留存数据快照：
-  - `project_count=146`
-  - `environment_count=196`
-  - `scenario_set_count=196`
-  - `baseline_version_count=197`
-  - `migration_count=9`
-  - `scenario_count=249`
-  - `execution_count=86`
-  - `traffic_capture_formalization_count=23`
-  - `schedule_batch_count=25`
-  - `schedule_item_count=37`
+  - `project_count=187`
+  - `environment_count=261`
+  - `scenario_set_count=261`
+  - `baseline_version_count=262`
+  - `migration_count=10`
+  - `scenario_count=316`
+  - `execution_count=113`
+  - `traffic_capture_formalization_count=31`
+  - `schedule_batch_count=50`
+  - `schedule_item_count=74`
 - 如后续执行新的 Django migration，本文件中的表清单需要同步更新。

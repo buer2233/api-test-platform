@@ -1,5 +1,24 @@
 # 会话进展
 
+## 2026-04-16 V3 P1 独立验收收口
+
+### 已完成
+- 已复核 `V3阶段工作计划文档.md`、`详细测试用例说明书(V3-总索引).md`、`详细测试用例说明书(V3-P1).md` 与当前仓库状态，确认 `P1` 当前剩余工作不再是新功能，而是独立验收收口与正式归档。
+- 已完成 `P1` 验收级定向回归：
+  - `service_tests/test_v3_p1_permission_audit.py`
+  - `service_tests/test_v3_p1_traffic_capture_execution.py`
+  - `service_tests/test_v3_p1_entry_windows_demo.py`
+  - `service_tests/test_v3_p1_scheduling_execution_center.py`
+  - 合并结果：`15 passed`
+- 已完成 Windows Demo 启动器 dry-run：
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File windows_demo/launch_v3_workbench_demo.ps1 -BaseUrl http://127.0.0.1:18080 -DryRun`
+  - 已返回稳定启动清单，包含 `launch_mode=browser_first`、`tauri_priority=true`、`browser_command=msedge --app=http://127.0.0.1:18080/ui/v3/workbench/`
+- 已新增 `product_document/阶段文档/V3阶段P1独立验收报告.md`，并同步更新 README、V3 阶段文档、V3 P1 测试文档、V3 总索引、本地 MySQL 文档与本地记录。
+
+### 下一步
+- `P1` 已完成独立验收，后续应准备进入 `P2` 预留项或等待新的阶段指令。
+- 当前不再继续扩大 `P1` 范围。
+
 ## 2026-04-16 V3 P1 G4 调度与执行中心
 
 ### 已完成
