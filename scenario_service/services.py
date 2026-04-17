@@ -16,6 +16,8 @@ from platform_core.services import PlatformApplicationService
 from platform_core.traffic_capture import TrafficCaptureDraftParser
 from scenario_service.governance import GovernanceBootstrapService
 from scenario_service.models import (
+    AiGovernancePolicyRecord,
+    AiSuggestionDecisionRecord,
     ProjectRoleAssignmentRecord,
     ScenarioExecutionRecord,
     ScenarioAuditLogRecord,
@@ -120,6 +122,8 @@ ROLE_PERMISSION_TEMPLATES = {
         "can_grant": True,
     },
 }
+DEFAULT_AI_SUGGESTION_TYPES = ["assertion_completion", "low_confidence_repair", "step_patch"]
+AI_SUGGESTION_MUTABLE_STATES = {"pending_approval", "approved", "rejected", "adopted", "rolled_back", "pending", "applied"}
 
 
 class FunctionalCaseScenarioService:
@@ -320,6 +324,44 @@ class FunctionalCaseScenarioService:
             "detail_message": audit_log.detail_message,
             "metadata": audit_log.metadata,
             "created_at": audit_log.created_at.isoformat(),
+        }
+
+    @staticmethod
+    def _build_ai_policy_summary(policy: AiGovernancePolicyRecord) -> dict:
+        """构造 AI 治理策略摘要。"""
+        return {
+            "policy_id": policy.policy_id,
+            "project_code": policy.project.project_code,
+            "scope_type": policy.scope_type,
+            "scope_ref": policy.scope_ref,
+            "suggestion_types": policy.suggestion_types,
+            "approval_mode": policy.approval_mode,
+            "rollback_mode": policy.rollback_mode,
+            "auto_execution_enabled": policy.auto_execution_enabled,
+            "metadata": policy.metadata,
+            "created_at": policy.created_at.isoformat(),
+            "updated_at": policy.updated_at.isoformat(),
+        }
+
+    @staticmethod
+    def _build_ai_decision_summary(decision: AiSuggestionDecisionRecord) -> dict:
+        """构造 AI 建议责任链摘要。"""
+        return {
+            "decision_id": decision.decision_id,
+            "suggestion_id": decision.suggestion.suggestion_id,
+            "project_code": decision.project.project_code,
+            "scenario_id": decision.scenario.scenario_id,
+            "decision_type": decision.decision_type,
+            "decision_status": decision.decision_status,
+            "actor_name": decision.actor_name,
+            "decision_comment": decision.decision_comment,
+            "snapshot_before": decision.snapshot_before,
+            "snapshot_after": decision.snapshot_after,
+            "related_revision_id": decision.related_revision_id,
+            "related_execution_id": decision.related_execution_id,
+            "metadata": decision.metadata,
+            "created_at": decision.created_at.isoformat(),
+            "updated_at": decision.updated_at.isoformat(),
         }
 
     @staticmethod
@@ -659,6 +701,44 @@ class FunctionalCaseScenarioService:
             status_code=400,
         )
 
+    def _ensure_ai_suggestion_execution_ready(
+        self,
+        *,
+        scenario: ScenarioRecord,
+        actor_name: str | None,
+        trigger_source: str,
+        suggestion_id: str | None,
+    ) -> ScenarioSuggestionRecord | None:
+        """在 AI 建议触发执行前校验审批与采纳门禁。"""
+        if trigger_source != "ai_suggestion":
+            return None
+        if not suggestion_id:
+            raise ScenarioServiceError(
+                code="ai_suggestion_id_required",
+                message="AI 建议执行必须显式指定 suggestion_id。",
+                status_code=400,
+            )
+        suggestion = self._get_suggestion_record(scenario=scenario, suggestion_id=suggestion_id)
+        if suggestion.apply_status == "adopted":
+            return suggestion
+        if actor_name:
+            self._create_audit_log(
+                project=scenario.project,
+                actor_name=actor_name,
+                action_type="execute_scenario",
+                action_result="blocked",
+                target_type="scenario_suggestion",
+                target_id=suggestion.suggestion_id,
+                scenario=scenario,
+                detail_message="AI 建议尚未完成审批与采纳，禁止触发正式执行。",
+                metadata={"reason_code": "ai_suggestion_approval_required"},
+            )
+        raise ScenarioServiceError(
+            code="ai_suggestion_approval_required",
+            message="AI 建议未完成审批与采纳，禁止直接触发正式执行。",
+            status_code=400,
+        )
+
     @staticmethod
     def _resolve_role_permissions(role_code: str) -> dict[str, bool]:
         """返回角色编码对应的权限模板。"""
@@ -839,6 +919,185 @@ class FunctionalCaseScenarioService:
         if action_result:
             queryset = queryset.filter(action_result=action_result)
         return [self._build_audit_log_summary(item) for item in queryset.order_by("-created_at", "-id")]
+
+    @staticmethod
+    def _get_or_create_ai_policy(
+        *,
+        project,
+    ) -> AiGovernancePolicyRecord:
+        """获取项目默认 AI 治理策略，不存在时自动补齐。"""
+        policy, _ = AiGovernancePolicyRecord.objects.get_or_create(
+            project=project,
+            scope_type="project",
+            scope_ref=project.project_code,
+            defaults={
+                "policy_id": f"ai-policy-{project.project_code}",
+                "suggestion_types": list(DEFAULT_AI_SUGGESTION_TYPES),
+                "approval_mode": "manual_review",
+                "rollback_mode": "snapshot_restore",
+                "auto_execution_enabled": False,
+                "metadata": {"created_by": "system"},
+            },
+        )
+        return policy
+
+    def ensure_ai_governance_policy(
+        self,
+        *,
+        project_code: str,
+        operator: str,
+        scope_type: str = "project",
+        scope_ref: str = "",
+        suggestion_types: list[str] | None = None,
+        approval_mode: str = "manual_review",
+        rollback_mode: str = "snapshot_restore",
+        auto_execution_enabled: bool = False,
+    ) -> dict:
+        """创建或更新项目级 AI 治理策略。"""
+        context = self.governance_service.resolve_context(project_code=project_code)
+        if operator != SUPER_ADMIN_ACTOR:
+            self._authorize_project_action(
+                project=context.project,
+                actor_name=operator,
+                action_type="configure_ai_governance_policy",
+                required_permission="can_grant",
+                target_type="project",
+                target_id=context.project.project_id,
+                detail_message="尝试配置 AI 治理策略。",
+            )
+        resolved_scope_ref = scope_ref or project_code
+        with transaction.atomic():
+            policy, created = AiGovernancePolicyRecord.objects.update_or_create(
+                project=context.project,
+                scope_type=scope_type,
+                scope_ref=resolved_scope_ref,
+                defaults={
+                    "policy_id": f"ai-policy-{context.project.project_code}-{scope_type}-{resolved_scope_ref}",
+                    "suggestion_types": list(suggestion_types or DEFAULT_AI_SUGGESTION_TYPES),
+                    "approval_mode": approval_mode,
+                    "rollback_mode": rollback_mode,
+                    "auto_execution_enabled": bool(auto_execution_enabled),
+                    "metadata": {
+                        "last_operator": operator,
+                    },
+                },
+            )
+            self._create_audit_log(
+                project=context.project,
+                actor_name=operator,
+                action_type="configure_ai_governance_policy",
+                action_result="succeeded",
+                target_type="ai_governance_policy",
+                target_id=policy.policy_id,
+                detail_message="已更新 AI 治理策略。",
+                metadata={"created": created},
+            )
+        return self._build_ai_policy_summary(policy)
+
+    def list_ai_governance_policies(self, *, project_code: str) -> list[dict]:
+        """查询项目级 AI 治理策略。"""
+        context = self.governance_service.resolve_context(project_code=project_code)
+        policy = self._get_or_create_ai_policy(project=context.project)
+        return [self._build_ai_policy_summary(policy)]
+
+    @staticmethod
+    def _capture_scenario_snapshot(scenario: ScenarioRecord) -> dict:
+        """捕获当前场景用于回退的最小快照。"""
+        return {
+            "scenario_fields": {
+                "scenario_name": scenario.scenario_name,
+                "scenario_desc": scenario.scenario_desc,
+                "priority": scenario.priority,
+                "module_id": scenario.module_id,
+                "review_status": scenario.review_status,
+                "execution_status": scenario.execution_status,
+                "current_stage": scenario.current_stage,
+            },
+            "steps": [
+                {
+                    "step_id": step.step_id,
+                    "step_name": step.step_name,
+                    "operation_id": step.operation_id,
+                    "optional": step.optional,
+                    "retry_policy": step.retry_policy,
+                    "raw_step": dict((step.metadata or {}).get("raw_step") or {}),
+                }
+                for step in scenario.steps.all().order_by("step_order", "id")
+            ],
+        }
+
+    @staticmethod
+    def _restore_scenario_snapshot(scenario: ScenarioRecord, snapshot: dict) -> None:
+        """按快照恢复场景与步骤状态。"""
+        scenario_fields = snapshot.get("scenario_fields") or {}
+        for field_name in ("scenario_name", "scenario_desc", "priority", "module_id", "review_status", "execution_status", "current_stage"):
+            if field_name in scenario_fields:
+                setattr(scenario, field_name, scenario_fields[field_name])
+        scenario.save(
+            update_fields=[
+                "scenario_name",
+                "scenario_desc",
+                "priority",
+                "module_id",
+                "review_status",
+                "execution_status",
+                "current_stage",
+                "updated_at",
+            ]
+        )
+        for step_snapshot in snapshot.get("steps") or []:
+            step = scenario.steps.get(step_id=step_snapshot["step_id"])
+            raw_step = dict(step_snapshot.get("raw_step") or {})
+            step.step_name = step_snapshot.get("step_name", step.step_name)
+            step.operation_id = step_snapshot.get("operation_id", step.operation_id)
+            step.optional = bool(step_snapshot.get("optional", step.optional))
+            step.retry_policy = step_snapshot.get("retry_policy") or {}
+            step.input_bindings = list((raw_step.get("uses") or {}).keys())
+            step.expected_bindings = list((raw_step.get("expected") or {}).keys())
+            step.metadata = {**(step.metadata or {}), "raw_step": raw_step}
+            step.save(
+                update_fields=[
+                    "step_name",
+                    "operation_id",
+                    "optional",
+                    "retry_policy",
+                    "input_bindings",
+                    "expected_bindings",
+                    "metadata",
+                ]
+            )
+
+    @staticmethod
+    def _create_ai_decision_record(
+        *,
+        project,
+        scenario: ScenarioRecord,
+        suggestion: ScenarioSuggestionRecord,
+        decision_type: str,
+        actor_name: str,
+        decision_comment: str = "",
+        snapshot_before: dict | None = None,
+        snapshot_after: dict | None = None,
+        related_revision_id: str = "",
+        related_execution_id: str = "",
+        metadata: dict | None = None,
+    ) -> AiSuggestionDecisionRecord:
+        """写入一条 AI 建议责任链记录。"""
+        return AiSuggestionDecisionRecord.objects.create(
+            decision_id=f"ai-decision-{uuid4().hex[:12]}",
+            project=project,
+            scenario=scenario,
+            suggestion=suggestion,
+            decision_type=decision_type,
+            decision_status="completed",
+            actor_name=actor_name,
+            decision_comment=decision_comment,
+            snapshot_before=snapshot_before or {},
+            snapshot_after=snapshot_after or {},
+            related_revision_id=related_revision_id,
+            related_execution_id=related_execution_id,
+            metadata=metadata or {},
+        )
 
     @staticmethod
     def _get_schedule_batch(schedule_batch_id: str) -> ScenarioScheduleBatchRecord:
@@ -1378,9 +1637,12 @@ class FunctionalCaseScenarioService:
     @staticmethod
     def _build_suggestion_records(scenario: ScenarioRecord) -> list[dict]:
         """构造场景详情和建议查询使用的建议记录摘要。"""
+        policy = FunctionalCaseScenarioService._get_or_create_ai_policy(project=scenario.project)
         return [
             {
                 "suggestion_id": suggestion.suggestion_id,
+                "scenario_id": scenario.scenario_id,
+                "project_code": scenario.project.project_code if scenario.project else "",
                 "suggestion_type": suggestion.suggestion_type,
                 "target_type": suggestion.target_type,
                 "target_id": suggestion.target_id,
@@ -1389,10 +1651,53 @@ class FunctionalCaseScenarioService:
                 "diff_summary": suggestion.diff_summary,
                 "confidence": suggestion.confidence,
                 "apply_status": suggestion.apply_status,
+                "approval_required": policy.approval_mode == "manual_review",
+                "policy_summary": FunctionalCaseScenarioService._build_ai_policy_summary(policy),
+                "decision_records": [
+                    FunctionalCaseScenarioService._build_ai_decision_summary(item)
+                    for item in suggestion.decision_records.all().order_by("-created_at", "-id")
+                ],
                 "created_at": suggestion.created_at.isoformat(),
+                "updated_at": suggestion.updated_at.isoformat(),
             }
             for suggestion in scenario.suggestions.all().order_by("-created_at", "-id")
         ]
+
+    @staticmethod
+    def _build_ai_governance_summary(scenario: ScenarioRecord) -> dict:
+        """构造场景级 AI 治理摘要。"""
+        policy = FunctionalCaseScenarioService._get_or_create_ai_policy(project=scenario.project)
+        suggestions = list(scenario.suggestions.all().order_by("-created_at", "-id"))
+        status_counts = {
+            "pending_approval_count": 0,
+            "approved_count": 0,
+            "rejected_count": 0,
+            "adopted_count": 0,
+            "rolled_back_count": 0,
+        }
+        for suggestion in suggestions:
+            if suggestion.apply_status == "pending_approval":
+                status_counts["pending_approval_count"] += 1
+            elif suggestion.apply_status == "approved":
+                status_counts["approved_count"] += 1
+            elif suggestion.apply_status == "rejected":
+                status_counts["rejected_count"] += 1
+            elif suggestion.apply_status in {"adopted", "applied"}:
+                status_counts["adopted_count"] += 1
+            elif suggestion.apply_status == "rolled_back":
+                status_counts["rolled_back_count"] += 1
+        latest_decision = (
+            AiSuggestionDecisionRecord.objects.filter(scenario=scenario)
+            .order_by("-created_at", "-id")
+            .first()
+        )
+        return {
+            "policy_summary": FunctionalCaseScenarioService._build_ai_policy_summary(policy),
+            "status_counts": status_counts,
+            "latest_decision": FunctionalCaseScenarioService._build_ai_decision_summary(latest_decision)
+            if latest_decision
+            else None,
+        }
 
     @staticmethod
     def _build_source_summary(scenario: ScenarioRecord) -> dict[str, int]:
@@ -1520,6 +1825,7 @@ class FunctionalCaseScenarioService:
                 for revision in scenario.revisions.all().order_by("revised_at", "id")
             ],
             "suggestions": self._build_suggestion_records(scenario),
+            "ai_governance": self._build_ai_governance_summary(scenario),
             "source_traces": self._build_source_traces(scenario),
             **self._build_governance_summary(scenario),
         }
@@ -1589,6 +1895,63 @@ class FunctionalCaseScenarioService:
         """返回治理入口使用的上下文树。"""
         return self.governance_service.build_context_tree()
 
+    def build_workbench_shell_context(self) -> dict:
+        """返回主工作台三段式壳层渲染所需的最小上下文。"""
+        return {
+            "page_title": "V3 场景工作台",
+            "page_subtitle": "当前阶段先收敛为三段式主工作台骨架，承接后续抓包、用例列表和详情面板演进。",
+            "tree_nodes": [
+                "接口自动化主线",
+                "JSONPlaceholder 公共回归",
+                "已导入场景集",
+            ],
+            "capture_actions": [
+                "导入功能测试用例",
+                "导入抓包草稿",
+            ],
+            "testcase_cards": [
+                {
+                    "title": "用户查询主线场景",
+                    "meta": "GET /users/{id} · 基线用例",
+                },
+                {
+                    "title": "文章与评论联动场景",
+                    "meta": "GET /posts + /comments · 依赖编排",
+                },
+            ],
+            "detail_summary": {
+                "scenario_name": "用户查询主线场景",
+                "review_status": "pending_approval",
+                "execution_status": "not_started",
+            },
+            "detail_tabs": [
+                {"testid": "detail-tab-method-chain", "label": "方法链"},
+                {"testid": "detail-tab-execution-history", "label": "历史执行"},
+                {"testid": "detail-tab-allure-report", "label": "测试报告"},
+            ],
+            "linked_endpoints": [
+                "/api/v2/scenarios/",
+                "/api/v2/scenarios/governance/access-grants/",
+                "/api/v2/scenarios/governance/audit-logs/",
+                "/api/v2/scenarios/governance/windows-demo/",
+                "/api/v2/scenarios/governance/schedule-batches/",
+                "/api/v2/scenarios/governance/ai-policies/",
+            ],
+            "legacy_panels": [
+                {"testid": "actor-panel", "title": "治理操作者", "body": "保留治理入口占位，等待后续细化。"},
+                {"testid": "access-grant-panel", "title": "项目授权", "body": "保留角色授权入口的兼容占位。"},
+                {"testid": "schedule-center-panel", "title": "调度与执行中心", "body": "承接批量调度和重试记录。"},
+                {"testid": "audit-log-panel", "title": "审计日志", "body": "保留治理留痕摘要占位。"},
+                {
+                    "testid": "traffic-capture-formalization-panel",
+                    "title": "抓包正式化",
+                    "body": "traffic_capture_formalization",
+                },
+                {"testid": "windows-demo-panel", "title": "Windows Demo", "body": "浏览器先验与桌面复验共享入口。"},
+                {"testid": "ai-governance-panel", "title": "AI 治理状态", "body": "pending_approval / rolled_back"},
+            ],
+        }
+
     def activate_baseline_version(
         self,
         *,
@@ -1651,6 +2014,23 @@ class FunctionalCaseScenarioService:
     def create_suggestions(self, scenario_id: str, requester: str, suggestion_type: str) -> list[dict]:
         """为指定场景生成并持久化建议记录。"""
         scenario = self._get_scenario(scenario_id=scenario_id)
+        self._authorize_project_action(
+            project=scenario.project,
+            actor_name=requester,
+            action_type="create_ai_suggestion",
+            required_permission="can_edit",
+            target_type="scenario",
+            target_id=scenario.scenario_id,
+            scenario=scenario,
+            detail_message="尝试生成 AI 建议。",
+        )
+        policy = self._get_or_create_ai_policy(project=scenario.project)
+        if suggestion_type not in policy.suggestion_types:
+            raise ScenarioServiceError(
+                code="ai_suggestion_type_not_allowed",
+                message="当前项目 AI 治理策略不允许该建议类型。",
+                status_code=400,
+            )
         suggestion_payloads = self.suggestion_provider.generate(scenario, suggestion_type)
         if not suggestion_payloads:
             raise ScenarioServiceError(
@@ -1672,18 +2052,157 @@ class FunctionalCaseScenarioService:
                 diff_summary={
                     **payload.get("diff_summary", {}),
                     "requester": requester,
+                    "policy_id": policy.policy_id,
                 },
                 confidence=payload.get("confidence", "medium"),
-                apply_status="pending",
+                apply_status="pending_approval",
             )
             for payload in suggestion_payloads
         ]
+        self._create_audit_log(
+            project=scenario.project,
+            actor_name=requester,
+            action_type="create_ai_suggestion",
+            action_result="succeeded",
+            target_type="scenario",
+            target_id=scenario.scenario_id,
+            scenario=scenario,
+            detail_message="已生成 AI 建议。",
+            metadata={"suggestion_count": len(records), "suggestion_type": suggestion_type},
+        )
         return self._build_suggestion_records(scenario)
 
-    def list_suggestions(self, scenario_id: str) -> list[dict]:
+    def list_suggestions(self, scenario_id: str, actor: str | None = None) -> list[dict]:
         """返回指定场景的建议记录列表。"""
         scenario = self._get_scenario(scenario_id=scenario_id)
+        if actor:
+            self._authorize_project_action(
+                project=scenario.project,
+                actor_name=actor,
+                action_type="view_ai_suggestion",
+                required_permission="can_view",
+                target_type="scenario",
+                target_id=scenario.scenario_id,
+                scenario=scenario,
+                detail_message="尝试查看 AI 建议。",
+            )
         return self._build_suggestion_records(scenario)
+
+    @staticmethod
+    def _get_suggestion_record(
+        *,
+        scenario: ScenarioRecord,
+        suggestion_id: str,
+    ) -> ScenarioSuggestionRecord:
+        """按场景边界加载建议记录。"""
+        try:
+            return scenario.suggestions.get(suggestion_id=suggestion_id)
+        except ScenarioSuggestionRecord.DoesNotExist as error:
+            raise ScenarioServiceError(
+                code="scenario_suggestion_not_found",
+                message=f"未找到建议: {suggestion_id}",
+                status_code=404,
+            ) from error
+
+    @transaction.atomic
+    def approve_suggestion(
+        self,
+        *,
+        scenario_id: str,
+        suggestion_id: str,
+        actor: str,
+        decision_comment: str = "",
+    ) -> dict:
+        """审批通过一条 AI 建议。"""
+        scenario = self._get_scenario(scenario_id=scenario_id)
+        suggestion = self._get_suggestion_record(scenario=scenario, suggestion_id=suggestion_id)
+        self._authorize_project_action(
+            project=scenario.project,
+            actor_name=actor,
+            action_type="approve_ai_suggestion",
+            required_permission="can_review",
+            target_type="scenario_suggestion",
+            target_id=suggestion.suggestion_id,
+            scenario=scenario,
+            detail_message="尝试审批 AI 建议。",
+        )
+        if suggestion.apply_status not in {"pending_approval", "rejected"}:
+            raise ScenarioServiceError(
+                code="ai_suggestion_approve_not_allowed",
+                message="当前建议状态不允许执行审批通过。",
+                status_code=400,
+            )
+        suggestion.apply_status = "approved"
+        suggestion.save(update_fields=["apply_status", "updated_at"])
+        self._create_ai_decision_record(
+            project=scenario.project,
+            scenario=scenario,
+            suggestion=suggestion,
+            decision_type="approve",
+            actor_name=actor,
+            decision_comment=decision_comment,
+        )
+        self._create_audit_log(
+            project=scenario.project,
+            actor_name=actor,
+            action_type="approve_ai_suggestion",
+            action_result="succeeded",
+            target_type="scenario_suggestion",
+            target_id=suggestion.suggestion_id,
+            scenario=scenario,
+            detail_message="已审批通过 AI 建议。",
+        )
+        return next(item for item in self._build_suggestion_records(scenario) if item["suggestion_id"] == suggestion_id)
+
+    @transaction.atomic
+    def reject_suggestion(
+        self,
+        *,
+        scenario_id: str,
+        suggestion_id: str,
+        actor: str,
+        decision_comment: str = "",
+    ) -> dict:
+        """拒绝一条 AI 建议。"""
+        scenario = self._get_scenario(scenario_id=scenario_id)
+        suggestion = self._get_suggestion_record(scenario=scenario, suggestion_id=suggestion_id)
+        self._authorize_project_action(
+            project=scenario.project,
+            actor_name=actor,
+            action_type="reject_ai_suggestion",
+            required_permission="can_review",
+            target_type="scenario_suggestion",
+            target_id=suggestion.suggestion_id,
+            scenario=scenario,
+            detail_message="尝试拒绝 AI 建议。",
+        )
+        if suggestion.apply_status not in {"pending_approval", "approved"}:
+            raise ScenarioServiceError(
+                code="ai_suggestion_reject_not_allowed",
+                message="当前建议状态不允许执行拒绝。",
+                status_code=400,
+            )
+        suggestion.apply_status = "rejected"
+        suggestion.save(update_fields=["apply_status", "updated_at"])
+        self._create_ai_decision_record(
+            project=scenario.project,
+            scenario=scenario,
+            suggestion=suggestion,
+            decision_type="reject",
+            actor_name=actor,
+            decision_comment=decision_comment,
+        )
+        self._create_audit_log(
+            project=scenario.project,
+            actor_name=actor,
+            action_type="reject_ai_suggestion",
+            action_result="succeeded",
+            target_type="scenario_suggestion",
+            target_id=suggestion.suggestion_id,
+            scenario=scenario,
+            detail_message="已拒绝 AI 建议。",
+        )
+        return next(item for item in self._build_suggestion_records(scenario) if item["suggestion_id"] == suggestion_id)
 
     def review_scenario(
         self,
@@ -1777,7 +2296,24 @@ class FunctionalCaseScenarioService:
         reviser: str,
         revision_comment: str | None = None,
     ) -> dict:
-        """采纳建议并转成标准修订记录。"""
+        """兼容旧入口：采纳建议并转成标准修订记录。"""
+        return self.adopt_suggestion(
+            scenario_id=scenario_id,
+            suggestion_id=suggestion_id,
+            actor=reviser,
+            revision_comment=revision_comment,
+        )
+
+    @transaction.atomic
+    def adopt_suggestion(
+        self,
+        *,
+        scenario_id: str,
+        suggestion_id: str,
+        actor: str,
+        revision_comment: str | None = None,
+    ) -> dict:
+        """采纳 AI 建议并转成标准修订记录。"""
         scenario = self._get_scenario(scenario_id=scenario_id)
         if scenario.execution_status == "running":
             raise ScenarioServiceError(
@@ -1785,37 +2321,135 @@ class FunctionalCaseScenarioService:
                 message="执行中的场景禁止采纳建议。",
                 status_code=400,
             )
-        try:
-            suggestion = scenario.suggestions.get(suggestion_id=suggestion_id)
-        except ScenarioSuggestionRecord.DoesNotExist as error:
-            raise ScenarioServiceError(
-                code="scenario_suggestion_not_found",
-                message=f"未找到建议: {suggestion_id}",
-                status_code=404,
-            ) from error
-
-        if suggestion.apply_status == "applied":
+        suggestion = self._get_suggestion_record(scenario=scenario, suggestion_id=suggestion_id)
+        self._authorize_project_action(
+            project=scenario.project,
+            actor_name=actor,
+            action_type="adopt_ai_suggestion",
+            required_permission="can_edit",
+            target_type="scenario_suggestion",
+            target_id=suggestion.suggestion_id,
+            scenario=scenario,
+            detail_message="尝试采纳 AI 建议。",
+        )
+        if suggestion.apply_status in {"adopted", "applied"}:
             raise ScenarioServiceError(
                 code="scenario_suggestion_already_applied",
                 message="该建议已采纳，无需重复处理。",
                 status_code=400,
             )
+        if suggestion.apply_status != "approved":
+            raise ScenarioServiceError(
+                code="ai_suggestion_not_approved",
+                message="AI 建议尚未审批通过，禁止采纳。",
+                status_code=400,
+            )
 
+        snapshot_before = self._capture_scenario_snapshot(scenario)
         patched_scenario = self._apply_revision_patch(
             scenario=scenario,
-            reviser=reviser,
+            reviser=actor,
             revision_comment=revision_comment or "采纳建议",
             scenario_patch=suggestion.patch_payload,
             suggestion_id=suggestion.suggestion_id,
         )
         latest_revision = patched_scenario.revisions.order_by("-revised_at", "-id").first()
-        suggestion.apply_status = "applied"
+        snapshot_after = self._capture_scenario_snapshot(patched_scenario)
+        suggestion.apply_status = "adopted"
         suggestion.save(update_fields=["apply_status", "updated_at"])
-        return {
-            "suggestion_id": suggestion.suggestion_id,
-            "apply_status": suggestion.apply_status,
-            "revision_id": latest_revision.revision_id if latest_revision else "",
-        }
+        self._create_ai_decision_record(
+            project=scenario.project,
+            scenario=scenario,
+            suggestion=suggestion,
+            decision_type="adopt",
+            actor_name=actor,
+            decision_comment=revision_comment or "采纳建议",
+            snapshot_before=snapshot_before,
+            snapshot_after=snapshot_after,
+            related_revision_id=latest_revision.revision_id if latest_revision else "",
+        )
+        self._create_audit_log(
+            project=scenario.project,
+            actor_name=actor,
+            action_type="adopt_ai_suggestion",
+            action_result="succeeded",
+            target_type="scenario_suggestion",
+            target_id=suggestion.suggestion_id,
+            scenario=scenario,
+            detail_message="已采纳 AI 建议并生成标准修订记录。",
+            metadata={"revision_id": latest_revision.revision_id if latest_revision else ""},
+        )
+        adopted_summary = next(item for item in self._build_suggestion_records(scenario) if item["suggestion_id"] == suggestion_id)
+        adopted_summary["revision_id"] = latest_revision.revision_id if latest_revision else ""
+        return adopted_summary
+
+    @transaction.atomic
+    def rollback_suggestion(
+        self,
+        *,
+        scenario_id: str,
+        suggestion_id: str,
+        actor: str,
+        rollback_comment: str = "",
+    ) -> dict:
+        """回退已经采纳的 AI 建议。"""
+        scenario = self._get_scenario(scenario_id=scenario_id)
+        suggestion = self._get_suggestion_record(scenario=scenario, suggestion_id=suggestion_id)
+        self._authorize_project_action(
+            project=scenario.project,
+            actor_name=actor,
+            action_type="rollback_ai_suggestion",
+            required_permission="can_edit",
+            target_type="scenario_suggestion",
+            target_id=suggestion.suggestion_id,
+            scenario=scenario,
+            detail_message="尝试回退 AI 建议。",
+        )
+        if suggestion.apply_status != "adopted":
+            raise ScenarioServiceError(
+                code="ai_suggestion_rollback_not_allowed",
+                message="当前建议状态不允许执行回退。",
+                status_code=400,
+            )
+        adopt_decision = (
+            suggestion.decision_records.filter(decision_type="adopt")
+            .order_by("-created_at", "-id")
+            .first()
+        )
+        if adopt_decision is None or not adopt_decision.snapshot_before:
+            raise ScenarioServiceError(
+                code="ai_suggestion_rollback_snapshot_missing",
+                message="当前建议缺少可用的回退快照。",
+                status_code=400,
+            )
+        current_snapshot = self._capture_scenario_snapshot(scenario)
+        self._restore_scenario_snapshot(scenario, adopt_decision.snapshot_before)
+        restored_snapshot = self._capture_scenario_snapshot(scenario)
+        suggestion.apply_status = "rolled_back"
+        suggestion.save(update_fields=["apply_status", "updated_at"])
+        self._create_ai_decision_record(
+            project=scenario.project,
+            scenario=scenario,
+            suggestion=suggestion,
+            decision_type="rollback",
+            actor_name=actor,
+            decision_comment=rollback_comment,
+            snapshot_before=current_snapshot,
+            snapshot_after=restored_snapshot,
+            related_revision_id=adopt_decision.related_revision_id,
+        )
+        self._create_audit_log(
+            project=scenario.project,
+            actor_name=actor,
+            action_type="rollback_ai_suggestion",
+            action_result="succeeded",
+            target_type="scenario_suggestion",
+            target_id=suggestion.suggestion_id,
+            scenario=scenario,
+            detail_message="已回退 AI 建议采纳结果。",
+            metadata={"related_revision_id": adopt_decision.related_revision_id},
+        )
+        return next(item for item in self._build_suggestion_records(scenario) if item["suggestion_id"] == suggestion_id)
 
     def request_execution(
         self,
@@ -1825,6 +2459,7 @@ class FunctionalCaseScenarioService:
         workspace_root: str | Path | None = None,
         operator: str | None = None,
         trigger_source: str = "manual",
+        suggestion_id: str | None = None,
     ) -> ScenarioExecutionRecord:
         """执行场景并回写统一结果摘要。"""
         self.governance_service.ensure_bootstrap()
@@ -1853,6 +2488,12 @@ class FunctionalCaseScenarioService:
                 detail_message="尝试触发场景执行。",
             )
         formalization = self._ensure_traffic_capture_execution_ready(scenario=scenario, actor_name=operator)
+        resolved_ai_suggestion = self._ensure_ai_suggestion_execution_ready(
+            scenario=scenario,
+            actor_name=operator,
+            trigger_source=trigger_source,
+            suggestion_id=suggestion_id,
+        )
         try:
             governance_context = self.governance_service.resolve_execution_context(
                 scenario=scenario,
@@ -1922,7 +2563,9 @@ class FunctionalCaseScenarioService:
                 failure_summary=failure_summary,
                 trigger_source=trigger_source,
                 based_on_revision_id=self._get_latest_revision_id(scenario),
-                based_on_suggestion_id=self._get_latest_applied_suggestion_id(scenario),
+                based_on_suggestion_id=resolved_ai_suggestion.suggestion_id
+                if resolved_ai_suggestion is not None
+                else self._get_latest_applied_suggestion_id(scenario),
                 change_summary={},
                 diff_summary=diff_summary,
             )
@@ -2097,7 +2740,9 @@ class FunctionalCaseScenarioService:
     @staticmethod
     def _get_latest_applied_suggestion_id(scenario: ScenarioRecord) -> str | None:
         """获取当前场景最近一次已采纳建议标识。"""
-        latest_suggestion = scenario.suggestions.filter(apply_status="applied").order_by("-updated_at", "-id").first()
+        latest_suggestion = (
+            scenario.suggestions.filter(apply_status__in=["adopted", "applied"]).order_by("-updated_at", "-id").first()
+        )
         return latest_suggestion.suggestion_id if latest_suggestion else None
 
     def _apply_revision_patch(
