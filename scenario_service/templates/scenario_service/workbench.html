@@ -220,12 +220,26 @@
             </div>
         </article>
 
-        <article class="panel middle-list-panel" data-testid="middle-list-panel">
+        <article
+            class="panel middle-list-panel"
+            data-testid="middle-list-panel"
+            data-default-view="{{ middle_panel_default_view }}"
+        >
             <div class="panel-header">
                 <h2>治理动作与导入</h2>
                 <p>中间列承接操作者信息、导入动作、项目授权和审计留痕，兼容现有 V3 管理面板。</p>
             </div>
             <div class="panel-body">
+                <section class="result-box">
+                    <span class="field-label">默认交互</span>
+                    <div class="button-row">
+                        <button class="button secondary" data-testid="capture-start-button">开始抓包</button>
+                        <button class="button secondary" data-testid="capture-stop-button">停止抓包</button>
+                        <button class="button secondary" data-testid="capture-import-button">导入抓包</button>
+                        <button class="button secondary" data-testid="method-list-secondary-entry">查看接口方法</button>
+                        <button class="button primary" data-testid="create-testcase-button">新增测试用例</button>
+                    </div>
+                </section>
                 <section class="result-box" data-testid="actor-panel">
                     <span class="field-label">治理操作者</span>
                     <div class="summary-grid">

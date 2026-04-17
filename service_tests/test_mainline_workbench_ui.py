@@ -96,3 +96,16 @@ def test_mainline_workbench_renders_three_column_layout_and_primary_regions():
     assert "traffic-capture-formalization-panel" in parser.descendants["right-detail-panel"]
     assert "windows-demo-panel" in parser.descendants["right-detail-panel"]
     assert "schedule-center-panel" in parser.descendants["right-detail-panel"]
+
+
+def test_submodule_defaults_to_testcase_list_not_method_list(service_test_token: str):
+    """子模块入口默认应展示测试用例列表，并保留查看接口方法的次级入口。"""
+    client = APIClient()
+
+    response = client.get("/ui/v3/workbench/")
+
+    assert response.status_code == 200
+    content = response.content.decode("utf-8")
+    assert 'data-default-view="testcase-list"' in content
+    assert 'data-testid="testcase-list-panel"' in content
+    assert 'data-testid="method-list-secondary-entry"' in content

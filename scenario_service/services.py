@@ -1902,6 +1902,7 @@ class FunctionalCaseScenarioService:
             "left_panel_title": "左侧树区",
             "middle_panel_title": "中部列表区",
             "right_panel_title": "右侧详情区",
+            "middle_panel_default_view": "testcase-list",
             "capture_primary_action": "导入功能测试用例",
             "capture_secondary_action": "导入抓包草稿",
             "method_chain_label": "方法链",
