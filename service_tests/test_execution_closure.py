@@ -121,3 +121,27 @@ def test_execute_scenario_blocks_unsupported_operation_binding_before_running_py
     assert scenario.execution_status == "not_started"
     assert scenario.workspace_root is None
     assert scenario.executions.count() == 0
+
+
+def test_get_scenario_result_exposes_allure_path_and_retry_flag(tmp_path, service_test_token: str):
+    """结果摘要应暴露 Allure 报告路径和失败重试标记。"""
+    service = FunctionalCaseScenarioService()
+    scenario = service.import_functional_case(build_executable_payload(service_test_token))
+    service.review_scenario(
+        scenario_id=scenario.scenario_id,
+        review_status="approved",
+        reviewer="qa-owner",
+        review_comment="可以执行",
+    )
+
+    service.request_execution(
+        scenario_id=scenario.scenario_id,
+        project_code=DEFAULT_PROJECT_CODE,
+        environment_code=DEFAULT_ENVIRONMENT_CODE,
+        workspace_root=tmp_path / "scenario_workspace",
+    )
+
+    result = service.get_scenario_result(scenario.scenario_id)
+
+    assert result["latest_allure_report_path"] == result["report_path"]
+    assert result["retry_available"] is False

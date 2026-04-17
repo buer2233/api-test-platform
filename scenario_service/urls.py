@@ -22,6 +22,7 @@ from scenario_service.views import (
     ScenarioDetailView,
     ScenarioExecuteView,
     ScenarioExportView,
+    ScenarioGenerationConfirmView,
     ScenarioRevisionView,
     ScenarioResultView,
     ScenarioReviewView,
@@ -41,6 +42,7 @@ from scenario_service.views import (
 
 urlpatterns = [
     path("", ScenarioListView.as_view(), name="scenario-list"),
+    path("generation/confirm/", ScenarioGenerationConfirmView.as_view(), name="scenario-generation-confirm"),
     path("governance/context/", GovernanceContextQueryView.as_view(), name="governance-context"),
     path("governance/migration-status/", GovernanceMigrationStatusView.as_view(), name="governance-migration-status"),
     path("governance/windows-demo/", WindowsDemoManifestView.as_view(), name="governance-windows-demo"),

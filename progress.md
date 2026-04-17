@@ -80,6 +80,93 @@
 ### 下一步
 - 进入 `Task 9`，开始实现 `api_test/core/<project>/<model>/` 和 `api_test/tests/<project>/<model>/` 的目录落点规则。
 
+## 2026-04-17 主线重构 Task 9-13 生成链路基础闭环
+
+### 已完成
+- 已新增 `service_tests/test_api_test_generation.py`，并按 TDD 依次补齐以下验证：
+  - `test_build_asset_paths_targets_project_and_model_directories`
+  - `test_build_testcase_steps_preserves_capture_order`
+  - `test_render_testcase_module_contains_allure_feature_story_and_steps`
+  - `test_write_generated_assets_creates_core_and_test_files`
+  - `test_generation_gate_blocks_submission_when_pytest_fails`
+- 已新增 / 更新以下生成链路能力：
+  - `scenario_service/api_test_generator.py`
+    - `build_asset_paths()`
+    - `build_testcase_steps()`
+    - `render_testcase_module()`
+    - `write_generated_assets()`
+    - `evaluate_generation_gate()`
+  - `api_test/requirements.txt` 新增 `allure-pytest==2.13.5`
+  - `tests/test_dependency_governance.py` 已同步依赖治理断言
+  - `scenario_service/models.py` 新增 `GenerationJobRecord`
+- 已新增迁移：
+  - `scenario_service/migrations/0012_add_generation_job_record.py`
+- 已完成本轮验证：
+  - `service_tests/test_api_test_generation.py::test_build_asset_paths_targets_project_and_model_directories` -> `1 passed`
+  - `service_tests/test_api_test_generation.py::test_build_testcase_steps_preserves_capture_order` -> `1 passed`
+  - `service_tests/test_api_test_generation.py::test_render_testcase_module_contains_allure_feature_story_and_steps` -> `1 passed`
+  - `service_tests/test_api_test_generation.py::test_write_generated_assets_creates_core_and_test_files` -> `1 passed`
+  - `service_tests/test_api_test_generation.py::test_generation_gate_blocks_submission_when_pytest_fails` -> `1 passed`
+  - `tests/test_dependency_governance.py::test_api_test_requirements_use_fixed_versions_only` -> `1 passed`
+  - `service_tests/test_mainline_workbench_ui.py + service_tests/test_capture_proxy_flow.py + service_tests/test_api_test_registry.py + service_tests/test_api_test_generation.py + tests/test_dependency_governance.py::test_api_test_requirements_use_fixed_versions_only` -> `14 passed`
+  - `manage.py makemigrations scenario_service --check --dry-run` -> `No changes detected in app 'scenario_service'`
+
+### 下一步
+- 进入 `Task 14`，将生成确认与提交接口接通到 `scenario_service` 服务层和工作台入口。
+
+## 2026-04-17 主线重构 Task 14 生成确认与提交接口
+
+### 已完成
+- 已在 `service_tests/test_api_test_generation.py` 新增 `test_generation_confirmation_endpoint_returns_pytest_gate_summary` 并按 TDD 确认红灯：
+  - `/api/v2/scenarios/generation/confirm/` 初始返回 `404`
+- 已补齐最小实现：
+  - `GenerationConfirmRequestSerializer`
+  - `ScenarioGenerationConfirmView`
+  - `/api/v2/scenarios/generation/confirm/`
+  - `confirm_generation_job()`
+  - 工作台 `SCENARIO_ENDPOINTS.generationConfirm`
+- 已完成本轮验证：
+  - `service_tests/test_api_test_generation.py::test_generation_confirmation_endpoint_returns_pytest_gate_summary` -> `1 passed`
+  - `service_tests/test_mainline_workbench_ui.py + service_tests/test_capture_proxy_flow.py + service_tests/test_api_test_registry.py + service_tests/test_api_test_generation.py + tests/test_dependency_governance.py::test_api_test_requirements_use_fixed_versions_only` -> `15 passed`
+  - `manage.py makemigrations scenario_service --check --dry-run` -> `No changes detected in app 'scenario_service'`
+
+### 下一步
+- 进入 `Task 15`，把 Allure 报告入口和失败重试链路接到工作台。
+
+## 2026-04-17 主线重构 Task 15-16 报告入口、失败重试与全量回归
+
+### 已完成
+- 已按 TDD 新增并通过以下测试：
+  - `service_tests/test_mainline_workbench_ui.py::test_workbench_exposes_allure_report_entry_and_retry_action`
+  - `service_tests/test_execution_closure.py::test_get_scenario_result_exposes_allure_path_and_retry_flag`
+  - `tests/test_generic_framework_cleanup.py::test_readme_mentions_api_test_project_model_asset_layout`
+- 已补齐工作台和服务层能力：
+  - `latest-allure-report-entry`
+  - `retry-failed-testcase-button`
+  - `latest_allure_report_path`
+  - `retry_available`
+  - 失败重试前端动作已接到既有执行接口
+- 已补齐 README、产品需求说明书、UI 设计说明、框架改造方案和 V1 测试文档中的主线口径：
+  - `api_test/core/<project>/<model>/`
+  - `api_test/tests/<project>/<model>/`
+  - 模块 / 子模块级抓包
+  - URL / IP 抓包前置过滤
+  - `allure.feature / allure.story / allure.step`
+- 已完成全量回归：
+  - `.venv_service\Scripts\python.exe -m pytest service_tests -q --basetemp=.pytest_tmp\mainline_full_service` -> `70 passed, 1 warning`
+  - `D:\Python3.12\python.exe -m pytest tests/platform_core -q --basetemp=.pytest_tmp\mainline_full_platform_core` -> `71 passed`
+  - `D:\Python3.12\python.exe -m pytest tests -q --basetemp=.pytest_tmp\mainline_full_root_final` -> `80 passed`
+  - `D:\Python3.12\python.exe -m pytest api_test/tests -q --basetemp=.pytest_tmp\mainline_full_api_test` -> `39 passed`
+  - `.venv_service\Scripts\python.exe manage.py makemigrations scenario_service --check --dry-run` -> `No changes detected in app 'scenario_service'`
+
+### 额外记录
+- `service_tests` 首次全量回归时暴露了一个旧兼容回归：`/ui/v2/workbench/` 仍要求 `suggestion-panel`。已通过在统一模板中补回兼容面板修复，随后 `service_tests` 全量恢复通过。
+- 当前全量回归唯一剩余噪音是 `TestIdStructureParser` 引发的 `PytestCollectionWarning`，不影响结果正确性。
+
+### 下一步
+- 当前主线实施计划 `Task 1` 到 `Task 16` 已全部完成。
+- 如需继续推进，建议下一轮进入提交 / 推送收口，或基于当前主线继续扩展更完整的生成提交、报告查看和失败重试交互。
+
 ## 2026-04-16 V3 P2 AI 治理边界实现
 
 ### 已完成

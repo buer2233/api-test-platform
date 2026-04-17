@@ -14,6 +14,7 @@ from scenario_service.serializers import (
     CaptureCandidateBuildRequestSerializer,
     CaptureSessionStartRequestSerializer,
     FunctionalCaseImportRequestSerializer,
+    GenerationConfirmRequestSerializer,
     ProjectRoleAssignmentQuerySerializer,
     ProjectRoleAssignmentRequestSerializer,
     ScheduleBatchCreateRequestSerializer,
@@ -257,6 +258,16 @@ class CaptureCandidateBuildView(APIView):
         return Response(
             {"success": True, "data": SCENARIO_SERVICE.build_capture_candidates(**serializer.validated_data)}
         )
+
+
+class ScenarioGenerationConfirmView(APIView):
+    """处理生成确认与门禁摘要请求。"""
+
+    def post(self, request):
+        """返回当前生成任务的最小门禁摘要。"""
+        serializer = GenerationConfirmRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response({"success": True, "data": SCENARIO_SERVICE.confirm_generation_job(**serializer.validated_data)})
 
 
 class AiGovernancePolicyView(APIView):

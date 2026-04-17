@@ -124,3 +124,15 @@ def test_theme_switcher_exposes_dark_light_gray_without_layout_variation():
     assert 'value="light"' in content
     assert 'value="gray"' in content
     assert 'data-layout-locked="true"' in content
+
+
+def test_workbench_exposes_allure_report_entry_and_retry_action():
+    """工作台应暴露最新 Allure 报告入口和失败重试动作。"""
+    client = APIClient()
+
+    response = client.get("/ui/v3/workbench/")
+
+    assert response.status_code == 200
+    content = response.content.decode("utf-8")
+    assert 'data-testid="latest-allure-report-entry"' in content
+    assert 'data-testid="retry-failed-testcase-button"' in content

@@ -20,6 +20,7 @@ def test_api_test_requirements_use_fixed_versions_only():
     assert lines == [
         "requests==2.28.0",
         "pytest==7.2.0",
+        "allure-pytest==2.13.5",
         "pytest-html==3.1.0",
         "pytest-assume==2.4.3",
         "pytest-rerunfailures==11.0",

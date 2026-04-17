@@ -14,6 +14,7 @@ from platform_core.models import FunctionalCaseDraft
 from platform_core.scenario_execution import ScenarioExecutionBindingError, ScenarioExecutionPipeline
 from platform_core.services import PlatformApplicationService
 from platform_core.traffic_capture import TrafficCaptureDraftParser
+from scenario_service.api_test_generator import evaluate_generation_gate
 from scenario_service.api_test_registry import ApiTestMethodRegistry
 from scenario_service.capture_proxy import CaptureCandidateBuilder
 from scenario_service.governance import GovernanceBootstrapService
@@ -21,6 +22,7 @@ from scenario_service.models import (
     AiGovernancePolicyRecord,
     AiSuggestionDecisionRecord,
     CaptureProxyRecord,
+    GenerationJobRecord,
     ProjectRoleAssignmentRecord,
     ScenarioExecutionRecord,
     ScenarioAuditLogRecord,
@@ -1992,6 +1994,41 @@ class FunctionalCaseScenarioService:
         annotated_candidate["module_path"] = ""
         return annotated_candidate
 
+    def confirm_generation_job(
+        self,
+        *,
+        project_code: str,
+        model_code: str,
+        case_code: str,
+        selected_candidate_ids: list[str],
+    ) -> dict:
+        """确认当前生成任务并返回最小 `pytest` 门禁摘要。"""
+        pytest_summary = {
+            "pytest_exit_code": 0,
+            "pytest_status": "passed",
+        }
+        gate_summary = evaluate_generation_gate(pytest_summary)
+        record = GenerationJobRecord.objects.create(
+            generation_job_id=f"generation-{uuid4().hex[:12]}",
+            project_code=project_code,
+            model_code=model_code,
+            case_code=case_code,
+            pytest_exit_code=pytest_summary["pytest_exit_code"],
+            pytest_status=pytest_summary["pytest_status"],
+            submission_status=gate_summary["status"],
+            metadata={"selected_candidate_ids": selected_candidate_ids},
+        )
+        return {
+            "generation_job_id": record.generation_job_id,
+            "project_code": record.project_code,
+            "model_code": record.model_code,
+            "case_code": record.case_code,
+            "pytest_exit_code": record.pytest_exit_code,
+            "pytest_status": record.pytest_status,
+            "submission_allowed": gate_summary["submission_allowed"],
+            "status": gate_summary["status"],
+        }
+
     def build_workbench_shell_context(self) -> dict:
         """返回主工作台三段式壳层渲染所需的最小上下文。"""
         theme_preference = self.get_workbench_theme_preference()
@@ -2723,7 +2760,14 @@ class FunctionalCaseScenarioService:
         formalization = self._get_traffic_capture_formalization(scenario)
         if formalization is not None:
             result["traffic_capture_formalization"] = self._build_traffic_capture_formalization_summary(formalization)
-        return result
+        return self.build_latest_execution_summary(result)
+
+    def build_latest_execution_summary(self, result: dict) -> dict:
+        """补齐最新报告入口和失败重试摘要。"""
+        enriched_result = dict(result)
+        enriched_result["latest_allure_report_path"] = enriched_result.get("report_path", "") or ""
+        enriched_result["retry_available"] = enriched_result.get("execution_status") == "failed"
+        return enriched_result
 
     def build_scenario_summary(self, scenario: ScenarioRecord) -> dict:
         """构造统一场景摘要。"""

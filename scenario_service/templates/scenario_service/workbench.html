@@ -474,7 +474,11 @@
                 </section>
 
                 <section class="result-box" data-testid="execution-result">
-                    <div class="button-row"><button class="button secondary" id="refresh-result-button">刷新结果</button></div>
+                    <div class="button-row">
+                        <button class="button secondary" id="refresh-result-button">刷新结果</button>
+                        <a class="button secondary" id="latest-allure-report-entry" data-testid="latest-allure-report-entry" href="#" target="_blank" rel="noopener">查看 Allure 报告</a>
+                        <button class="button secondary" id="retry-failed-testcase-button" data-testid="retry-failed-testcase-button">失败重试</button>
+                    </div>
                     <div id="result-panel"><div class="empty">等待场景执行后展示结果。</div></div>
                 </section>
 
@@ -486,6 +490,11 @@
                 <section class="result-box" data-testid="diff-summary-panel">
                     <span class="field-label">最近差异</span>
                     <div id="diff-summary"><div class="empty">等待加载差异摘要。</div></div>
+                </section>
+
+                <section class="result-box" data-testid="suggestion-panel">
+                    <span class="field-label">suggestions</span>
+                    <div id="suggestion-summary"><div class="empty">等待加载建议摘要。</div></div>
                 </section>
 
                 <section class="result-box" data-testid="schedule-center-panel">
@@ -530,6 +539,7 @@
 <script>
 window.SCENARIO_ENDPOINTS = {
     list: "/api/v2/scenarios/",
+    generationConfirm: "/api/v2/scenarios/generation/confirm/",
     governanceContext: "/api/v2/scenarios/governance/context/",
     accessGrants: "/api/v2/scenarios/governance/access-grants/",
     auditLogs: "/api/v2/scenarios/governance/audit-logs/",
@@ -541,6 +551,7 @@ window.SCENARIO_ENDPOINTS = {
     importTrafficCapture: "/api/v2/scenarios/import-traffic-capture/",
     detail: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/"; },
     result: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/result/"; },
+    execute: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/execute/"; },
     confirmTrafficCapture: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/traffic-capture/confirm/"; },
     confirmTrafficBindings: function (scenarioId) { return "/api/v2/scenarios/" + scenarioId + "/traffic-capture/bindings/confirm/"; },
     scheduleBatchDetail: function (scheduleBatchId) { return "/api/v2/scenarios/governance/schedule-batches/" + scheduleBatchId + "/"; },
@@ -568,6 +579,8 @@ window.SCENARIO_ENDPOINTS = {
     const resultPanel = document.getElementById("result-panel");
     const executionHistoryList = document.getElementById("execution-history-list");
     const diffSummary = document.getElementById("diff-summary");
+    const latestAllureReportEntry = document.getElementById("latest-allure-report-entry");
+    const retryFailedTestcaseButton = document.getElementById("retry-failed-testcase-button");
     const previewTitle = document.getElementById("preview-title");
     const scenarioList = document.getElementById("scenario-list");
     const functionalCaseEditor = document.getElementById("functional-case-editor");
@@ -917,11 +930,17 @@ window.SCENARIO_ENDPOINTS = {
 
     function renderResult(result) {
         if (!result || !Object.keys(result).length) {
+            latestAllureReportEntry.setAttribute("href", "#");
+            latestAllureReportEntry.setAttribute("aria-disabled", "true");
+            retryFailedTestcaseButton.disabled = true;
             resultPanel.innerHTML = '<div class="empty">等待场景执行后展示结果。</div>';
             renderExecutionHistory([]);
             renderDiffSummary({});
             return;
         }
+        latestAllureReportEntry.setAttribute("href", result.latest_allure_report_path || "#");
+        latestAllureReportEntry.setAttribute("aria-disabled", result.latest_allure_report_path ? "false" : "true");
+        retryFailedTestcaseButton.disabled = !result.retry_available;
         resultPanel.innerHTML = [
             '<div class="summary-grid">',
             '<div class="summary-cell"><span class="summary-key">执行状态</span><span class="summary-value">' + escapeHtml(result.execution_status) + '</span></div>',
@@ -936,6 +955,21 @@ window.SCENARIO_ENDPOINTS = {
         if (result.traffic_capture_formalization) {
             renderTrafficFormalization(result.traffic_capture_formalization);
         }
+    }
+
+    async function retryFailedScenario() {
+        if (!state.selectedScenarioId) { showToast("请先选择场景。", true); return; }
+        await request(api.execute(state.selectedScenarioId), {
+            method: "POST",
+            body: JSON.stringify({
+                project_code: resolveProjectCode(),
+                environment_code: resolveEnvironmentCode(),
+                operator: readOperatorName() || readActorName() || "qa-owner",
+                trigger_source: "retry_failed"
+            })
+        });
+        showToast("已触发失败重试。");
+        await loadScenario(state.selectedScenarioId, true);
     }
 
     function renderExecutionHistory(history) {
@@ -1226,6 +1260,7 @@ window.SCENARIO_ENDPOINTS = {
     document.getElementById("cancel-schedule-item-button").addEventListener("click", function () { cancelLatestQueuedScheduleItem().catch(function (error) { showToast(error.message, true); }); });
     document.getElementById("refresh-windows-demo-button").addEventListener("click", function () { loadWindowsDemoManifest().catch(function (error) { showToast(error.message, true); }); });
     document.getElementById("open-windows-demo-button").addEventListener("click", openWindowsDemoEntry);
+    document.getElementById("retry-failed-testcase-button").addEventListener("click", function () { retryFailedScenario().catch(function (error) { showToast(error.message, true); }); });
     themeButtons.forEach(function (button) {
         button.addEventListener("click", function () {
             changeTheme(button.getAttribute("data-theme-value")).catch(function (error) { showToast(error.message, true); });

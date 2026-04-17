@@ -70,7 +70,14 @@
 | Task 6 抓包候选治理 | 已完成 | 已新增 `CaptureCandidateBuilder` 与候选治理接口，`test_capture_records_are_grouped_into_candidate_operations=1 passed` |
 | Task 7 `api_test` 接口方法注册扫描与匹配 | 已完成 | 已新增 `ApiTestMethodRegistry` 并通过 `test_registry_matches_existing_method_by_http_method_and_full_path=1 passed` |
 | Task 8 候选接口复用/补参/新增状态标注 | 已完成 | 已新增 `annotate_candidate_with_method_state()`，并通过 `test_candidate_is_marked_as_reuse_or_create_by_registry_match=1 passed` |
-| Task 9 `api_test` 目录落点规则 | 待开始 | 下一步进入 `api_test/core/<project>/<model>/` 与 `api_test/tests/<project>/<model>/` 生成路径规则的红灯测试 |
+| Task 9 `api_test` 目录落点规则 | 已完成 | 已新增 `build_asset_paths()`，并通过 `test_build_asset_paths_targets_project_and_model_directories=1 passed` |
+| Task 10 测试用例方法链顺序 | 已完成 | 已新增 `build_testcase_steps()`，并通过 `test_build_testcase_steps_preserves_capture_order=1 passed` |
+| Task 11 Allure 测试代码生成 | 已完成 | 已新增 `render_testcase_module()`，补齐 `allure-pytest==2.13.5`，并通过 Allure 代码生成与依赖治理红绿测试 |
+| Task 12 接口方法与测试用例落盘 | 已完成 | 已新增 `write_generated_assets()`，并通过 `test_write_generated_assets_creates_core_and_test_files=1 passed` |
+| Task 13 `pytest` 门禁与生成任务记录 | 已完成 | 已新增 `evaluate_generation_gate()`、`GenerationJobRecord` 与迁移 `0012_add_generation_job_record.py`，并通过 `test_generation_gate_blocks_submission_when_pytest_fails=1 passed` |
+| Task 14 生成确认与提交接口接通 | 已完成 | 已新增 `/api/v2/scenarios/generation/confirm/`、`GenerationConfirmRequestSerializer` 与 `confirm_generation_job()`，并通过 `test_generation_confirmation_endpoint_returns_pytest_gate_summary=1 passed` |
+| Task 15 Allure 报告入口与失败重试 | 已完成 | 已新增 `latest-allure-report-entry`、`retry-failed-testcase-button`、`latest_allure_report_path`、`retry_available`，并通过 UI / 结果摘要红绿测试 |
+| Task 16 文档同步与全量回归 | 已完成 | 已同步 README、产品/架构/测试文档、本地记录，并完成 `service_tests=70 passed`、`tests/platform_core=71 passed`、`tests=80 passed`、`api_test/tests=39 passed` 与迁移一致性检查 |
 
 ## 2026-04-16 V3 P1 独立验收收口
 

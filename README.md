@@ -34,12 +34,24 @@
 - V3 总体验收当前最新结果为：`V3专项=33 passed`、`service_tests=54 passed`、`tests/platform_core=71 passed`、`tests=79 passed`、`api_test/tests=39 passed`、公开基线双入口 `12 passed, 27 deselected`、`V1` 非公网 `27 passed, 12 deselected`、`V1` 配置契约 `6 passed`、`V2` 历史服务化旧功能套件 `21 passed`；
 - `/ui/v2/workbench/` 与 `/ui/v3/workbench/` 已完成真实浏览器复验，V3 入口控制台 `0` 报错 / 警告，Windows Demo 启动器 dry-run 也已通过。
 - 2026-04-17 起，仓库已进入“接口自动化平台主线重构”执行阶段，当前已按 TDD 落地以下主线能力：
+  - 核心资产目录已固定为 `api_test/core/<project>/<model>/` 与 `api_test/tests/<project>/<model>/`；
+  - 模块级抓包已补齐 URL / IP `抓包前置过滤`，且过滤后只记录命中请求；
   - `/ui/v3/workbench/` 已补齐三段式主壳层、子模块默认测试用例列表和三主题样式切换，相关定向验证为 `service_tests/test_mainline_workbench_ui.py=3 passed`；
   - 已新增 `ThemePreferenceRecord` 与 `/api/v2/scenarios/governance/theme-preference/`，并生成迁移 `0010_add_theme_preference_record.py`；
   - 已新增 `scenario_service/capture_proxy.py`，落地 `CaptureProxyFilter`、`CaptureCandidateBuilder` 和模块级抓包会话最小服务能力；
   - 已新增 `/api/v2/scenarios/governance/capture-sessions/` 与 `/api/v2/scenarios/governance/capture-candidates/`，并生成迁移 `0011_add_capture_proxy_record.py`；
   - 已新增 `scenario_service/api_test_registry.py`，落地 `ApiTestMethodRegistry`，并在服务层补齐候选接口的 `reused / parameter_completion_required / create_required` 状态标注入口；
-  - 当前主线定向验证结果为：`service_tests/test_mainline_workbench_ui.py + service_tests/test_capture_proxy_flow.py + service_tests/test_api_test_registry.py = 8 passed`，且 `manage.py makemigrations scenario_service --check --dry-run` 返回 `No changes detected in app 'scenario_service'`。
+  - 已新增 `scenario_service/api_test_generator.py`，落地 `api_test` 目录落点规则、方法链顺序生成、`allure.feature / allure.story / allure.step` 测试代码渲染、生成资产落盘和 `pytest` 门禁判断；
+  - 已新增 `GenerationJobRecord` 并生成迁移 `0012_add_generation_job_record.py`，为后续生成任务审计和提交流程预留事实层；
+  - `api_test/requirements.txt` 已纳入固定版本 `allure-pytest==2.13.5`，并通过依赖治理测试校验；
+  - 已新增 `/api/v2/scenarios/generation/confirm/`，并在服务层打通生成确认与最小 `pytest` 门禁摘要返回；
+  - 已补齐最新 Allure 报告入口、失败重试动作和结果摘要中的 `latest_allure_report_path / retry_available`；
+  - 当前主线全量回归结果为：
+    - `service_tests=70 passed, 1 warning`
+    - `tests/platform_core=71 passed`
+    - `tests=80 passed`
+    - `api_test/tests=39 passed`
+    - `manage.py makemigrations scenario_service --check --dry-run` -> `No changes detected in app 'scenario_service'`
 
 当前已完成的 V2 第一实施子阶段首批落地包括：
 

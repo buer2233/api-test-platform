@@ -133,6 +133,15 @@ class CaptureCandidateBuildRequestSerializer(serializers.Serializer):
     capture_records = serializers.ListField(child=serializers.DictField())
 
 
+class GenerationConfirmRequestSerializer(serializers.Serializer):
+    """生成确认请求校验器。"""
+
+    project_code = serializers.CharField()
+    model_code = serializers.CharField()
+    case_code = serializers.CharField()
+    selected_candidate_ids = serializers.ListField(child=serializers.CharField(), min_length=1)
+
+
 class AiGovernancePolicyRequestSerializer(serializers.Serializer):
     """AI 治理策略写入请求校验器。"""
 

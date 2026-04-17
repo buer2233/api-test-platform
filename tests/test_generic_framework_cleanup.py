@@ -50,3 +50,13 @@ def test_active_docs_no_longer_describe_private_site_bridge_as_current_state():
                 violations.append(f"{doc_path.relative_to(PROJECT_ROOT)} -> {term}")
 
     assert violations == []
+
+
+def test_readme_mentions_api_test_project_model_asset_layout():
+    """README 应同步主线改造后的资产落点和治理口径。"""
+    content = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+
+    assert "api_test/core/<project>/<model>/" in content
+    assert "api_test/tests/<project>/<model>/" in content
+    assert "抓包前置过滤" in content
+    assert "allure" in content.lower()

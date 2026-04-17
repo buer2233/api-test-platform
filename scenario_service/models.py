@@ -198,6 +198,28 @@ class CaptureProxyRecord(models.Model):
         return f"{self.project_code}/{self.module_code}/{self.submodule_code}({self.status})"
 
 
+class GenerationJobRecord(models.Model):
+    """记录接口方法与测试用例生成任务。"""
+
+    generation_job_id = models.CharField(max_length=128, unique=True)
+    project_code = models.CharField(max_length=128)
+    model_code = models.CharField(max_length=128)
+    case_code = models.CharField(max_length=128)
+    pytest_exit_code = models.IntegerField(default=-1)
+    pytest_status = models.CharField(max_length=32, default="pending")
+    submission_status = models.CharField(max_length=32, default="pending")
+    metadata = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self) -> str:
+        """返回便于后台查看的生成任务标识。"""
+        return f"{self.project_code}/{self.model_code}/{self.case_code}({self.submission_status})"
+
+
 class AiGovernancePolicyRecord(models.Model):
     """项目级 AI 治理策略对象。"""
 

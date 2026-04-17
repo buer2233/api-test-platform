@@ -20,10 +20,31 @@
 - `Task 7` 与 `Task 8` 已补齐主线中“连接抓包候选与 `api_test` 现有资产”的第一版桥接层：
   - `ApiTestMethodRegistry` 已能按 `HTTP 方法 + 完整路径` 命中已有接口方法；
   - `annotate_candidate_with_method_state()` 已能把候选接口标记为 `reused`、`parameter_completion_required` 或 `create_required`。
-- 当前主线定向回归为：
-  - `service_tests/test_mainline_workbench_ui.py + service_tests/test_capture_proxy_flow.py + service_tests/test_api_test_registry.py = 8 passed`
+- `Task 9` 到 `Task 13` 已把主线从“候选识别”推进到“生成准备完成”：
+  - `build_asset_paths()` 已固定 `api_test/core/<project>/<model>/` 与 `api_test/tests/<project>/<model>/` 的落点；
+  - `build_testcase_steps()` 已保证方法链顺序跟随抓包选择顺序；
+  - `render_testcase_module()` 已生成包含 `@allure.feature`、`@allure.story` 和 `allure.step()` 的最小测试代码；
+  - `write_generated_assets()` 已能把核心方法文件与测试文件同时落盘；
+  - `evaluate_generation_gate()` 已能在 `pytest_exit_code != 0` 时阻断提交；
+  - `GenerationJobRecord` 已作为生成任务事实层落库，并已生成 `0012_add_generation_job_record.py`。
+- `Task 14` 已把生成确认链路从纯函数推进到服务接口：
+  - 已新增 `GenerationConfirmRequestSerializer`；
+  - 已新增 `/api/v2/scenarios/generation/confirm/`；
+  - `confirm_generation_job()` 当前会创建 `GenerationJobRecord`，并返回最小 `pytest_status / submission_allowed / status` 摘要。
+- `Task 15` 已把生成链路的工作台收口补齐到“报告入口 + 失败重试”：
+  - 模板已新增 `latest-allure-report-entry` 与 `retry-failed-testcase-button`；
+  - 结果摘要已新增 `latest_allure_report_path` 与 `retry_available`；
+  - 失败重试当前复用既有 `/api/v2/scenarios/<scenario_id>/execute/` 执行入口，不另起第二套重试引擎。
+- `Task 16` 已完成文档同步与全量回归，当前主线相关全量验证结果为：
+  - `service_tests=70 passed, 1 warning`
+  - `tests/platform_core=71 passed`
+  - `tests=80 passed`
+  - `api_test/tests=39 passed`
   - `manage.py makemigrations scenario_service --check --dry-run -> No changes detected in app 'scenario_service'`
-- 当前唯一可见的小问题是 `service_tests/test_mainline_workbench_ui.py` 中 `TestIdStructureParser` 的命名仍会触发一次 `PytestCollectionWarning`，不影响测试通过，但后续可以在纯重构轮中改名消除噪音。
+- 当前主线定向回归为：
+  - `service_tests/test_mainline_workbench_ui.py + service_tests/test_capture_proxy_flow.py + service_tests/test_api_test_registry.py + service_tests/test_api_test_generation.py + tests/test_dependency_governance.py::test_api_test_requirements_use_fixed_versions_only = 15 passed`
+  - `manage.py makemigrations scenario_service --check --dry-run -> No changes detected in app 'scenario_service'`
+- 当前唯一可见的小问题仍是 `service_tests/test_mainline_workbench_ui.py` 中 `TestIdStructureParser` 的命名会触发一次 `PytestCollectionWarning`，不影响测试通过，但后续可以在纯重构轮中改名消除噪音。
 
 ## 2026-04-16 V3 P2 AI 治理边界发现
 - 当前 `P2` 的正确落点不是另起一个 AI 子系统，而是在现有 `ScenarioSuggestionRecord`、修订留痕、权限门禁和审计日志之上补齐正式治理边界。
