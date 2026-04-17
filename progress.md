@@ -1,5 +1,42 @@
 # 会话进展
 
+## 2026-04-16 V3 P2 AI 治理边界实现
+
+### 已完成
+- 已复核 `V3阶段工作计划文档.md`、`详细测试用例说明书(V3-P2).md`、`V3阶段P1独立验收报告.md`、`scenario_service/models.py`、`scenario_service/services.py`、`scenario_service/serializers.py`、`scenario_service/views.py`、`service_tests/test_scenario_suggestions.py` 与 `/ui/v3/workbench/` 当前入口结构。
+- 已确认 `P2` 当前真正缺口不在解析、执行或调度底座，而在 AI 治理事实层：缺正式策略对象、缺审批/拒绝/采纳/回退责任链、缺未审批执行阻断、缺入口状态分层。
+- 已新增 `docs/superpowers/specs/2026-04-16-v3-p2-ai-governance-design.md`，将当前轮 `P2` 设计收敛为“统一事实源增强”而不是“新建 AI 子系统”。
+- 已新增 `docs/superpowers/plans/2026-04-16-v3-p2-ai-governance-boundaries.md`，把本轮实施顺序收敛为：
+  - 模型与迁移骨架
+  - 审批 / 拒绝 / 采纳 / 回退 API
+  - 未审批执行阻断与入口状态承接
+  - 全量回归与独立验收归档
+- 已同步更新 `task_plan.md`、`findings.md` 与 `progress.md`，确保后续长时间独立执行过程中可从文件恢复上下文。
+- 已完成 `P2` 第一批红灯测试与最小实现，新增：
+  - `AiGovernancePolicyRecord`
+  - `AiSuggestionDecisionRecord`
+  - `0009_aigovernancepolicyrecord_aisuggestiondecisionrecord_and_more.py`
+  - AI 建议审批 / 拒绝 / 采纳 / 回退接口
+  - AI 触发执行前的审批门禁阻断
+  - `/ui/v3/workbench/` 的 `AI 治理状态` 区域
+- 已完成本轮自动化与浏览器验证：
+  - `service_tests/test_v3_p2_ai_governance.py` -> `7 passed`
+  - `service_tests` -> `54 passed`
+  - `tests/platform_core` -> `71 passed`
+  - `tests` -> `79 passed`
+  - `api_test/tests` -> `39 passed`
+  - `manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.test_settings` -> `No changes detected in app 'scenario_service'`
+  - `/ui/v3/workbench/` 浏览器 AI 治理状态区复验通过，控制台 `0` 报错 / 警告
+- 已新增 `product_document/阶段文档/V3阶段P2独立验收报告.md` 所需的证据基础，当前可以进入验收报告归档与提交准备。
+
+### 当前判断
+- 当前 `P2` 的开发、自动化回归、MySQL 迁移一致性检查和浏览器复验均已成立，下一步应统一收口到 `P2` 独立验收报告与 `V3` 总体验收准备。
+- 本轮仍需继续明确写清楚：当前交付的是 AI 治理边界，不是自动自愈、自动修复或无人审批执行。
+
+### 下一步
+- 归档 `V3阶段P2独立验收报告.md`。
+- 统一整理本轮代码、测试和文档改动，准备提交。
+
 ## 2026-04-16 V3 P1 独立验收收口
 
 ### 已完成
@@ -712,3 +749,82 @@
 ### 下一步
 - 请用户审阅 `docs/superpowers/specs/2026-04-14-v3-test-docs-design.md`。
 - 用户确认后，再正式编写 `V3` 测试文档包。
+
+## 2026-04-16 V3 总体验收与历史回归执行
+
+### 已完成
+- 已读取并复核 `task_plan.md`、`product_document/阶段文档/V3阶段工作计划文档.md`、`product_document/测试文档/详细测试用例说明书(V3-总索引).md` 与 `README.md`。
+- 已确认本轮执行顺序应为：
+  - 先执行 `V3` 全量接口与 UI 测试；
+  - 再执行 `V1 / V2` 历史老功能全量回归；
+  - 最后在全部通过基础上执行 `V3` 总体验收归档。
+- 已把本轮目标、范围和阶段状态同步回写到 `task_plan.md`、`findings.md` 与本文件，确保后续失败修复与重跑结果有统一记录载体。
+
+### 当前判断
+- 当前最合理的下一步是直接进入自动化命令矩阵与浏览器验收，不再停留在文档分析。
+- 若出现失败，应立即按失败分组记录到本文件，并在修复后重复执行对应全量回归。
+
+### 下一步
+- 继续补读 `V3-P0 / V3-P1 / V3-P2`、`V1`、`V2` 详细测试文档中的关键验收用例映射，然后开始执行测试。
+
+### 后续结果
+- 已完成 `V3` 验收级定向自动化回归：
+  - `service_tests/test_v3_p0_governance_flow.py service_tests/test_v3_p0_isolation.py service_tests/test_v3_p0_workbench_ui.py service_tests/test_v3_p1_permission_audit.py service_tests/test_v3_p1_traffic_capture_execution.py service_tests/test_v3_p1_entry_windows_demo.py service_tests/test_v3_p1_scheduling_execution_center.py service_tests/test_v3_p2_ai_governance.py` -> `33 passed`
+- 已完成 `V3` 全量自动化回归：
+  - `service_tests` -> `54 passed`
+  - `tests/platform_core` -> `71 passed`
+  - `tests` -> `79 passed`
+  - `api_test/tests` -> `39 passed`
+  - `manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.test_settings` -> `No changes detected in app 'scenario_service'`
+- 已按既定流程临时启用代理完成公开基线复验，随后恢复默认关闭：
+  - `python api_test/run_test.py --public-baseline` -> `12 passed, 27 deselected`
+  - `cd api_test && python run_test.py --public-baseline` -> `12 passed, 27 deselected`
+- 已完成真实浏览器 UI 验收：
+  - `/ui/v2/workbench/` 历史入口关键区域存在
+  - `/ui/v3/workbench/` 权限、审计、抓包正式执行、Windows Demo、调度中心和 AI 治理状态区均存在
+  - 浏览器控制台 `0` 报错 / 警告
+  - 已保存截图 `v3_total_acceptance_workbench_20260416.png`
+- 已完成 `V1 / V2` 历史功能回归：
+  - `cd api_test && python -m pytest tests -m "not jsonplaceholder" -q` -> `27 passed, 12 deselected`
+  - `cd api_test && python -m pytest tests\\test_config_loader.py -q --noconftest` -> `6 passed`
+  - `V2` 历史服务化旧功能套件 -> `21 passed`
+- 已新增 `product_document/阶段文档/V3阶段正式验收报告.md`，并同步更新 README、V3 阶段文档、V3 总索引、V1/V2 验收与测试文档。
+
+## 2026-04-17 接口自动化平台主线重构设计与计划
+
+### 已完成
+- 已将“默认仅使用简体中文交流”的规则补充写入 `AGENTS.md`。
+- 已完成平台主线设计确认，核心结论为：
+  - 主入口优先展示与执行测试用例；
+  - 抓包只在模块 / 子模块级作为新增入口；
+  - 抓包支持前置 URL / IP 过滤，且过滤后只记录匹配数据；
+  - 接口识别采用 `HTTP 方法 + 完整 URL 路径`；
+  - 最终资产只落到 `api_test/core/<project>/<model>/` 与 `api_test/tests/<project>/<model>/`；
+  - 所有生成用例必须遵守 `allure` 规范，并在提交前通过 `pytest` 门禁。
+- 已新增正式设计文档：
+  - `docs/superpowers/specs/2026-04-17-api-test-platform-mainline-redesign-design.md`
+- 已新增正式实施计划：
+  - `docs/superpowers/plans/2026-04-17-api-test-platform-mainline-redesign.md`
+- 已完成实施计划自检，确认：
+  - 16 个任务已覆盖设计说明中的所有核心要求；
+  - 未发现占位词或明显命名冲突；
+  - 已把主工作台、抓包过滤、方法匹配、资产落盘、allure 规范、pytest 门禁、报告与重试全部纳入 TDD 批次。
+
+### 当前判断
+- 当前已经结束设计阶段，下一步不应继续口头细化，而应进入按计划执行。
+- 后续最合理的动作是让主人选择执行方式：子代理逐任务执行，或当前会话内联执行。
+
+### 下一步
+- 等待主人选择实施方式，然后按 `docs/superpowers/plans/2026-04-17-api-test-platform-mainline-redesign.md` 开始正式 TDD 改造。
+
+### 后续结果
+- 已确认执行方式为“子代理逐任务执行”。
+- 已完成 Task 1：主工作台三段式信息架构的兼容式重构。
+- Task 1 当前已在主工作区验证通过的定向测试为：
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests/test_mainline_workbench_ui.py::test_mainline_workbench_renders_three_column_layout_and_primary_regions -q --ds=platform_service.test_settings --basetemp=.pytest_tmp/mainline_ui_green` -> `1 passed`
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests/test_v3_p1_entry_windows_demo.py::test_v3_workbench_renders_permission_audit_formalization_and_windows_demo_regions -q --ds=platform_service.test_settings --basetemp=.pytest_tmp/task1_compat_p1g3` -> `1 passed`
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests/test_v3_p1_scheduling_execution_center.py::test_v3_workbench_renders_schedule_center_region -q --ds=platform_service.test_settings --basetemp=.pytest_tmp/task1_compat_p1g4` -> `1 passed`
+- 当前 Task 1 已把 `/ui/v3/workbench/` 收敛为“兼容式三段式骨架”：
+  - 新增 `mainline-shell / left-tree-panel / middle-list-panel / right-detail-panel`
+  - 保留既有 `actor-panel / access-grant-panel / audit-log-panel / traffic-capture-formalization-panel / windows-demo-panel / schedule-center-panel` 契约
+  - 去掉模板内与 Task 1 无关的 AI / 建议 / 审核 / 执行语义

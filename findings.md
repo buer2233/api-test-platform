@@ -1,5 +1,26 @@
 # 当前发现
 
+## 2026-04-16 V3 P2 AI 治理边界发现
+- 当前 `P2` 的正确落点不是另起一个 AI 子系统，而是在现有 `ScenarioSuggestionRecord`、修订留痕、权限门禁和审计日志之上补齐正式治理边界。
+- 现有建议治理链路只支持“生成建议 -> 直接采纳转修订”，这与 `P2` 用例要求存在四个核心缺口：
+  - 缺少结构化 AI 治理策略对象；
+  - 缺少审批 / 拒绝 / 采纳 / 回退的责任链事实对象；
+  - 缺少“未经审批不得执行”的服务层阻断；
+  - 缺少工作台中的 AI 状态分层展示。
+- 现有 `ProjectRoleAssignmentRecord` 和 `ScenarioAuditLogRecord` 已足以承接 `P2` 的角色边界与关键动作审计，因此 `P2` 不需要新做一套权限系统，只需继续复用 `can_review / can_execute / can_view` 门禁。
+- 现有 `ScenarioSuggestionRecord.apply_status` 只有 `pending / applied` 两种语义，无法覆盖 `P2` 所需的 `pending_approval / approved / rejected / adopted / rolled_back`；如果继续沿用旧状态，会让入口、验收和回退链路全部失真。
+- `P2` 的采纳动作仍应继续转成标准 `ScenarioRevisionRecord`，否则 AI 治理会绕过“修订事实层”直接修改正式状态，破坏 V2/V3 一直保持的事实源方向。
+- `P2` 的回退不能靠手工修库或文档描述，必须在责任链对象中保留采纳前快照和回退后快照，才能满足 `INT-003` 对“恢复治理前状态”的验收要求。
+- `/ui/v3/workbench/` 当前已有建议区、审计区和调度区，说明新增 AI 治理状态区的成本较低，且不需要单独新建前端工程。
+- 当前 `P2` 第一轮完整实现已经成立：
+  - `AiGovernancePolicyRecord` 负责表达项目级 AI 治理策略；
+  - `AiSuggestionDecisionRecord` 负责表达审批 / 拒绝 / 采纳 / 回退责任链；
+  - 建议创建默认进入 `pending_approval`，必须先 `approve` 才能 `adopt`；
+  - `rollback` 通过采纳前快照恢复场景状态；
+  - `request_execution(... trigger_source='ai_suggestion', suggestion_id=...)` 已补齐未审批阻断。
+- 旧的 `test_scenario_suggestions.py` 是本轮唯一真实回归冲突点：它仍假设“建议创建后可直接采纳”。当前已将该测试更新为“审批后再通过旧 `/apply/` 兼容入口采纳”，从而兼容 `P2` 新门禁同时保留历史接口。
+- 真实浏览器复验表明 `/ui/v3/workbench/` 已能承接 `AI 治理状态` 区域，且控制台 `0` 报错 / 警告；截图证据已保存为 `v3_p2_ai_governance_workbench_smoke_20260416.png`。
+
 ## 2026-04-16 V3 P1 独立验收收口发现
 - 当前 `P1` 真正剩余的未完成项不是功能缺口，而是独立验收与正式归档；`G1 / G2 / G3 / G4` 的代码、测试和浏览器证据已经齐备。
 - `P1` 当前最合理的收口方式不是继续扩功能，而是把四组 `P1` 专项测试组合成一个验收级定向套件，再补 Windows Demo 启动器 dry-run 和独立验收报告。
@@ -544,3 +565,43 @@
 - `P0` 的测试重点是：历史资产迁移、执行隔离、最小治理入口和独立验收闭环。
 - `P1` 的测试重点是：权限体系、抓包正式执行、Web 正式入口深化、Windows Demo 和调度中心。
 - `P2` 的测试重点是：AI 建议边界、审批门禁、回退、留痕以及“AI 不能越权成为事实源”的治理闭环。
+
+## 2026-04-16 V3 总体验收前置复核发现
+- `V3阶段工作计划文档.md` 当前已明确：`P0 / P1 / P2` 三个阶段均已完成独立验收，当前下一步不是补功能，而是进入 `V3` 总体验收准备。
+- `详细测试用例说明书(V3-总索引).md` 当前已明确 `V3` 总体验收前提：必须先确认 `P0 / P1 / P2` 独立验收结论仍然有效，再做 README、阶段文档、测试文档和正式验收报告口径统一。
+- `README.md` 当前已经给出最近一轮基线命令矩阵，包含 `service_tests`、`tests/platform_core`、根 `tests`、`api_test/tests`、`api_test/run_test.py --public-baseline` 与 `/ui/v3/workbench/` 浏览器验收入口，可直接作为本轮执行清单。
+- 当前仓库的 `task_plan.md / findings.md / progress.md` 已存在连续记录，因此本轮不需要重建规划文件，只需要按“新任务节”继续追加。
+- 这轮用户要求与现有文档口径一致：先做 `V3` 全量接口 + UI 测试，确认无问题后再做 `V1 / V2` 历史回归，最后执行 `V3` 验收测试。
+
+## 2026-04-16 V3 总体验收执行发现
+- 本轮 `V3` 自动化矩阵一次通过，未发现需要修复的服务层、平台核心层或 `api_test` 层缺陷：
+  - `V3专项=33 passed`
+  - `service_tests=54 passed`
+  - `tests/platform_core=71 passed`
+  - `tests=79 passed`
+  - `api_test/tests=39 passed`
+  - 迁移一致性检查返回 `No changes detected in app 'scenario_service'`
+- 公开基线继续需要遵循“临时启用代理 -> 执行公开回归 -> 恢复默认关闭”的流程；本轮代理端口 `127.0.0.1:7890` 可达，双入口公开基线均为 `12 passed, 27 deselected`。
+- `/ui/v2/workbench/` 历史入口当前仍保持结构兼容，关键 `data-testid` 区域全部存在；虽然页面标题已经统一为 `V3 场景工作台`，但 `V2` 历史导入、预览、结果、筛选、历史、差异和建议区域未丢失。
+- `/ui/v3/workbench/` 正式入口当前已同时承接权限、审计、抓包正式执行、Windows Demo、调度中心和 AI 治理状态区；本轮浏览器控制台 `0` 报错 / 警告。
+- Windows Demo 当前最稳妥的正式验收证据仍是 `launch_v3_workbench_demo.ps1 -DryRun` 输出的共享契约与浏览器先验命令，而不是本轮就扩张到新的桌面打包链路。
+- 本轮 `V1 / V2` 历史回归同样一次通过：
+  - `V1` 非公网回归 `27 passed, 12 deselected`
+  - `V1` 配置契约回归 `6 passed`
+  - `V2` 历史服务化旧功能套件 `21 passed`
+- 当前最重要的新事实不是“又补了功能”，而是：`V3` 已具备正式验收通过条件，且 `V3` 新增能力没有破坏 `V1 / V2` 历史闭环。
+
+## 2026-04-17 接口自动化平台主线重构设计发现
+- 主人已经明确否定当前“治理控制台优先”的前端表达，确认平台真正主线应收敛为：抓包治理、接口方法识别、测试用例生成与执行。
+- 当前前端最关键的纠偏不是再加新面板，而是把首页主入口改成“用例展示与执行平台”，抓包只作为模块 / 子模块级新增入口。
+- 抓包顺序当前被主人明确为正式规则：前期生成用例时，接口调用顺序严格等于抓包顺序，用户只负责勾选保留哪些必要接口，不再承担排序职责。
+- 抓包必须支持前置过滤，而且过滤语义是“只记录匹配数据”，不是“抓完后再按条件筛显示结果”；这是降低后续治理复杂度的关键前置能力。
+- `api_test` 现有框架已被主人明确指定为唯一核心资产落点，后续不应再继续把正式接口方法和测试用例长期留在服务层数据库或平行目录里。
+- 接口是否已实现的匹配规则已经收敛为：`HTTP 方法 + 完整 URL 路径`；这比只看 URL 更稳，不容易误判不同方法同路径的接口。
+- 主人已明确要求所有生成测试用例强制满足 `allure` 规范，并把这条上升为平台写测试用例的硬规则，而不是可选增强项。
+
+## 2026-04-17 Task 1 三段式主工作台收口发现
+- 当前仓库的 `service_tests` 必须通过 `.venv_service\\Scripts\\python.exe -m pytest ... --ds=platform_service.test_settings` 执行，不能使用全局 `D:\\Python3.12\\python.exe -m pytest`，否则 `--ds` 参数不会生效。
+- Task 1 不能简单把旧 `/ui/v3/workbench/` 收缩成纯壳层，因为当前仓库仍存在依赖 `actor-panel`、`access-grant-panel`、`audit-log-panel`、`traffic-capture-formalization-panel`、`windows-demo-panel`、`schedule-center-panel` 的既有回归测试；因此正确做法是“兼容式三段式重构”，先搭骨架，再保留关键面板共存。
+- 当前主工作台模板里与 Task 1 无关的 AI / 建议 / 审核 / 执行语义已经从模板层清理出去，但正式路由和其他旧测试仍在仓库中存在；这不属于 Task 1 的处理范围，应留给后续任务分批收口。
+- 主工作台结构测试已经从单纯字符串存在性断言提升为基于 `HTMLParser` 的列归属和直接子节点顺序断言，当前至少能保护三段式骨架的基本结构不被轻易打乱。
