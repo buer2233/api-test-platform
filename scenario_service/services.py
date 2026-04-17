@@ -14,10 +14,13 @@ from platform_core.models import FunctionalCaseDraft
 from platform_core.scenario_execution import ScenarioExecutionBindingError, ScenarioExecutionPipeline
 from platform_core.services import PlatformApplicationService
 from platform_core.traffic_capture import TrafficCaptureDraftParser
+from scenario_service.api_test_registry import ApiTestMethodRegistry
+from scenario_service.capture_proxy import CaptureCandidateBuilder
 from scenario_service.governance import GovernanceBootstrapService
 from scenario_service.models import (
     AiGovernancePolicyRecord,
     AiSuggestionDecisionRecord,
+    CaptureProxyRecord,
     ProjectRoleAssignmentRecord,
     ScenarioExecutionRecord,
     ScenarioAuditLogRecord,
@@ -29,6 +32,7 @@ from scenario_service.models import (
     ScenarioSourceRecord,
     ScenarioSuggestionRecord,
     ScenarioStepRecord,
+    ThemePreferenceRecord,
     TrafficCaptureFormalizationRecord,
 )
 from scenario_service.suggestion_providers import BaseSuggestionProvider, RuleBasedSuggestionProvider
@@ -122,6 +126,12 @@ ROLE_PERMISSION_TEMPLATES = {
         "can_grant": True,
     },
 }
+WORKBENCH_THEME_OPTIONS = (
+    ("dark", "深色"),
+    ("light", "浅色"),
+    ("gray", "灰色"),
+)
+
 DEFAULT_AI_SUGGESTION_TYPES = ["assertion_completion", "low_confidence_repair", "step_patch"]
 AI_SUGGESTION_MUTABLE_STATES = {"pending_approval", "approved", "rejected", "adopted", "rolled_back", "pending", "applied"}
 
@@ -145,6 +155,8 @@ class FunctionalCaseScenarioService:
         self.scenario_execution_pipeline = scenario_execution_pipeline or ScenarioExecutionPipeline()
         self.suggestion_provider = suggestion_provider or RuleBasedSuggestionProvider()
         self.governance_service = governance_service or GovernanceBootstrapService()
+        self.capture_candidate_builder = CaptureCandidateBuilder()
+        self.api_test_registry = ApiTestMethodRegistry()
 
     @transaction.atomic
     def import_functional_case(self, payload: dict) -> ScenarioRecord:
@@ -1895,8 +1907,94 @@ class FunctionalCaseScenarioService:
         """返回治理入口使用的上下文树。"""
         return self.governance_service.build_context_tree()
 
+    def get_workbench_theme_preference(self) -> dict:
+        """返回当前工作台主题偏好摘要。"""
+        preference = ThemePreferenceRecord.objects.order_by("-updated_at", "-id").first()
+        theme_code = preference.theme_code if preference else "dark"
+        return {
+            "theme_code": theme_code,
+            "layout_locked": True,
+            "theme_options": [
+                {"theme_code": item[0], "theme_name": item[1]}
+                for item in WORKBENCH_THEME_OPTIONS
+            ],
+        }
+
+    def set_workbench_theme_preference(self, *, theme_code: str, actor: str = "") -> dict:
+        """写入新的工作台主题偏好。"""
+        preference = ThemePreferenceRecord.objects.create(
+            theme_code=theme_code,
+            applied_by=actor,
+            metadata={"layout_locked": True},
+        )
+        return {
+            "preference_id": str(preference.id),
+            "theme_code": preference.theme_code,
+            "layout_locked": True,
+            "applied_by": preference.applied_by,
+        }
+
+    def start_capture_session(
+        self,
+        *,
+        project_code: str,
+        module_code: str,
+        submodule_code: str,
+        operator: str,
+        filter_rule: dict | None,
+        listen_port: int,
+    ) -> dict:
+        """启动模块级抓包会话并落库记录过滤范围。"""
+        normalized_rule = filter_rule or {}
+        record = CaptureProxyRecord.objects.create(
+            capture_session_id=f"capture-{uuid4().hex[:12]}",
+            project_code=project_code,
+            module_code=module_code,
+            submodule_code=submodule_code,
+            operator=operator,
+            listen_port=listen_port,
+            filter_url_prefix=str(normalized_rule.get("url_prefix", "")),
+            filter_ip_address=str(normalized_rule.get("ip_address", "")),
+            metadata={"layout_locked": True},
+        )
+        return {
+            "capture_session_id": record.capture_session_id,
+            "project_code": record.project_code,
+            "module_code": record.module_code,
+            "submodule_code": record.submodule_code,
+            "operator": record.operator,
+            "listen_port": record.listen_port,
+            "status": record.status,
+            "filter_rule": {
+                "url_prefix": record.filter_url_prefix,
+                "ip_address": record.filter_ip_address,
+            },
+        }
+
+    def build_capture_candidates(self, *, capture_records: list[dict]) -> list[dict]:
+        """把抓包记录整理为接口候选列表。"""
+        return self.capture_candidate_builder.build(capture_records)
+
+    def annotate_candidate_with_method_state(self, candidate: dict) -> dict:
+        """根据注册表命中情况为候选接口标注方法状态。"""
+        matched = self.api_test_registry.match(str(candidate.get("method", "")), str(candidate.get("path", "")))
+        annotated_candidate = dict(candidate)
+        if matched:
+            if matched.get("required_parameters"):
+                annotated_candidate["method_state"] = "parameter_completion_required"
+            else:
+                annotated_candidate["method_state"] = "reused"
+            annotated_candidate["method_name"] = matched.get("method_name", "")
+            annotated_candidate["module_path"] = matched.get("module_path", "")
+            return annotated_candidate
+        annotated_candidate["method_state"] = "create_required"
+        annotated_candidate["method_name"] = ""
+        annotated_candidate["module_path"] = ""
+        return annotated_candidate
+
     def build_workbench_shell_context(self) -> dict:
         """返回主工作台三段式壳层渲染所需的最小上下文。"""
+        theme_preference = self.get_workbench_theme_preference()
         return {
             "page_title": "V3 场景工作台",
             "left_panel_title": "左侧树区",
@@ -1908,6 +2006,9 @@ class FunctionalCaseScenarioService:
             "method_chain_label": "方法链",
             "execution_history_label": "历史执行",
             "allure_report_label": "测试报告",
+            "current_theme": theme_preference["theme_code"],
+            "theme_options": theme_preference["theme_options"],
+            "layout_locked": theme_preference["layout_locked"],
         }
 
     def activate_baseline_version(

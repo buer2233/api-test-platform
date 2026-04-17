@@ -5,7 +5,10 @@ from __future__ import annotations
 from django.urls import path
 
 from scenario_service.views import (
+    AiGovernancePolicyView,
     BaselineVersionActivateView,
+    CaptureCandidateBuildView,
+    CaptureSessionStartView,
     FunctionalCaseImportView,
     GovernanceContextQueryView,
     GovernanceMigrationStatusView,
@@ -23,7 +26,12 @@ from scenario_service.views import (
     ScenarioResultView,
     ScenarioReviewView,
     ScenarioSuggestionApplyView,
+    ScenarioSuggestionApproveView,
+    ScenarioSuggestionAdoptView,
+    ScenarioSuggestionRejectView,
+    ScenarioSuggestionRollbackView,
     ScenarioSuggestionListView,
+    ThemePreferenceView,
     TrafficCaptureBindingConfirmView,
     TrafficCaptureConfirmView,
     TrafficCaptureImportView,
@@ -38,6 +46,10 @@ urlpatterns = [
     path("governance/windows-demo/", WindowsDemoManifestView.as_view(), name="governance-windows-demo"),
     path("governance/access-grants/", ProjectRoleAssignmentView.as_view(), name="governance-access-grants"),
     path("governance/audit-logs/", ScenarioAuditLogListView.as_view(), name="governance-audit-logs"),
+    path("governance/theme-preference/", ThemePreferenceView.as_view(), name="governance-theme-preference"),
+    path("governance/capture-sessions/", CaptureSessionStartView.as_view(), name="governance-capture-session-start"),
+    path("governance/capture-candidates/", CaptureCandidateBuildView.as_view(), name="governance-capture-candidates"),
+    path("governance/ai-policies/", AiGovernancePolicyView.as_view(), name="governance-ai-policies"),
     path("governance/schedule-batches/", ScheduleBatchListCreateView.as_view(), name="governance-schedule-batches"),
     path(
         "governance/schedule-batches/<str:schedule_batch_id>/",
@@ -78,6 +90,26 @@ urlpatterns = [
     path("<str:scenario_id>/export/", ScenarioExportView.as_view(), name="scenario-export"),
     path("<str:scenario_id>/result/", ScenarioResultView.as_view(), name="scenario-result"),
     path("<str:scenario_id>/suggestions/", ScenarioSuggestionListView.as_view(), name="scenario-suggestion-list"),
+    path(
+        "<str:scenario_id>/suggestions/<str:suggestion_id>/approve/",
+        ScenarioSuggestionApproveView.as_view(),
+        name="scenario-suggestion-approve",
+    ),
+    path(
+        "<str:scenario_id>/suggestions/<str:suggestion_id>/reject/",
+        ScenarioSuggestionRejectView.as_view(),
+        name="scenario-suggestion-reject",
+    ),
+    path(
+        "<str:scenario_id>/suggestions/<str:suggestion_id>/adopt/",
+        ScenarioSuggestionAdoptView.as_view(),
+        name="scenario-suggestion-adopt",
+    ),
+    path(
+        "<str:scenario_id>/suggestions/<str:suggestion_id>/rollback/",
+        ScenarioSuggestionRollbackView.as_view(),
+        name="scenario-suggestion-rollback",
+    ),
     path(
         "<str:scenario_id>/suggestions/<str:suggestion_id>/apply/",
         ScenarioSuggestionApplyView.as_view(),

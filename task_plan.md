@@ -63,6 +63,14 @@
 | 实施计划编写 | 已完成 | 已新增 `docs/superpowers/plans/2026-04-17-api-test-platform-mainline-redesign.md`，拆为 16 个 TDD 任务 |
 | 实现方式选择 | 已完成 | 已确认采用“子代理逐任务执行” |
 | Task 1 三段式主工作台壳层 | 已完成 | 已将 `/ui/v3/workbench/` 调整为兼容式三段式骨架，并通过主线结构测试、P1-G3 兼容测试、P1-G4 兼容测试 |
+| Task 2 子模块默认测试用例列表 | 已完成 | `service_tests/test_mainline_workbench_ui.py` 已通过 `2 passed`，当前页面已暴露 `data-default-view="testcase-list"` 与 `method-list-secondary-entry` |
+| Task 3 三主题切换 | 已完成 | 已新增 `ThemePreferenceRecord`、主题偏好接口与工作台样式切换，验证结果为 `test_theme_switcher...=1 passed`、`test_mainline_workbench_ui.py=3 passed`、`makemigrations --check --dry-run` 通过 |
+| Task 4 模块级抓包代理会话与前置过滤 | 已完成 | 已新增 `scenario_service/capture_proxy.py` 与 `CaptureProxyFilter`，`test_capture_proxy_filter_only_accepts_matching_url_or_ip=1 passed` |
+| Task 5 抓包会话与记录落库 | 已完成 | 已新增 `CaptureProxyRecord`、抓包会话启动接口与迁移 `0011_add_capture_proxy_record.py`，`test_start_capture_session_persists_filter_and_scope=1 passed` |
+| Task 6 抓包候选治理 | 已完成 | 已新增 `CaptureCandidateBuilder` 与候选治理接口，`test_capture_records_are_grouped_into_candidate_operations=1 passed` |
+| Task 7 `api_test` 接口方法注册扫描与匹配 | 已完成 | 已新增 `ApiTestMethodRegistry` 并通过 `test_registry_matches_existing_method_by_http_method_and_full_path=1 passed` |
+| Task 8 候选接口复用/补参/新增状态标注 | 已完成 | 已新增 `annotate_candidate_with_method_state()`，并通过 `test_candidate_is_marked_as_reuse_or_create_by_registry_match=1 passed` |
+| Task 9 `api_test` 目录落点规则 | 待开始 | 下一步进入 `api_test/core/<project>/<model>/` 与 `api_test/tests/<project>/<model>/` 生成路径规则的红灯测试 |
 
 ## 2026-04-16 V3 P1 独立验收收口
 

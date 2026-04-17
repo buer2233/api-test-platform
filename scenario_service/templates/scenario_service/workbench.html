@@ -30,6 +30,28 @@
                 radial-gradient(circle at bottom left, rgba(242, 186, 104, 0.08), transparent 30%),
                 linear-gradient(180deg, #081017 0%, #0b131d 100%);
         }
+        body[data-theme-code="light"] {
+            --bg: #edf3fb;
+            --panel: rgba(255, 255, 255, 0.92);
+            --line: rgba(60, 94, 140, 0.14);
+            --text: #102033;
+            --muted: #5d7186;
+            background:
+                radial-gradient(circle at top right, rgba(104, 214, 255, 0.18), transparent 28%),
+                radial-gradient(circle at bottom left, rgba(242, 186, 104, 0.16), transparent 30%),
+                linear-gradient(180deg, #f7fafd 0%, #e6eef7 100%);
+        }
+        body[data-theme-code="gray"] {
+            --bg: #16181c;
+            --panel: rgba(34, 37, 42, 0.92);
+            --line: rgba(162, 170, 180, 0.18);
+            --text: #f1f3f5;
+            --muted: #a4acb8;
+            background:
+                radial-gradient(circle at top right, rgba(255, 255, 255, 0.06), transparent 25%),
+                radial-gradient(circle at bottom left, rgba(160, 170, 180, 0.08), transparent 28%),
+                linear-gradient(180deg, #1b1d22 0%, #111318 100%);
+        }
         body::before {
             content: "";
             position: fixed;
@@ -48,6 +70,25 @@
             box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
         }
         .hero { padding: 26px; display: grid; gap: 18px; }
+        .theme-switcher {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        .theme-switcher button {
+            padding: 10px 16px;
+            border-radius: 999px;
+            border: 1px solid rgba(104, 214, 255, 0.18);
+            background: rgba(104, 214, 255, 0.08);
+            color: var(--text);
+            cursor: pointer;
+        }
+        .theme-switcher button.active {
+            background: linear-gradient(135deg, var(--gold), #ffd07a);
+            color: #081017;
+            border-color: transparent;
+        }
         .eyebrow {
             display: inline-flex;
             align-items: center;
@@ -150,12 +191,22 @@
         }
     </style>
 </head>
-<body>
+<body data-theme-code="{{ current_theme }}" data-layout-locked="{% if layout_locked %}true{% else %}false{% endif %}">
 <main class="shell" data-testid="workbench-root">
     <section class="hero">
         <span class="eyebrow">V3 Governance Console</span>
         <h1>V3 场景工作台</h1>
         <p>当前入口统一承接项目治理、权限审计、抓包正式执行和 Windows Demo 启动信息。浏览器端继续承担高频验证，Windows 端通过同一路由和同一服务契约完成阶段性复验。</p>
+        <div class="theme-switcher" data-testid="theme-switcher" data-layout-locked="{% if layout_locked %}true{% else %}false{% endif %}">
+            {% for theme_option in theme_options %}
+            <button
+                type="button"
+                data-theme-value="{{ theme_option.theme_code }}"
+                value="{{ theme_option.theme_code }}"
+                class="{% if current_theme == theme_option.theme_code %}active{% endif %}"
+            >{{ theme_option.theme_name }}</button>
+            {% endfor %}
+        </div>
         <div class="hero-grid">
             <div class="metric-grid">
                 <div class="metric"><span class="field-label">事实源</span><strong>MySQL</strong></div>
@@ -407,6 +458,21 @@
                     <div id="traffic-formalization-summary"><div class="empty">非抓包场景或尚未加载抓包治理摘要。</div></div>
                 </section>
 
+                <section class="result-box" data-testid="ai-governance-panel">
+                    <span class="field-label">AI 治理状态</span>
+                    <div class="summary-grid">
+                        <div class="summary-cell">
+                            <span class="summary-key">策略接口</span>
+                            <span class="summary-value">/api/v2/scenarios/governance/ai-policies/</span>
+                        </div>
+                        <div class="summary-cell">
+                            <span class="summary-key">建议状态</span>
+                            <span class="summary-value">pending_approval / approved / rejected / adopted / rolled_back</span>
+                        </div>
+                    </div>
+                    <p class="panel-note">当前 AI 只提供建议、审批、采纳与回退治理链路，不直接替代正式事实源。</p>
+                </section>
+
                 <section class="result-box" data-testid="execution-result">
                     <div class="button-row"><button class="button secondary" id="refresh-result-button">刷新结果</button></div>
                     <div id="result-panel"><div class="empty">等待场景执行后展示结果。</div></div>
@@ -467,6 +533,8 @@ window.SCENARIO_ENDPOINTS = {
     governanceContext: "/api/v2/scenarios/governance/context/",
     accessGrants: "/api/v2/scenarios/governance/access-grants/",
     auditLogs: "/api/v2/scenarios/governance/audit-logs/",
+    aiPolicies: "/api/v2/scenarios/governance/ai-policies/",
+    themePreference: "/api/v2/scenarios/governance/theme-preference/",
     scheduleBatches: "/api/v2/scenarios/governance/schedule-batches/",
     windowsDemo: "/api/v2/scenarios/governance/windows-demo/",
     importFunctionalCase: "/api/v2/scenarios/import-functional-case/",
@@ -489,9 +557,11 @@ window.SCENARIO_ENDPOINTS = {
         currentDetail: null,
         windowsDemo: null,
         scheduleBatches: [],
-        selectedScheduleBatchId: null
+        selectedScheduleBatchId: null,
+        activeTheme: document.body.dataset.themeCode || "dark"
     };
     const toast = document.getElementById("toast");
+    const themeButtons = Array.prototype.slice.call(document.querySelectorAll("[data-theme-value]"));
     const summaryGrid = document.getElementById("summary-grid");
     const stepList = document.getElementById("step-list");
     const issueList = document.getElementById("issue-list");
@@ -621,6 +691,26 @@ window.SCENARIO_ENDPOINTS = {
             throw new Error(payload && payload.error ? payload.error.message : "请求失败");
         }
         return payload.data;
+    }
+
+    function applyTheme(themeCode) {
+        state.activeTheme = themeCode;
+        document.body.dataset.themeCode = themeCode;
+        themeButtons.forEach(function (button) {
+            button.classList.toggle("active", button.getAttribute("data-theme-value") === themeCode);
+        });
+    }
+
+    async function changeTheme(themeCode) {
+        const data = await request(api.themePreference, {
+            method: "POST",
+            body: JSON.stringify({
+                theme_code: themeCode,
+                actor: readActorName() || "qa-owner"
+            })
+        });
+        applyTheme(data.theme_code);
+        showToast("主题已切换为" + themeCode + "。");
     }
 
     function renderGovernanceContext() {
@@ -1136,6 +1226,11 @@ window.SCENARIO_ENDPOINTS = {
     document.getElementById("cancel-schedule-item-button").addEventListener("click", function () { cancelLatestQueuedScheduleItem().catch(function (error) { showToast(error.message, true); }); });
     document.getElementById("refresh-windows-demo-button").addEventListener("click", function () { loadWindowsDemoManifest().catch(function (error) { showToast(error.message, true); }); });
     document.getElementById("open-windows-demo-button").addEventListener("click", openWindowsDemoEntry);
+    themeButtons.forEach(function (button) {
+        button.addEventListener("click", function () {
+            changeTheme(button.getAttribute("data-theme-value")).catch(function (error) { showToast(error.message, true); });
+        });
+    });
 
     refreshFunctionalCaseDemoPayload();
     refreshTrafficCaptureDemoName();

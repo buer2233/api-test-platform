@@ -157,6 +157,76 @@ class ProjectRoleAssignmentRecord(models.Model):
         return f"{self.project.project_code}/{self.subject_name}({self.role_code})"
 
 
+class ThemePreferenceRecord(models.Model):
+    """记录当前工作台主题偏好。"""
+
+    theme_code = models.CharField(max_length=32, default="dark")
+    applied_by = models.CharField(max_length=128, blank=True, default="")
+    metadata = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at", "-id"]
+
+    def __str__(self) -> str:
+        """返回便于后台查看的主题偏好标识。"""
+        return f"{self.theme_code}/{self.applied_by or 'system'}"
+
+
+class CaptureProxyRecord(models.Model):
+    """记录模块级抓包会话。"""
+
+    capture_session_id = models.CharField(max_length=128, unique=True)
+    project_code = models.CharField(max_length=128)
+    module_code = models.CharField(max_length=128)
+    submodule_code = models.CharField(max_length=128)
+    operator = models.CharField(max_length=128)
+    listen_port = models.PositiveIntegerField()
+    filter_url_prefix = models.CharField(max_length=255, blank=True, default="")
+    filter_ip_address = models.CharField(max_length=64, blank=True, default="")
+    status = models.CharField(max_length=32, default="running")
+    metadata = models.JSONField(default=dict)
+    started_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-started_at", "-id"]
+
+    def __str__(self) -> str:
+        """返回便于后台查看的抓包会话标识。"""
+        return f"{self.project_code}/{self.module_code}/{self.submodule_code}({self.status})"
+
+
+class AiGovernancePolicyRecord(models.Model):
+    """项目级 AI 治理策略对象。"""
+
+    policy_id = models.CharField(max_length=128, unique=True)
+    project = models.ForeignKey(ProjectRecord, related_name="ai_governance_policies", on_delete=models.CASCADE)
+    scope_type = models.CharField(max_length=32, default="project")
+    scope_ref = models.CharField(max_length=128, blank=True, default="")
+    suggestion_types = models.JSONField(default=list)
+    approval_mode = models.CharField(max_length=32, default="manual_review")
+    rollback_mode = models.CharField(max_length=32, default="snapshot_restore")
+    auto_execution_enabled = models.BooleanField(default=False)
+    metadata = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["project__project_code", "scope_type", "scope_ref", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "scope_type", "scope_ref"],
+                name="uniq_project_ai_governance_scope",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        """返回便于后台查看的策略标识。"""
+        return f"{self.project.project_code}/{self.scope_type}/{self.scope_ref or 'default'}"
+
+
 class TrafficCaptureFormalizationRecord(models.Model):
     """抓包场景正式执行治理对象。"""
 
@@ -327,6 +397,37 @@ class ScenarioSuggestionRecord(models.Model):
 
     class Meta:
         ordering = ["-created_at", "-id"]
+
+
+class AiSuggestionDecisionRecord(models.Model):
+    """AI 建议审批、采纳与回退责任链记录。"""
+
+    decision_id = models.CharField(max_length=128, unique=True)
+    project = models.ForeignKey(ProjectRecord, related_name="ai_suggestion_decisions", on_delete=models.PROTECT)
+    scenario = models.ForeignKey(ScenarioRecord, related_name="ai_suggestion_decisions", on_delete=models.CASCADE)
+    suggestion = models.ForeignKey(
+        ScenarioSuggestionRecord,
+        related_name="decision_records",
+        on_delete=models.CASCADE,
+    )
+    decision_type = models.CharField(max_length=32)
+    decision_status = models.CharField(max_length=32, default="completed")
+    actor_name = models.CharField(max_length=128)
+    decision_comment = models.TextField(blank=True, default="")
+    snapshot_before = models.JSONField(default=dict)
+    snapshot_after = models.JSONField(default=dict)
+    related_revision_id = models.CharField(max_length=128, blank=True, default="")
+    related_execution_id = models.CharField(max_length=128, blank=True, default="")
+    metadata = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self) -> str:
+        """返回便于后台查看的 AI 决策标识。"""
+        return f"{self.suggestion.suggestion_id}/{self.decision_type}({self.actor_name})"
 
 
 class ScenarioExecutionRecord(models.Model):

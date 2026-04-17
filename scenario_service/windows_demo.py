@@ -12,6 +12,7 @@ DEFAULT_WINDOWS_DEMO_BASE_URL = "http://127.0.0.1:18080"
 WINDOWS_DEMO_SHARED_CONTRACT_ENDPOINTS = [
     "/api/v2/scenarios/",
     "/api/v2/scenarios/governance/context/",
+    "/api/v2/scenarios/governance/ai-policies/",
     "/api/v2/scenarios/governance/access-grants/",
     "/api/v2/scenarios/governance/audit-logs/",
     "/api/v2/scenarios/governance/windows-demo/",

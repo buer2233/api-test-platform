@@ -1,5 +1,85 @@
 # 会话进展
 
+## 2026-04-17 主线重构会话恢复
+
+### 已完成
+- 已读取并对齐以下上下文文件：
+  - `task_plan.md`
+  - `findings.md`
+  - `progress.md`
+  - `docs/superpowers/specs/2026-04-17-api-test-platform-mainline-redesign-design.md`
+  - `docs/superpowers/plans/2026-04-17-api-test-platform-mainline-redesign.md`
+- 已检查当前工作区状态，确认存在未提交的 `P2` AI 治理相关代码与文档变更，不能在主线重构过程中误覆盖。
+- 已执行主线 UI 定向测试：
+  - `.venv_service\Scripts\python.exe -m pytest service_tests\test_mainline_workbench_ui.py -q --basetemp=.pytest_tmp\mainline_ui_existing`
+  - 结果：`2 passed`
+- 已确认主线重构实际进度为：
+  - `Task 1` 已完成；
+  - `Task 2` 已完成；
+  - 下一步进入 `Task 3` 三主题切换。
+
+### 下一步
+- 按 TDD 为 `Task 3` 先补主题切换失败测试并确认红灯。
+- 在不破坏现有 `V3/P2` 兼容能力的前提下，补齐最小主题切换实现与定向回归。
+
+## 2026-04-17 主线重构 Task 3 三主题切换
+
+### 已完成
+- 已在 `service_tests/test_mainline_workbench_ui.py` 新增主题切换红灯用例，并通过以下命令确认失败：
+  - `.venv_service\Scripts\python.exe -m pytest service_tests\test_mainline_workbench_ui.py::test_theme_switcher_exposes_dark_light_gray_without_layout_variation -q --basetemp=.pytest_tmp\theme_switch_red`
+  - 失败点：页面中缺少 `data-testid="theme-switcher"`。
+- 已新增 `ThemePreferenceRecord`、`ThemePreferenceRequestSerializer`、`ThemePreferenceView` 和 `/api/v2/scenarios/governance/theme-preference/`。
+- 已为工作台模板增加三主题切换按钮、`data-layout-locked="true"` 契约，以及只切样式变量不切布局结构的前端逻辑。
+- 已生成迁移 `scenario_service/migrations/0010_add_theme_preference_record.py`。
+- 已完成本轮验证：
+  - `.venv_service\Scripts\python.exe -m pytest service_tests\test_mainline_workbench_ui.py::test_theme_switcher_exposes_dark_light_gray_without_layout_variation -q --basetemp=.pytest_tmp\theme_switch_green` -> `1 passed`
+  - `.venv_service\Scripts\python.exe -m pytest service_tests\test_mainline_workbench_ui.py -q --basetemp=.pytest_tmp\mainline_ui_after_theme` -> `3 passed`
+  - `.venv_service\Scripts\python.exe manage.py makemigrations scenario_service --check --dry-run` -> `No changes detected in app 'scenario_service'`
+
+### 下一步
+- 进入 `Task 4`，先为 `CaptureProxyFilter` 写红灯测试并确认当前仓库还没有模块级抓包前置过滤能力。
+
+## 2026-04-17 主线重构 Task 4-6 抓包前置过滤、会话落库与候选治理
+
+### 已完成
+- 已新增 `service_tests/test_capture_proxy_flow.py`，并按 TDD 依次补齐三条主线测试：
+  - `test_capture_proxy_filter_only_accepts_matching_url_or_ip`
+  - `test_start_capture_session_persists_filter_and_scope`
+  - `test_capture_records_are_grouped_into_candidate_operations`
+- 已完成对应最小实现：
+  - `scenario_service/capture_proxy.py` 新增 `CaptureProxyFilter` 与 `CaptureCandidateBuilder`
+  - `scenario_service/models.py` 新增 `CaptureProxyRecord`
+  - `scenario_service/services.py` 新增 `start_capture_session()` 与 `build_capture_candidates()`
+  - `scenario_service/views.py` / `scenario_service/urls.py` 新增抓包会话启动与候选治理 API
+- 已新增迁移：
+  - `scenario_service/migrations/0011_add_capture_proxy_record.py`
+- 已完成本轮验证：
+  - `.venv_service\Scripts\python.exe -m pytest service_tests\test_capture_proxy_flow.py::test_capture_proxy_filter_only_accepts_matching_url_or_ip -q --basetemp=.pytest_tmp\capture_filter_green` -> `1 passed`
+  - `.venv_service\Scripts\python.exe -m pytest service_tests\test_capture_proxy_flow.py::test_start_capture_session_persists_filter_and_scope -q --basetemp=.pytest_tmp\capture_session_green` -> `1 passed`
+  - `.venv_service\Scripts\python.exe -m pytest service_tests\test_capture_proxy_flow.py::test_capture_records_are_grouped_into_candidate_operations -q --basetemp=.pytest_tmp\candidate_build_green` -> `1 passed`
+  - `.venv_service\Scripts\python.exe -m pytest service_tests\test_capture_proxy_flow.py service_tests\test_mainline_workbench_ui.py -q --basetemp=.pytest_tmp\mainline_capture_candidate_regression` -> `6 passed`
+  - `.venv_service\Scripts\python.exe manage.py makemigrations scenario_service --check --dry-run` -> `No changes detected in app 'scenario_service'`
+
+### 下一步
+- 进入 `Task 7`，开始实现 `ApiTestMethodRegistry`，把抓包候选与 `api_test/core/` 现有接口方法做第一版匹配。
+
+## 2026-04-17 主线重构 Task 7-8 `api_test` 方法注册匹配
+
+### 已完成
+- 已新增 `service_tests/test_api_test_registry.py`，并按 TDD 补齐两条测试：
+  - `test_registry_matches_existing_method_by_http_method_and_full_path`
+  - `test_candidate_is_marked_as_reuse_or_create_by_registry_match`
+- 已新增 `scenario_service/api_test_registry.py`，落地 `ApiTestMethodRegistry`。
+- 已在 `FunctionalCaseScenarioService` 中注入 `api_test_registry`，并新增 `annotate_candidate_with_method_state()`。
+- 已完成本轮验证：
+  - `.venv_service\Scripts\python.exe -m pytest service_tests\test_api_test_registry.py::test_registry_matches_existing_method_by_http_method_and_full_path -q --basetemp=.pytest_tmp\registry_green` -> `1 passed`
+  - `.venv_service\Scripts\python.exe -m pytest service_tests\test_api_test_registry.py::test_candidate_is_marked_as_reuse_or_create_by_registry_match -q --basetemp=.pytest_tmp\registry_state_green` -> `1 passed`
+  - `.venv_service\Scripts\python.exe -m pytest service_tests\test_mainline_workbench_ui.py service_tests\test_capture_proxy_flow.py service_tests\test_api_test_registry.py -q --basetemp=.pytest_tmp\mainline_task8_regression` -> `8 passed`
+  - `.venv_service\Scripts\python.exe manage.py makemigrations scenario_service --check --dry-run` -> `No changes detected in app 'scenario_service'`
+
+### 下一步
+- 进入 `Task 9`，开始实现 `api_test/core/<project>/<model>/` 和 `api_test/tests/<project>/<model>/` 的目录落点规则。
+
 ## 2026-04-16 V3 P2 AI 治理边界实现
 
 ### 已完成

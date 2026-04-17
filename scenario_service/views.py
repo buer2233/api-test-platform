@@ -11,6 +11,8 @@ from scenario_service.serializers import (
     AiGovernancePolicyQuerySerializer,
     AiGovernancePolicyRequestSerializer,
     BaselineVersionActivateSerializer,
+    CaptureCandidateBuildRequestSerializer,
+    CaptureSessionStartRequestSerializer,
     FunctionalCaseImportRequestSerializer,
     ProjectRoleAssignmentQuerySerializer,
     ProjectRoleAssignmentRequestSerializer,
@@ -27,6 +29,7 @@ from scenario_service.serializers import (
     ScenarioSuggestionApplyRequestSerializer,
     ScenarioSuggestionDecisionRequestSerializer,
     ScenarioSuggestionQuerySerializer,
+    ThemePreferenceRequestSerializer,
     ScenarioSuggestionRequestSerializer,
     TrafficCaptureBindingConfirmRequestSerializer,
     TrafficCaptureConfirmRequestSerializer,
@@ -212,6 +215,48 @@ class ScenarioAuditLogListView(APIView):
         serializer = ScenarioAuditLogQuerySerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
         return Response({"success": True, "data": SCENARIO_SERVICE.list_audit_logs(**serializer.validated_data)})
+
+
+class ThemePreferenceView(APIView):
+    """处理工作台主题偏好的查询与写入请求。"""
+
+    def get(self, request):
+        """返回当前工作台主题偏好。"""
+        return Response({"success": True, "data": SCENARIO_SERVICE.get_workbench_theme_preference()})
+
+    def post(self, request):
+        """写入新的工作台主题偏好。"""
+        serializer = ThemePreferenceRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(
+            {"success": True, "data": SCENARIO_SERVICE.set_workbench_theme_preference(**serializer.validated_data)},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class CaptureSessionStartView(APIView):
+    """处理抓包会话启动请求。"""
+
+    def post(self, request):
+        """启动新的模块级抓包会话。"""
+        serializer = CaptureSessionStartRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(
+            {"success": True, "data": SCENARIO_SERVICE.start_capture_session(**serializer.validated_data)},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class CaptureCandidateBuildView(APIView):
+    """处理抓包记录治理为候选列表的请求。"""
+
+    def post(self, request):
+        """返回过滤静态资源后的接口候选列表。"""
+        serializer = CaptureCandidateBuildRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(
+            {"success": True, "data": SCENARIO_SERVICE.build_capture_candidates(**serializer.validated_data)}
+        )
 
 
 class AiGovernancePolicyView(APIView):

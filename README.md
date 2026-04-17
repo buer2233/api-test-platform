@@ -8,7 +8,7 @@
 
 ## 当前状态
 
-截至 2026-04-16，V1 已正式验收通过，V2 也已完成正式验收；V3 `P0` 已完成详细验收，V3 `P1` 计划内的 `G1 / G2 / G3 / G4` 已完成开发、测试并通过独立验收。当前仓库状态应判断为：
+截至 2026-04-17，V1 已正式验收通过，V2 也已完成正式验收；V3 `P0`、`P1`、`P2` 均已完成开发、测试、独立验收，并已完成 V3 总体验收。当前仓库状态应判断为：
 
 - V3 当前主轴已确认为“平台治理优先”，并采用 `P0 / P1 / P2` 分层推进；
 - V3 `P0` 已完成多项目 / 环境 / 场景集 / 基线版本治理、默认项目迁移、执行隔离、导出隔离和最小治理入口首轮交付；
@@ -16,6 +16,7 @@
 - `scenario_service` 已生成并应用 `0005_baselineversionrecord_governancemigrationrecord_and_more.py`，迁移一致性检查结果为 `No changes detected in app 'scenario_service'`，本地 MySQL 已完成 `0005` 落库；
 - `scenario_service` 已新增并应用 `0006_scenarioauditlogrecord_projectroleassignmentrecord.py`，当前已补齐项目角色授权记录、审计日志记录、授权管理接口和审计查询接口；
 - `scenario_service` 已新增并应用 `0007_trafficcaptureformalizationrecord.py`，当前已补齐抓包正式执行对象、正式确认接口、绑定确认接口和执行前门禁；
+- `scenario_service` 已新增并应用 `0009_aigovernancepolicyrecord_aisuggestiondecisionrecord_and_more.py`，当前已补齐 AI 治理策略对象、审批 / 拒绝 / 采纳 / 回退责任链对象，以及建议治理结构化事实层；
 - 服务测试已彻底切换到正式 MySQL 基线，`platform_service.test_settings` 不再保留 SQLite 路径，且运行时连接已验证直连 `api_test_platform`；
 - `service_tests` 已改为正式 MySQL 保留数据模式：不再清库、不再走 SQLite、测试用例改为运行期唯一业务标识，可重复回归；
 - 工作台 `/ui/v2/workbench/` 已通过正式 MySQL 数据源下的真实浏览器主链路冒烟，验证链路为“导入 -> 审核通过 -> 触发执行 -> 回看结果”，且默认示例 ID 会自动换新，便于重复点测；
@@ -27,7 +28,18 @@
 - `P1` 验收级定向套件已完成：`service_tests/test_v3_p1_permission_audit.py + test_v3_p1_traffic_capture_execution.py + test_v3_p1_entry_windows_demo.py + test_v3_p1_scheduling_execution_center.py = 15 passed`；
 - `/ui/v3/workbench/` 已在真实浏览器下完成调度中心复验：页面可见 `调度与执行中心` 区域，先导入示例场景后可创建最小调度批次，浏览器控制台无报错，最新截图已保存为 `v3_p1_g4_schedule_workbench_smoke_20260416.png`；
 - `windows_demo/launch_v3_workbench_demo.ps1 -DryRun` 已返回稳定启动清单，当前 Windows 路线继续保持“浏览器先验 + Windows 本地启动器复验”的可实际测试 Demo，并保留 `Tauri` 作为后续阶段性打包复验优先壳方案；
-- `product_document/阶段文档/V3阶段P1独立验收报告.md` 已归档，当前 `P1` 已完成独立验收，下一步应进入 `P2` 预留项准备。
+- `P2` AI 治理边界已完成：`service_tests/test_v3_p2_ai_governance.py = 7 passed`、`service_tests=54 passed`、`tests/platform_core=71 passed`、`tests=79 passed`、`api_test/tests=39 passed`，且 `.venv_service\Scripts\python.exe manage.py makemigrations scenario_service --check --dry-run --settings=platform_service.test_settings` 返回 `No changes detected in app 'scenario_service'`；
+- `/ui/v3/workbench/` 已在真实浏览器下完成 AI 治理状态区复验：页面可见 `AI 治理状态` 区域，浏览器控制台 `0` 报错 / 警告，最新截图已保存为 `v3_p2_ai_governance_workbench_smoke_20260416.png`；
+- `product_document/阶段文档/V3阶段P1独立验收报告.md`、`product_document/阶段文档/V3阶段P2独立验收报告.md` 和 `product_document/阶段文档/V3阶段正式验收报告.md` 已归档，当前 `V3` 已完成 `P0 / P1 / P2` 分阶段独立验收、V3 总体验收，以及 `V1 / V2` 历史功能回归复验；
+- V3 总体验收当前最新结果为：`V3专项=33 passed`、`service_tests=54 passed`、`tests/platform_core=71 passed`、`tests=79 passed`、`api_test/tests=39 passed`、公开基线双入口 `12 passed, 27 deselected`、`V1` 非公网 `27 passed, 12 deselected`、`V1` 配置契约 `6 passed`、`V2` 历史服务化旧功能套件 `21 passed`；
+- `/ui/v2/workbench/` 与 `/ui/v3/workbench/` 已完成真实浏览器复验，V3 入口控制台 `0` 报错 / 警告，Windows Demo 启动器 dry-run 也已通过。
+- 2026-04-17 起，仓库已进入“接口自动化平台主线重构”执行阶段，当前已按 TDD 落地以下主线能力：
+  - `/ui/v3/workbench/` 已补齐三段式主壳层、子模块默认测试用例列表和三主题样式切换，相关定向验证为 `service_tests/test_mainline_workbench_ui.py=3 passed`；
+  - 已新增 `ThemePreferenceRecord` 与 `/api/v2/scenarios/governance/theme-preference/`，并生成迁移 `0010_add_theme_preference_record.py`；
+  - 已新增 `scenario_service/capture_proxy.py`，落地 `CaptureProxyFilter`、`CaptureCandidateBuilder` 和模块级抓包会话最小服务能力；
+  - 已新增 `/api/v2/scenarios/governance/capture-sessions/` 与 `/api/v2/scenarios/governance/capture-candidates/`，并生成迁移 `0011_add_capture_proxy_record.py`；
+  - 已新增 `scenario_service/api_test_registry.py`，落地 `ApiTestMethodRegistry`，并在服务层补齐候选接口的 `reused / parameter_completion_required / create_required` 状态标注入口；
+  - 当前主线定向验证结果为：`service_tests/test_mainline_workbench_ui.py + service_tests/test_capture_proxy_flow.py + service_tests/test_api_test_registry.py = 8 passed`，且 `manage.py makemigrations scenario_service --check --dry-run` 返回 `No changes detected in app 'scenario_service'`。
 
 当前已完成的 V2 第一实施子阶段首批落地包括：
 
@@ -559,5 +571,5 @@ V2 第四实施子阶段审核修订回归验证：
 
 ## 备注
 
-- 当前 README 以 V1 / V2 正式验收事实为基础，并已同步切换到“V3 P0 详细验收已完成、P1 已独立验收通过”的当前口径。
-- 后续新增能力应继续以 `V3-总索引 / V3-P0 / V3-P1 / V3-P2` 为边界基线；当前更合理的下一步是转入 `P2` 预留项准备与后续阶段承接评估。
+- 当前 README 以 V1 / V2 正式验收事实和 V3 正式验收事实为基础，并已同步切换到“V3 正式验收通过”的当前口径。
+- 后续新增能力应继续以 `V3-总索引 / V3-P0 / V3-P1 / V3-P2` 为边界基线；当前更合理的下一步是进入后续阶段承接评估，而不是继续在 V3 边界外自由扩张。

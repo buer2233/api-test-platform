@@ -109,3 +109,18 @@ def test_submodule_defaults_to_testcase_list_not_method_list(service_test_token:
     assert 'data-default-view="testcase-list"' in content
     assert 'data-testid="testcase-list-panel"' in content
     assert 'data-testid="method-list-secondary-entry"' in content
+
+
+def test_theme_switcher_exposes_dark_light_gray_without_layout_variation():
+    """主题切换应只暴露样式选择，不改变三段式布局契约。"""
+    client = APIClient()
+
+    response = client.get("/ui/v3/workbench/")
+
+    assert response.status_code == 200
+    content = response.content.decode("utf-8")
+    assert 'data-testid="theme-switcher"' in content
+    assert 'value="dark"' in content
+    assert 'value="light"' in content
+    assert 'value="gray"' in content
+    assert 'data-layout-locked="true"' in content

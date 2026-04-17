@@ -109,6 +109,51 @@ class ScenarioAuditLogQuerySerializer(serializers.Serializer):
     action_result = serializers.ChoiceField(choices=["succeeded", "blocked"], required=False)
 
 
+class ThemePreferenceRequestSerializer(serializers.Serializer):
+    """主题切换写入请求校验器。"""
+
+    theme_code = serializers.ChoiceField(choices=["dark", "light", "gray"])
+    actor = serializers.CharField(required=False, allow_blank=True)
+
+
+class CaptureSessionStartRequestSerializer(serializers.Serializer):
+    """抓包会话启动请求校验器。"""
+
+    project_code = serializers.CharField()
+    module_code = serializers.CharField()
+    submodule_code = serializers.CharField()
+    operator = serializers.CharField()
+    listen_port = serializers.IntegerField(min_value=1, max_value=65535)
+    filter_rule = serializers.DictField(required=False)
+
+
+class CaptureCandidateBuildRequestSerializer(serializers.Serializer):
+    """抓包候选治理请求校验器。"""
+
+    capture_records = serializers.ListField(child=serializers.DictField())
+
+
+class AiGovernancePolicyRequestSerializer(serializers.Serializer):
+    """AI 治理策略写入请求校验器。"""
+
+    project_code = serializers.CharField()
+    operator = serializers.CharField()
+    scope_type = serializers.ChoiceField(choices=["project", "module", "scenario_set"], required=False, default="project")
+    scope_ref = serializers.CharField(required=False, allow_blank=True)
+    suggestion_types = serializers.ListField(
+        child=serializers.ChoiceField(choices=["assertion_completion", "low_confidence_repair", "step_patch"])
+    )
+    approval_mode = serializers.ChoiceField(choices=["manual_review"], required=False, default="manual_review")
+    rollback_mode = serializers.ChoiceField(choices=["snapshot_restore"], required=False, default="snapshot_restore")
+    auto_execution_enabled = serializers.BooleanField(required=False, default=False)
+
+
+class AiGovernancePolicyQuerySerializer(serializers.Serializer):
+    """AI 治理策略查询参数校验器。"""
+
+    project_code = serializers.CharField()
+
+
 class ScheduleScenarioItemSerializer(serializers.Serializer):
     """调度任务项请求校验器。"""
 
@@ -170,11 +215,34 @@ class ScenarioSuggestionRequestSerializer(serializers.Serializer):
     )
 
 
+class ScenarioSuggestionQuerySerializer(serializers.Serializer):
+    """建议查询请求校验器。"""
+
+    actor = serializers.CharField(required=False, allow_blank=True)
+
+
+class ScenarioSuggestionDecisionRequestSerializer(serializers.Serializer):
+    """建议审批、拒绝与回退请求校验器。"""
+
+    actor = serializers.CharField()
+    decision_comment = serializers.CharField(required=False, allow_blank=True)
+    rollback_comment = serializers.CharField(required=False, allow_blank=True)
+
+
 class ScenarioSuggestionApplyRequestSerializer(serializers.Serializer):
     """建议采纳请求校验器。"""
 
-    reviser = serializers.CharField()
+    actor = serializers.CharField(required=False, allow_blank=True)
+    reviser = serializers.CharField(required=False, allow_blank=True)
     revision_comment = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        """统一兼容旧字段 `reviser` 和新字段 `actor`。"""
+        actor_name = attrs.get("actor") or attrs.get("reviser")
+        if not actor_name:
+            raise serializers.ValidationError("actor 或 reviser 至少需要提供一个。")
+        attrs["actor"] = actor_name
+        return attrs
 
 
 class ScenarioReviewRequestSerializer(serializers.Serializer):

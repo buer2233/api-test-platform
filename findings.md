@@ -1,5 +1,30 @@
 # 当前发现
 
+## 2026-04-17 主线重构会话恢复发现
+- 已确认 `docs/superpowers/specs/2026-04-17-api-test-platform-mainline-redesign-design.md` 与 `docs/superpowers/plans/2026-04-17-api-test-platform-mainline-redesign.md` 是当前继续开发的正式依据。
+- `task_plan.md` 原记录只写到主线重构 `Task 1`，但实际代码与测试已经推进到 `Task 2`：
+  - `service_tests/test_mainline_workbench_ui.py` 已存在两条主线测试；
+  - `.venv_service\Scripts\python.exe -m pytest service_tests\test_mainline_workbench_ui.py -q --basetemp=.pytest_tmp\mainline_ui_existing` 结果为 `2 passed`。
+- 当前 `/ui/v3/workbench/` 已具备三段式主壳层和“子模块默认展示测试用例列表”的最小契约，但页面仍保留较多 `V3` 治理文案与面板，说明主线改造还处于兼容过渡期。
+- 当前未提交改动主要集中在 `P2` AI 治理收尾文档与接口对象，不属于本轮主线重构直接产物，后续实现必须避免覆盖这些存量变更。
+- 主线重构下一项应从实施计划 `Task 3` 开始，先补 `theme-switcher` 红灯测试，再实现“三主题只切样式、不切布局逻辑”的最小闭环。
+- `Task 3` 已按 TDD 完成：
+  - 红灯：`service_tests/test_mainline_workbench_ui.py::test_theme_switcher_exposes_dark_light_gray_without_layout_variation` 因缺少 `data-testid="theme-switcher"` 失败；
+  - 绿灯：补齐 `ThemePreferenceRecord`、主题偏好接口、模板主题切换按钮和前端样式切换后，该用例通过；
+  - 回归：`service_tests/test_mainline_workbench_ui.py=3 passed`，`manage.py makemigrations scenario_service --check --dry-run` 通过。
+- 主线重构已首次引入 `0010_add_theme_preference_record.py`，因此后续抓包代理会话与生成任务对象的迁移编号需要顺延，不能再沿用计划文档中的旧 `0010` 编号假设。
+- `Task 4` 到 `Task 6` 也已按 TDD 完成首批闭环：
+  - `CaptureProxyFilter` 已能按 URL 前缀或 IP 做前置过滤；
+  - `CaptureProxyRecord` 已能落库记录项目、模块、子模块、监听端口和过滤条件；
+  - `CaptureCandidateBuilder` 已能把抓包结果过滤为最小接口候选列表，并先剔除 `/static/` 静态资源。
+- `Task 7` 与 `Task 8` 已补齐主线中“连接抓包候选与 `api_test` 现有资产”的第一版桥接层：
+  - `ApiTestMethodRegistry` 已能按 `HTTP 方法 + 完整路径` 命中已有接口方法；
+  - `annotate_candidate_with_method_state()` 已能把候选接口标记为 `reused`、`parameter_completion_required` 或 `create_required`。
+- 当前主线定向回归为：
+  - `service_tests/test_mainline_workbench_ui.py + service_tests/test_capture_proxy_flow.py + service_tests/test_api_test_registry.py = 8 passed`
+  - `manage.py makemigrations scenario_service --check --dry-run -> No changes detected in app 'scenario_service'`
+- 当前唯一可见的小问题是 `service_tests/test_mainline_workbench_ui.py` 中 `TestIdStructureParser` 的命名仍会触发一次 `PytestCollectionWarning`，不影响测试通过，但后续可以在纯重构轮中改名消除噪音。
+
 ## 2026-04-16 V3 P2 AI 治理边界发现
 - 当前 `P2` 的正确落点不是另起一个 AI 子系统，而是在现有 `ScenarioSuggestionRecord`、修订留痕、权限门禁和审计日志之上补齐正式治理边界。
 - 现有建议治理链路只支持“生成建议 -> 直接采纳转修订”，这与 `P2` 用例要求存在四个核心缺口：

@@ -33,6 +33,8 @@
 - `django_content_type`
 - `django_migrations`
 - `django_session`
+- `scenario_service_aigovernancepolicyrecord`
+- `scenario_service_aisuggestiondecisionrecord`
 - `scenario_service_baselineversionrecord`
 - `scenario_service_governancemigrationrecord`
 - `scenario_service_projectrecord`
@@ -61,20 +63,24 @@
 - 2026-04-15 已应用 `scenario_service.0006_scenarioauditlogrecord_projectroleassignmentrecord`，新增项目角色授权记录表和关键治理动作审计日志表。
 - 2026-04-15 已应用 `scenario_service.0007_trafficcaptureformalizationrecord`，新增抓包正式执行治理对象表，用于承接正式确认、绑定确认和最近一次执行回写。
 - 2026-04-16 已应用 `scenario_service.0008_scenarioschedulebatchrecord_and_more`，新增调度批次表和调度任务项表，用于承接批量执行、队列状态、重试、取消和聚合摘要。
+- 2026-04-16 已应用 `scenario_service.0009_aigovernancepolicyrecord_aisuggestiondecisionrecord_and_more`，新增 AI 治理策略表和 AI 建议责任链表，用于承接审批 / 拒绝 / 采纳 / 回退的结构化治理事实。
 - 2026-04-14 已基于本地 MySQL 完成一轮 V3 P0 服务层真实冒烟，执行结果为 `passed`，治理上下文为 `mysql-p0-project / mysql-p0-env / mysql-p0-set / baseline-v1`。
 - 2026-04-15 起 `platform_service.test_settings` 已切换为正式 MySQL 基线配置，后续服务测试与浏览器冒烟不再允许回退到 SQLite。
 - 2026-04-15 已验证服务测试运行期数据库连接直接指向 `api_test_platform`，`SELECT DATABASE()` 返回 `api_test_platform`。
 - 2026-04-15 起 `service_tests` 已取消自动清库策略，测试数据、浏览器点测数据和数据库事实数据默认保留。
 - 2026-04-16 已完成 `P1-G1 / P1-G2 / P1-G3 / P1-G4` 首批权限审计、抓包正式执行、Web / Windows Demo 与调度中心回归，并完成 `P1` 独立验收收口；最新验证结果为：`P1验收级专项=15 passed`、`service_tests=47 passed`、`tests/platform_core=71 passed`、`tests=79 passed`、`api_test/tests=39 passed`、`windows_demo/launch_v3_workbench_demo.ps1 -DryRun` 返回稳定启动清单。
+- 2026-04-16 已完成 `P2` AI 治理边界回归与独立验收；最新验证结果为：`P2专项=7 passed`、`service_tests=54 passed`、`tests/platform_core=71 passed`、`tests=79 passed`、`api_test/tests=39 passed`、`/ui/v3/workbench/` AI 治理状态区浏览器复验通过，且迁移一致性检查结果仍为 `No changes detected in app 'scenario_service'`。
 - 2026-04-16 最近一次留存数据快照：
-  - `project_count=187`
-  - `environment_count=261`
-  - `scenario_set_count=261`
-  - `baseline_version_count=262`
-  - `migration_count=10`
-  - `scenario_count=316`
-  - `execution_count=113`
-  - `traffic_capture_formalization_count=31`
-  - `schedule_batch_count=50`
-  - `schedule_item_count=74`
+  - `project_count=257`
+  - `environment_count=360`
+  - `scenario_set_count=360`
+  - `baseline_version_count=361`
+  - `migration_count=12`
+  - `scenario_count=422`
+  - `execution_count=147`
+  - `traffic_capture_formalization_count=41`
+  - `schedule_batch_count=66`
+  - `schedule_item_count=98`
+  - `ai_policy_count=33`
+  - `ai_decision_count=30`
 - 如后续执行新的 Django migration，本文件中的表清单需要同步更新。
