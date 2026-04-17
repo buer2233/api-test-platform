@@ -1899,57 +1899,14 @@ class FunctionalCaseScenarioService:
         """返回主工作台三段式壳层渲染所需的最小上下文。"""
         return {
             "page_title": "V3 场景工作台",
-            "page_subtitle": "当前阶段先收敛为三段式主工作台骨架，承接后续抓包、用例列表和详情面板演进。",
-            "tree_nodes": [
-                "接口自动化主线",
-                "JSONPlaceholder 公共回归",
-                "已导入场景集",
-            ],
-            "capture_actions": [
-                "导入功能测试用例",
-                "导入抓包草稿",
-            ],
-            "testcase_cards": [
-                {
-                    "title": "用户查询主线场景",
-                    "meta": "GET /users/{id} · 基线用例",
-                },
-                {
-                    "title": "文章与评论联动场景",
-                    "meta": "GET /posts + /comments · 依赖编排",
-                },
-            ],
-            "detail_summary": {
-                "scenario_name": "用户查询主线场景",
-                "review_status": "pending_approval",
-                "execution_status": "not_started",
-            },
-            "detail_tabs": [
-                {"testid": "detail-tab-method-chain", "label": "方法链"},
-                {"testid": "detail-tab-execution-history", "label": "历史执行"},
-                {"testid": "detail-tab-allure-report", "label": "测试报告"},
-            ],
-            "linked_endpoints": [
-                "/api/v2/scenarios/",
-                "/api/v2/scenarios/governance/access-grants/",
-                "/api/v2/scenarios/governance/audit-logs/",
-                "/api/v2/scenarios/governance/windows-demo/",
-                "/api/v2/scenarios/governance/schedule-batches/",
-                "/api/v2/scenarios/governance/ai-policies/",
-            ],
-            "legacy_panels": [
-                {"testid": "actor-panel", "title": "治理操作者", "body": "保留治理入口占位，等待后续细化。"},
-                {"testid": "access-grant-panel", "title": "项目授权", "body": "保留角色授权入口的兼容占位。"},
-                {"testid": "schedule-center-panel", "title": "调度与执行中心", "body": "承接批量调度和重试记录。"},
-                {"testid": "audit-log-panel", "title": "审计日志", "body": "保留治理留痕摘要占位。"},
-                {
-                    "testid": "traffic-capture-formalization-panel",
-                    "title": "抓包正式化",
-                    "body": "traffic_capture_formalization",
-                },
-                {"testid": "windows-demo-panel", "title": "Windows Demo", "body": "浏览器先验与桌面复验共享入口。"},
-                {"testid": "ai-governance-panel", "title": "AI 治理状态", "body": "pending_approval / rolled_back"},
-            ],
+            "left_panel_title": "左侧树区",
+            "middle_panel_title": "中部列表区",
+            "right_panel_title": "右侧详情区",
+            "capture_primary_action": "导入功能测试用例",
+            "capture_secondary_action": "导入抓包草稿",
+            "method_chain_label": "方法链",
+            "execution_history_label": "历史执行",
+            "allure_report_label": "测试报告",
         }
 
     def activate_baseline_version(

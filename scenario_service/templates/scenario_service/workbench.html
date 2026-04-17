@@ -5,19 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ page_title }}</title>
     <style>
-        :root {
-            --bg: #07111a;
-            --panel: rgba(10, 23, 35, 0.88);
-            --panel-strong: rgba(7, 18, 29, 0.96);
-            --line: rgba(119, 165, 201, 0.22);
-            --text: #edf4fb;
-            --muted: #96a7ba;
-            --accent: #f0bb63;
-            --accent-soft: rgba(240, 187, 99, 0.18);
-            --ok: #77d6b2;
-            --shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
-        }
-
         * {
             box-sizing: border-box;
         }
@@ -25,189 +12,68 @@
         body {
             margin: 0;
             min-height: 100vh;
-            color: var(--text);
             font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
-            background:
-                radial-gradient(circle at top left, rgba(119, 214, 178, 0.08), transparent 24%),
-                radial-gradient(circle at bottom right, rgba(240, 187, 99, 0.10), transparent 30%),
-                linear-gradient(180deg, #07111a 0%, #0b1621 100%);
-        }
-
-        body::before {
-            content: "";
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            background-image:
-                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-            background-size: 22px 22px;
+            color: #eef4fb;
+            background: linear-gradient(180deg, #08111a 0%, #0d1822 100%);
         }
 
         .page-shell {
-            width: min(1500px, calc(100% - 32px));
+            width: min(1480px, calc(100% - 32px));
             margin: 0 auto;
             padding: 28px 0 32px;
         }
 
-        .page-hero {
-            margin-bottom: 18px;
-            padding: 24px 28px;
-            border: 1px solid var(--line);
-            border-radius: 24px;
-            background: linear-gradient(180deg, rgba(13, 26, 39, 0.95), rgba(8, 17, 26, 0.98));
-            box-shadow: var(--shadow);
-        }
-
-        .page-hero h1 {
-            margin: 0 0 10px;
-            font-size: clamp(30px, 4vw, 46px);
-            line-height: 1.08;
-        }
-
-        .page-hero p {
-            margin: 0;
-            max-width: 920px;
-            color: var(--muted);
-            line-height: 1.7;
+        .page-title {
+            margin: 0 0 18px;
+            font-size: clamp(28px, 4vw, 42px);
         }
 
         .mainline-shell {
             display: grid;
-            grid-template-columns: 280px minmax(360px, 1fr) minmax(380px, 1.05fr);
+            grid-template-columns: 280px minmax(360px, 1fr) minmax(360px, 1fr);
             gap: 18px;
-            align-items: start;
         }
 
         .panel {
-            border: 1px solid var(--line);
-            border-radius: 22px;
-            background: linear-gradient(180deg, var(--panel), var(--panel-strong));
-            box-shadow: var(--shadow);
-            overflow: hidden;
+            min-height: 520px;
+            padding: 20px;
+            border: 1px solid rgba(132, 165, 201, 0.18);
+            border-radius: 20px;
+            background: rgba(8, 20, 31, 0.88);
         }
 
-        .panel-header {
-            padding: 18px 20px 0;
+        .panel h2 {
+            margin: 0 0 14px;
+            font-size: 18px;
         }
 
-        .panel-header h2,
-        .panel-header h3 {
-            margin: 0;
-            font-size: 16px;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-        }
-
-        .panel-header p {
-            margin: 8px 0 0;
-            color: var(--muted);
-            line-height: 1.6;
-            font-size: 13px;
-        }
-
-        .panel-body {
-            display: grid;
-            gap: 14px;
-            padding: 18px 20px 20px;
-        }
-
-        .tree-list,
-        .testcase-list,
-        .contract-list,
-        .placeholder-list {
-            display: grid;
-            gap: 12px;
-        }
-
-        .tree-node,
-        .testcase-card,
-        .placeholder-card,
-        .endpoint-card,
-        .summary-card {
-            padding: 14px 16px;
-            border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.07);
-            background: rgba(4, 12, 20, 0.76);
-        }
-
-        .tree-node strong,
-        .testcase-card strong,
-        .placeholder-card strong,
-        .summary-card strong {
-            display: block;
-            margin-bottom: 8px;
-        }
-
-        .tree-node span,
-        .testcase-card span,
-        .placeholder-card span,
-        .summary-card span,
-        .endpoint-card code {
-            color: var(--muted);
-            line-height: 1.6;
-            word-break: break-all;
-        }
-
-        .capture-entry-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .capture-action {
-            padding: 10px 14px;
-            border-radius: 999px;
-            border: 1px solid rgba(240, 187, 99, 0.28);
-            background: var(--accent-soft);
-            color: var(--text);
-            font: inherit;
-        }
-
-        .detail-fixed-summary {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 10px;
-        }
-
-        .summary-card .status {
-            display: inline-flex;
-            margin-top: 8px;
-            padding: 5px 10px;
-            border-radius: 999px;
-            background: rgba(119, 214, 178, 0.14);
-            color: var(--ok);
-            font-size: 12px;
-        }
-
+        .capture-entry-actions,
         .detail-tabs {
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
         }
 
+        .capture-entry-actions button,
         .detail-tabs button {
             padding: 10px 14px;
-            border: 1px solid rgba(119, 165, 201, 0.24);
+            border: 1px solid rgba(240, 187, 99, 0.26);
             border-radius: 999px;
-            background: rgba(7, 18, 29, 0.94);
-            color: var(--text);
+            background: rgba(240, 187, 99, 0.1);
+            color: inherit;
             font: inherit;
         }
 
-        .detail-section-title {
-            margin: 6px 0 0;
-            color: var(--muted);
-            font-size: 13px;
-            line-height: 1.6;
+        .testcase-list-panel,
+        .detail-fixed-summary {
+            margin-top: 18px;
+            padding: 16px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.04);
         }
 
-        @media (max-width: 1260px) {
+        @media (max-width: 1200px) {
             .mainline-shell {
-                grid-template-columns: 1fr;
-            }
-
-            .detail-fixed-summary {
                 grid-template-columns: 1fr;
             }
         }
@@ -215,115 +81,26 @@
 </head>
 <body>
 <div class="page-shell">
-    <section class="page-hero">
-        <h1>{{ page_title }}</h1>
-        <p>{{ page_subtitle }}</p>
-    </section>
-
+    <h1 class="page-title">{{ page_title }}</h1>
     <main class="mainline-shell" data-testid="mainline-shell">
         <aside class="panel left-tree-panel" data-testid="left-tree-panel">
-            <div class="panel-header">
-                <h2>左侧结构树</h2>
-                <p>固定承接主线场景树、治理入口和当前阶段的兼容占位。</p>
-            </div>
-            <div class="panel-body">
-                <div class="tree-list">
-                    {% for node in tree_nodes %}
-                    <div class="tree-node">
-                        <strong>{{ node }}</strong>
-                        <span>当前阶段仅保留稳定入口，避免旧治理控制台继续扩散。</span>
-                    </div>
-                    {% endfor %}
-                </div>
-                <div class="placeholder-list">
-                    {% for panel in legacy_panels %}
-                        {% if panel.testid == "actor-panel" or panel.testid == "access-grant-panel" %}
-                        <section class="placeholder-card" data-testid="{{ panel.testid }}">
-                            <strong>{{ panel.title }}</strong>
-                            <span>{{ panel.body }}</span>
-                        </section>
-                        {% endif %}
-                    {% endfor %}
-                </div>
-            </div>
+            <h2>{{ left_panel_title }}</h2>
         </aside>
-
         <section class="panel middle-list-panel" data-testid="middle-list-panel">
-            <div class="panel-header">
-                <h2>中部列表区</h2>
-                <p>聚焦抓包入口动作、测试用例列表以及调度中心兼容占位。</p>
-            </div>
-            <div class="panel-body">
-                <header class="capture-entry-actions" data-testid="capture-entry-actions">
-                    {% for action in capture_actions %}
-                    <button class="capture-action" type="button">{{ action }}</button>
-                    {% endfor %}
-                </header>
-                <div class="testcase-list-panel" data-testid="testcase-list-panel">
-                    <div class="testcase-list">
-                        {% for card in testcase_cards %}
-                        <article class="testcase-card">
-                            <strong>{{ card.title }}</strong>
-                            <span>{{ card.meta }}</span>
-                        </article>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% for panel in legacy_panels %}
-                    {% if panel.testid == "schedule-center-panel" %}
-                    <section class="placeholder-card" data-testid="{{ panel.testid }}">
-                        <strong>{{ panel.title }}</strong>
-                        <span>{{ panel.body }}</span>
-                    </section>
-                    {% endif %}
-                {% endfor %}
-            </div>
+            <h2>{{ middle_panel_title }}</h2>
+            <header class="capture-entry-actions" data-testid="capture-entry-actions">
+                <button type="button">{{ capture_primary_action }}</button>
+                <button type="button">{{ capture_secondary_action }}</button>
+            </header>
+            <div class="testcase-list-panel" data-testid="testcase-list-panel"></div>
         </section>
-
         <section class="panel right-detail-panel" data-testid="right-detail-panel">
-            <div class="panel-header">
-                <h2>右侧详情区</h2>
-                <p>固定摘要在上，方法链、历史执行和测试报告通过 Tab 承接。</p>
-            </div>
-            <div class="panel-body">
-                <div class="detail-fixed-summary" data-testid="detail-fixed-summary">
-                    <article class="summary-card">
-                        <strong>当前场景</strong>
-                        <span>{{ detail_summary.scenario_name }}</span>
-                    </article>
-                    <article class="summary-card">
-                        <strong>审核状态</strong>
-                        <span class="status">{{ detail_summary.review_status }}</span>
-                    </article>
-                    <article class="summary-card">
-                        <strong>执行状态</strong>
-                        <span>{{ detail_summary.execution_status }}</span>
-                    </article>
-                </div>
-
-                <div class="detail-tabs">
-                    {% for tab in detail_tabs %}
-                    <button type="button" data-testid="{{ tab.testid }}">{{ tab.label }}</button>
-                    {% endfor %}
-                </div>
-                <p class="detail-section-title">方法链、历史执行与测试报告的具体内容将在后续任务中逐步填充，此处先保留主线信息架构。</p>
-
-                <div class="placeholder-list">
-                    {% for panel in legacy_panels %}
-                        {% if panel.testid == "audit-log-panel" or panel.testid == "traffic-capture-formalization-panel" or panel.testid == "windows-demo-panel" or panel.testid == "ai-governance-panel" %}
-                        <section class="placeholder-card" data-testid="{{ panel.testid }}">
-                            <strong>{{ panel.title }}</strong>
-                            <span>{{ panel.body }}</span>
-                        </section>
-                        {% endif %}
-                    {% endfor %}
-                </div>
-
-                <div class="contract-list">
-                    {% for endpoint in linked_endpoints %}
-                    <div class="endpoint-card"><code>{{ endpoint }}</code></div>
-                    {% endfor %}
-                </div>
+            <h2>{{ right_panel_title }}</h2>
+            <div class="detail-fixed-summary" data-testid="detail-fixed-summary"></div>
+            <div class="detail-tabs">
+                <button type="button" data-testid="detail-tab-method-chain">{{ method_chain_label }}</button>
+                <button type="button" data-testid="detail-tab-execution-history">{{ execution_history_label }}</button>
+                <button type="button" data-testid="detail-tab-allure-report">{{ allure_report_label }}</button>
             </div>
         </section>
     </main>

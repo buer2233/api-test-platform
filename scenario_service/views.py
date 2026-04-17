@@ -8,8 +8,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from scenario_service.serializers import (
-    AiGovernancePolicyQuerySerializer,
-    AiGovernancePolicyRequestSerializer,
     BaselineVersionActivateSerializer,
     FunctionalCaseImportRequestSerializer,
     ProjectRoleAssignmentQuerySerializer,
@@ -25,8 +23,6 @@ from scenario_service.serializers import (
     ScenarioRevisionRequestSerializer,
     ScenarioReviewRequestSerializer,
     ScenarioSuggestionApplyRequestSerializer,
-    ScenarioSuggestionDecisionRequestSerializer,
-    ScenarioSuggestionQuerySerializer,
     ScenarioSuggestionRequestSerializer,
     TrafficCaptureBindingConfirmRequestSerializer,
     TrafficCaptureConfirmRequestSerializer,
@@ -214,26 +210,6 @@ class ScenarioAuditLogListView(APIView):
         return Response({"success": True, "data": SCENARIO_SERVICE.list_audit_logs(**serializer.validated_data)})
 
 
-class AiGovernancePolicyView(APIView):
-    """处理 AI 治理策略的查询与写入请求。"""
-
-    def get(self, request):
-        """按项目查询 AI 治理策略。"""
-        serializer = AiGovernancePolicyQuerySerializer(data=request.query_params)
-        serializer.is_valid(raise_exception=True)
-        return Response({"success": True, "data": SCENARIO_SERVICE.list_ai_governance_policies(**serializer.validated_data)})
-
-    def post(self, request):
-        """创建或更新项目级 AI 治理策略。"""
-        serializer = AiGovernancePolicyRequestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        try:
-            data = SCENARIO_SERVICE.ensure_ai_governance_policy(**serializer.validated_data)
-        except ScenarioServiceError as error:
-            return build_error_response(error)
-        return Response({"success": True, "data": data}, status=status.HTTP_201_CREATED)
-
-
 class ScheduleBatchListCreateView(APIView):
     """处理调度批次的查询与创建请求。"""
 
@@ -385,23 +361,17 @@ class ScenarioExecuteView(APIView):
             project_code = None
             environment_code = None
             operator = None
-            trigger_source = "manual"
-            suggestion_id = None
             if isinstance(request.data, dict):
                 workspace_root = request.data.get("workspace_root")
                 project_code = request.data.get("project_code")
                 environment_code = request.data.get("environment_code")
                 operator = request.data.get("operator")
-                trigger_source = request.data.get("trigger_source") or "manual"
-                suggestion_id = request.data.get("suggestion_id")
             execution = SCENARIO_SERVICE.request_execution(
                 scenario_id=scenario_id,
                 project_code=project_code,
                 environment_code=environment_code,
                 workspace_root=workspace_root,
                 operator=operator,
-                trigger_source=trigger_source,
-                suggestion_id=suggestion_id,
             )
         except ScenarioServiceError as error:
             return build_error_response(error)
@@ -456,13 +426,8 @@ class ScenarioSuggestionListView(APIView):
 
     def get(self, request, scenario_id: str):
         """返回指定场景的建议列表。"""
-        serializer = ScenarioSuggestionQuerySerializer(data=request.query_params)
-        serializer.is_valid(raise_exception=True)
         try:
-            suggestions = SCENARIO_SERVICE.list_suggestions(
-                scenario_id=scenario_id,
-                actor=serializer.validated_data.get("actor"),
-            )
+            suggestions = SCENARIO_SERVICE.list_suggestions(scenario_id=scenario_id)
         except ScenarioServiceError as error:
             return build_error_response(error)
         return Response({"success": True, "data": suggestions})
@@ -493,85 +458,8 @@ class ScenarioSuggestionApplyView(APIView):
             result = SCENARIO_SERVICE.apply_suggestion(
                 scenario_id=scenario_id,
                 suggestion_id=suggestion_id,
-                reviser=serializer.validated_data["actor"],
+                reviser=serializer.validated_data["reviser"],
                 revision_comment=serializer.validated_data.get("revision_comment", ""),
-            )
-        except ScenarioServiceError as error:
-            return build_error_response(error)
-        return Response({"success": True, "data": result})
-
-
-class ScenarioSuggestionApproveView(APIView):
-    """处理 AI 建议审批通过请求。"""
-
-    def post(self, request, scenario_id: str, suggestion_id: str):
-        """审批通过指定 AI 建议。"""
-        serializer = ScenarioSuggestionDecisionRequestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        try:
-            result = SCENARIO_SERVICE.approve_suggestion(
-                scenario_id=scenario_id,
-                suggestion_id=suggestion_id,
-                actor=serializer.validated_data["actor"],
-                decision_comment=serializer.validated_data.get("decision_comment", ""),
-            )
-        except ScenarioServiceError as error:
-            return build_error_response(error)
-        return Response({"success": True, "data": result})
-
-
-class ScenarioSuggestionRejectView(APIView):
-    """处理 AI 建议拒绝请求。"""
-
-    def post(self, request, scenario_id: str, suggestion_id: str):
-        """拒绝指定 AI 建议。"""
-        serializer = ScenarioSuggestionDecisionRequestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        try:
-            result = SCENARIO_SERVICE.reject_suggestion(
-                scenario_id=scenario_id,
-                suggestion_id=suggestion_id,
-                actor=serializer.validated_data["actor"],
-                decision_comment=serializer.validated_data.get("decision_comment", ""),
-            )
-        except ScenarioServiceError as error:
-            return build_error_response(error)
-        return Response({"success": True, "data": result})
-
-
-class ScenarioSuggestionAdoptView(APIView):
-    """处理 AI 建议采纳请求。"""
-
-    def post(self, request, scenario_id: str, suggestion_id: str):
-        """采纳指定 AI 建议。"""
-        serializer = ScenarioSuggestionApplyRequestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        try:
-            result = SCENARIO_SERVICE.adopt_suggestion(
-                scenario_id=scenario_id,
-                suggestion_id=suggestion_id,
-                actor=serializer.validated_data["actor"],
-                revision_comment=serializer.validated_data.get("revision_comment", ""),
-            )
-        except ScenarioServiceError as error:
-            return build_error_response(error)
-        return Response({"success": True, "data": result})
-
-
-class ScenarioSuggestionRollbackView(APIView):
-    """处理 AI 建议回退请求。"""
-
-    def post(self, request, scenario_id: str, suggestion_id: str):
-        """回退指定 AI 建议。"""
-        serializer = ScenarioSuggestionDecisionRequestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        try:
-            result = SCENARIO_SERVICE.rollback_suggestion(
-                scenario_id=scenario_id,
-                suggestion_id=suggestion_id,
-                actor=serializer.validated_data["actor"],
-                rollback_comment=serializer.validated_data.get("rollback_comment", "")
-                or serializer.validated_data.get("decision_comment", ""),
             )
         except ScenarioServiceError as error:
             return build_error_response(error)
