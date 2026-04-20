@@ -10,24 +10,20 @@ from rest_framework.test import APIClient
 
 
 def test_v3_workbench_renders_permission_audit_formalization_and_windows_demo_regions():
-    """TC-V3-P1-UI-001 Web 正式入口应承接权限、审计、抓包正式确认和 Windows Demo 区域。"""
+    """TC-V3-P1-UI-001 Web 正式入口应切换为 Vue 壳层并保留 Windows Demo 共享契约。"""
     client = APIClient()
 
-    response = client.get("/ui/v3/workbench/")
+    entry_response = client.get("/ui/v3/workbench/")
+    bootstrap_response = client.get("/api/v2/workbench/bootstrap/")
 
-    assert response.status_code == 200
-    content = response.content.decode("utf-8")
-    assert "V3 场景工作台" in content
-    assert 'data-testid="actor-panel"' in content
-    assert 'data-testid="access-grant-panel"' in content
-    assert 'data-testid="audit-log-panel"' in content
-    assert 'data-testid="traffic-capture-formalization-panel"' in content
-    assert 'data-testid="windows-demo-panel"' in content
-    assert "/api/v2/scenarios/governance/access-grants/" in content
-    assert "/api/v2/scenarios/governance/audit-logs/" in content
-    assert "/api/v2/scenarios/governance/windows-demo/" in content
-    assert "/api/v2/scenarios/" in content
-    assert "traffic_capture_formalization" in content
+    assert entry_response.status_code == 200
+    content = entry_response.content.decode("utf-8")
+    assert '<div id="app"></div>' in content
+    assert "/ui/assets/" in content
+    assert bootstrap_response.status_code == 200
+    data = bootstrap_response.json()["data"]
+    assert data["frontend_framework"] == "vue3"
+    assert data["frontend_entry"] == "/ui/v3/workbench/"
 
 
 def test_windows_demo_manifest_endpoint_returns_browser_first_shared_contract():

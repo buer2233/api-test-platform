@@ -1,5 +1,45 @@
 # 当前发现
 
+## 2026-04-20 Vue3 前后端分离重构发现
+- 当前仓库仍以 `scenario_service/templates/scenario_service/workbench.html` 承担 `/ui/v2/workbench/` 与 `/ui/v3/workbench/` 的正式前端展示，这与“前后端分离”和“Vue3 前端重构”目标直接冲突。
+- `DESIGN.md` 已明确提供当前轮 UI 视觉系统，且主人要求其成为所有 UI 编写前的强制前置规则，因此 `AGENTS.md`、`CLAUDE.md` 和产品 / 架构 / UI 文档都必须同步收口。
+- 当前正式文档中仍存在两类需要先纠偏的技术口径：
+  - 前端技术栈仍写为 `React + TypeScript`；
+  - `Jinja2` 在部分文档中仍被误读为可承担前端模板职责。
+- 当前工作台相关服务能力已经较完整，真正需要替换的是**前端承载方式**而不是推翻全部业务逻辑：
+  - 场景列表、详情、执行结果、主题偏好、抓包会话、抓包候选、生成确认、调度中心、AI 治理和 Windows Demo manifest 都已有后端契约可复用；
+  - 但当前缺少更适合 Vue3 工作台消费的统一导航树和测试接口目录读模型。
+- 当前 `ApiTestMethodRegistry` 仍是内存注册表，没有真正完成 `api_test` 目录扫描；如果新前端要展示“测试接口”目录与引用关系，需要在后端补齐目录扫描与读模型聚合能力。
+- 当前页面层测试大量依赖 Django 返回 HTML 中的 `data-testid` 字符串，这些测试在 Vue3 重构后需要迁移为：
+  - 后端 API 契约测试；
+  - 前端 Vitest 组件 / 页面测试；
+  - 浏览器级冒烟验收。
+- 依赖治理方面，当前仓库尚无前端工程；因此本轮需要新建前端依赖清单，并严格固定到 2025 年及以前版本。
+- 已核准以下可用前端固定版本发布时间均不晚于 2025 年：
+  - `vue@3.4.21` -> 2024-02-28
+  - `vue-router@4.3.2` -> 2024-04-18
+  - `vite@5.2.11` -> 2024-05-02
+  - `@vitejs/plugin-vue@5.0.4` -> 2024-02-09
+  - `vitest@1.6.0` -> 2024-05-03
+  - `@vue/test-utils@2.4.5` -> 2024-03-13
+  - `jsdom@24.0.0` -> 2024-01-21
+  - `typescript@5.4.5` 已确认属于 2024 稳定版本，可作为本轮固定版本使用
+- 当前最稳妥的前端入口承接方式不是继续保留模板变量，而是：
+  - Django 在构建产物存在时直接返回 `frontend/dist/index.html`
+  - 构建产物不存在时返回最小 Vue 兜底壳层
+  - `/ui/assets/<path>` 负责承接 Vite 构建后的静态资源
+- 当前 `api_test` 目录扫描已经足够支撑新前端的“测试接口目录”基础展示：
+  - 能识别 `BaseAPI` 派生类方法
+  - 能提取 `HTTP 方法`
+  - 能提取路径模板
+  - 能按测试文件扫描基础引用关系
+- 旧模板页删除后，需要同步把服务测试从“断言 HTML 面板字符串”迁移为：
+  - 前端入口壳层断言
+  - 工作台读模型 API 断言
+  - 既有业务 API 断言
+  - 浏览器烟雾验证
+- 浏览器烟雾验证中唯一真实问题是默认 `favicon.ico` 404；已通过在 `frontend/index.html` 与后端兜底壳层中内联 favicon 解决。
+
 ## 2026-04-17 主线重构会话恢复发现
 - 已确认 `docs/superpowers/specs/2026-04-17-api-test-platform-mainline-redesign-design.md` 与 `docs/superpowers/plans/2026-04-17-api-test-platform-mainline-redesign.md` 是当前继续开发的正式依据。
 - `task_plan.md` 原记录只写到主线重构 `Task 1`，但实际代码与测试已经推进到 `Task 2`：

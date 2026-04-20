@@ -1,5 +1,56 @@
 # 会话进展
 
+## 2026-04-20 Vue3 前后端分离工作台重构
+
+### 已完成
+- 已读取并对齐以下基础文件：
+  - `DESIGN.md`
+  - `AGENTS.md`
+  - `CLAUDE.md`
+  - `product_document/产品需求说明书(全局).md`
+  - `product_document/架构设计/总体架构设计说明书.md`
+  - `product_document/架构设计/UI设计说明文档.md`
+  - `product_document/架构设计/现有接口自动化测试框架改造方案.md`
+  - `README.md`
+- 已核对当前工作区状态，确认存在未提交的主线改造脏改动，当前不会直接覆盖这些文件，而是基于其现状继续收敛到 Vue3 前后端分离方案。
+- 已确认当前 `/ui/v2/workbench/` 与 `/ui/v3/workbench/` 都由 `ScenarioWorkbenchView + scenario_service/templates/scenario_service/workbench.html` 统一承接，属于旧模板式前端。
+- 已确认当前仓库暂无独立前端工程，也暂无 `package.json / vite.config / *.vue` 文件。
+- 已核验本机前端工具链可用：
+  - `node -v` -> `v22.13.0`
+  - `npm -v` -> `10.9.2`
+- 已通过 npm 元数据核验一组可用前端固定版本均不晚于 2025 年，可用于本轮新建 Vue3 工程。
+- 当前已完成第一轮正式文档同步：
+  - `AGENTS.md`
+  - `CLAUDE.md`
+  - `product_document/产品需求说明书(全局).md`
+  - `product_document/架构设计/总体架构设计说明书.md`
+  - `product_document/架构设计/UI设计说明文档.md`
+  均已开始收口到“`DESIGN.md` 前置 + Vue3 + 前后端分离 + Jinja2 仅作代码生成模板”的新口径。
+
+### 下一步
+- 整理最终待提交文件，执行 `git add / commit / push`。
+
+### 后续结果
+- 已新增并通过后端红灯 / 绿灯测试：
+  - `service_tests/test_vue_frontend_entry.py`
+  - `service_tests/test_workbench_read_models.py`
+- 已新增并通过前端红灯 / 绿灯测试：
+  - `frontend/src/__tests__/workbench-shell.spec.ts`
+  - `frontend/src/__tests__/workbench-navigation.spec.ts`
+  - `frontend/src/__tests__/workbench-actions.spec.ts`
+- 已完成旧模板清理：
+  - 删除 `scenario_service/templates/scenario_service/workbench.html`
+  - 删除 `scenario_service/views.py` 中旧 `ScenarioWorkbenchView`
+  - 删除 `scenario_service/services.py` 中旧模板上下文构造方法
+- 已完成本轮验证：
+  - `npm run test` -> `3 passed`
+  - `npm run build` -> `passed`
+  - `.venv_service\\Scripts\\python.exe -m pytest service_tests -q --basetemp=.pytest_tmp\\service_full_after_vue_retry` -> `76 passed`
+  - `python -m pytest tests/platform_core -q --basetemp=.pytest_tmp\\platform_core_after_vue` -> `71 passed`
+  - `python -m pytest tests -q --basetemp=.pytest_tmp\\root_after_doc_sync_vue` -> `82 passed`
+  - `python -m pytest api_test\\tests -q --basetemp=.pytest_tmp\\api_test_after_vue` -> `39 passed`
+  - `/ui/v3/workbench/` 浏览器烟雾验证通过，页面标题为 `抓包与接口自动化工作台`，控制台新增错误 / 警告为 `0`
+
 ## 2026-04-17 主线重构会话恢复
 
 ### 已完成

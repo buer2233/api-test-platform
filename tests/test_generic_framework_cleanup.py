@@ -23,6 +23,13 @@ def test_private_site_legacy_files_are_removed():
     assert existing == []
 
 
+def test_legacy_jinja_workbench_template_is_removed():
+    """旧 Jinja2 工作台模板文件应从仓库中删除。"""
+    legacy_template_path = PROJECT_ROOT / "scenario_service" / "templates" / "scenario_service" / "workbench.html"
+
+    assert not legacy_template_path.exists()
+
+
 def test_active_docs_no_longer_describe_private_site_bridge_as_current_state():
     """主文档不应再把旧私有站点桥接描述为当前能力。"""
     doc_paths = [

@@ -11,6 +11,7 @@ class FunctionalCaseImportRequestSerializer(serializers.Serializer):
     project_code = serializers.CharField(required=False, allow_blank=True)
     environment_code = serializers.CharField(required=False, allow_blank=True)
     scenario_set_code = serializers.CharField(required=False, allow_blank=True)
+    module_id = serializers.CharField(required=False, allow_blank=True)
     case_id = serializers.CharField()
     case_code = serializers.CharField(required=False, allow_blank=True)
     case_name = serializers.CharField()

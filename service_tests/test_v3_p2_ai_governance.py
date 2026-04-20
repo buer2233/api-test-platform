@@ -417,16 +417,16 @@ def test_ai_governance_audit_chain_is_queryable_after_reject_adopt_and_rollback(
 
 
 def test_v3_workbench_renders_ai_governance_panel_and_status_contract():
-    """TC-V3-P2-UI-001 工作台应明确承接 AI 治理状态区与相关接口契约。"""
+    """TC-V3-P2-UI-001 Vue 前端入口应继续消费 AI 治理接口契约。"""
     client = APIClient()
 
-    response = client.get("/ui/v3/workbench/")
+    entry_response = client.get("/ui/v3/workbench/")
+    policy_response = client.get(
+        "/api/v2/scenarios/governance/ai-policies/",
+        {"project_code": "default-project"},
+    )
 
-    assert response.status_code == 200
-    content = response.content.decode("utf-8")
-    assert 'data-testid="ai-governance-panel"' in content
-    assert "AI 治理状态" in content
-    assert "/api/v2/scenarios/governance/ai-policies/" in content
-    assert "/api/v2/scenarios/" in content
-    assert "pending_approval" in content
-    assert "rolled_back" in content
+    assert entry_response.status_code == 200
+    assert '<div id="app"></div>' in entry_response.content.decode("utf-8")
+    assert policy_response.status_code == 200
+    assert policy_response.json()["success"] is True

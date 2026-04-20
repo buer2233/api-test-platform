@@ -78,19 +78,16 @@ def test_scenario_list_endpoint_supports_project_environment_and_scenario_set_fi
 
 
 def test_p0_workbench_renders_governance_switchers_and_context_panels():
-    """TC-V3-P0-UI-001/002 最小治理入口应渲染治理切换和上下文区域。"""
+    """TC-V3-P0-UI-001/002 最小治理入口应由 Vue 入口与导航树读模型承接。"""
     client = APIClient()
 
-    response = client.get("/ui/v2/workbench/")
+    entry_response = client.get("/ui/v2/workbench/")
+    bootstrap_response = client.get("/api/v2/workbench/bootstrap/")
+    navigation_response = client.get("/api/v2/workbench/navigation/")
 
-    assert response.status_code == 200
-    content = response.content.decode("utf-8")
-    assert 'data-testid="governance-summary"' in content
-    assert 'data-testid="project-switcher"' in content
-    assert 'data-testid="environment-switcher"' in content
-    assert 'data-testid="scenario-set-switcher"' in content
-    assert 'data-testid="baseline-version-panel"' in content
-    assert "/api/v2/scenarios/governance/context/" in content
-    assert "project_code" in content
-    assert "environment_code" in content
-    assert "scenario_set_code" in content
+    assert entry_response.status_code == 200
+    assert '<div id="app"></div>' in entry_response.content.decode("utf-8")
+    assert bootstrap_response.status_code == 200
+    assert bootstrap_response.json()["data"]["frontend_entry"] == "/ui/v3/workbench/"
+    assert navigation_response.status_code == 200
+    assert "projects" in navigation_response.json()["data"]

@@ -523,13 +523,13 @@ def test_schedule_center_forms_authorize_execute_retry_aggregate_audit_closure(
 
 
 def test_v3_workbench_renders_schedule_center_region():
-    """TC-V3-P1-UI-001 补充：Web 正式入口应能承接调度中心区域。"""
+    """TC-V3-P1-UI-001 补充：Vue 前端入口应继续消费调度中心 API。"""
     client = APIClient()
 
-    response = client.get("/ui/v3/workbench/")
+    entry_response = client.get("/ui/v3/workbench/")
+    schedule_response = client.get("/api/v2/scenarios/governance/schedule-batches/")
 
-    assert response.status_code == 200
-    content = response.content.decode("utf-8")
-    assert 'data-testid="schedule-center-panel"' in content
-    assert "/api/v2/scenarios/governance/schedule-batches/" in content
-    assert "调度与执行中心" in content
+    assert entry_response.status_code == 200
+    assert '<div id="app"></div>' in entry_response.content.decode("utf-8")
+    assert schedule_response.status_code == 200
+    assert schedule_response.json()["success"] is True

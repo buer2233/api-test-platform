@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from django.views.generic import TemplateView
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -633,14 +632,3 @@ class ScenarioSuggestionRollbackView(APIView):
             return build_error_response(error)
         return Response({"success": True, "data": result})
 
-
-class ScenarioWorkbenchView(TemplateView):
-    """返回 V3 正式入口工作台页面。"""
-
-    template_name = "scenario_service/workbench.html"
-
-    def get_context_data(self, **kwargs):
-        """为三段式主工作台补充最小渲染上下文。"""
-        context = super().get_context_data(**kwargs)
-        context.update(SCENARIO_SERVICE.build_workbench_shell_context())
-        return context

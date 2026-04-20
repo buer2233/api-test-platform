@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 
@@ -83,3 +84,22 @@ def test_platform_service_requirements_use_fixed_versions_only():
         "packaging==25.0",
         "pluggy==1.5.0",
     ]
+
+
+def test_frontend_package_json_uses_fixed_versions_only():
+    """`frontend/package.json` 应只包含固定版本依赖。"""
+    package_json_path = PROJECT_ROOT / "frontend" / "package.json"
+    payload = json.loads(package_json_path.read_text(encoding="utf-8"))
+
+    assert payload["dependencies"] == {
+        "vue": "3.4.21",
+        "vue-router": "4.3.2",
+    }
+    assert payload["devDependencies"] == {
+        "@vitejs/plugin-vue": "5.0.4",
+        "@vue/test-utils": "2.4.5",
+        "jsdom": "24.0.0",
+        "typescript": "5.4.5",
+        "vite": "5.2.11",
+        "vitest": "1.6.0",
+    }

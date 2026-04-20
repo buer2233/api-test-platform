@@ -49,38 +49,30 @@ def test_scenario_list_endpoint_returns_summaries_for_workbench(service_test_tok
     assert list_response.json()["data"][0]["scenario_code"] == case_code
 
 
-def test_workbench_page_renders_import_preview_and_result_regions():
-    """TC-V2-UI-001/003/007 可用型入口页应具备导入、预览和结果区域。"""
+def test_workbench_page_renders_vue_entry_shell():
+    """TC-V2-UI-001/003/007 可用型入口页应切换为 Vue 前端入口壳层。"""
     client = APIClient()
 
     response = client.get("/ui/v2/workbench/")
 
     assert response.status_code == 200
     content = response.content.decode("utf-8")
-    assert 'data-testid="workbench-root"' in content
-    assert 'data-testid="functional-case-import"' in content
-    assert 'data-testid="traffic-capture-import"' in content
-    assert 'data-testid="scenario-preview"' in content
-    assert 'data-testid="execution-result"' in content
-    assert "/api/v2/scenarios/import-functional-case/" in content
-    assert "/api/v2/scenarios/import-traffic-capture/" in content
+    assert '<div id="app"></div>' in content
+    assert "/ui/assets/" in content
 
 
-def test_workbench_renders_filter_history_diff_and_suggestion_regions():
-    """工作台应展示筛选、历史、差异和建议区域。"""
+def test_workbench_bootstrap_and_navigation_endpoints_support_frontend_workflow():
+    """工作台 bootstrap 与导航树接口应为 Vue 前端提供稳定读模型。"""
     client = APIClient()
 
-    response = client.get("/ui/v2/workbench/")
+    bootstrap_response = client.get("/api/v2/workbench/bootstrap/")
+    navigation_response = client.get("/api/v2/workbench/navigation/")
 
-    assert response.status_code == 200
-    content = response.content.decode("utf-8")
-    assert 'data-testid="scenario-filter-panel"' in content
-    assert 'data-testid="execution-history-panel"' in content
-    assert 'data-testid="diff-summary-panel"' in content
-    assert 'data-testid="suggestion-panel"' in content
-    assert "source_type" in content
-    assert "issue_code" in content
-    assert "suggestions" in content
+    assert bootstrap_response.status_code == 200
+    assert navigation_response.status_code == 200
+    assert bootstrap_response.json()["data"]["frontend_framework"] == "vue3"
+    assert "projects" in navigation_response.json()["data"]
+    assert "interface_catalog_summary" in navigation_response.json()["data"]
 
 
 def test_workbench_duplicate_functional_case_import_returns_structured_error(service_test_token: str):

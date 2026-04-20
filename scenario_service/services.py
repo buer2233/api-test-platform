@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from datetime import UTC, datetime
 import json
 from pathlib import Path
@@ -1977,6 +1978,123 @@ class FunctionalCaseScenarioService:
         """把抓包记录整理为接口候选列表。"""
         return self.capture_candidate_builder.build(capture_records)
 
+    def build_workbench_bootstrap(self) -> dict:
+        """返回 Vue 工作台启动所需的最小元数据。"""
+        theme_preference = self.get_workbench_theme_preference()
+        return {
+            "page_title": "抓包与接口自动化工作台",
+            "frontend_framework": "vue3",
+            "frontend_entry": "/ui/v3/workbench/",
+            "legacy_entry": "/ui/v2/workbench/",
+            "design_source": "DESIGN.md",
+            "theme_code": theme_preference["theme_code"],
+            "theme_options": theme_preference["theme_options"],
+            "api_root": "/api/v2",
+        }
+
+    def build_workbench_navigation(self) -> dict:
+        """构造项目/模块/子模块/测试用例/测试接口导航树。"""
+        scenarios = self.list_scenarios()
+        interface_catalog = self.build_test_interface_catalog()
+        shared_interfaces = [
+            item for item in interface_catalog["interfaces"] if item["project_code"] == "shared"
+        ]
+        project_index: OrderedDict[str, dict] = OrderedDict()
+        for scenario in scenarios:
+            project_summary = scenario["project"]
+            project_code = project_summary["project_code"]
+            module_code = scenario.get("module_id") or scenario["environment"]["environment_code"] or "default_module"
+            submodule_code = scenario["scenario_set"]["scenario_set_code"] or "default_submodule"
+            project_node = project_index.setdefault(
+                project_code,
+                {
+                    "project_id": project_summary["project_id"],
+                    "project_code": project_code,
+                    "project_name": project_summary["project_name"],
+                    "modules": OrderedDict(),
+                },
+            )
+            module_node = project_node["modules"].setdefault(
+                module_code,
+                {
+                    "module_code": module_code,
+                    "module_name": scenario["environment"]["environment_name"] or module_code,
+                    "submodules": OrderedDict(),
+                },
+            )
+            submodule_node = module_node["submodules"].setdefault(
+                submodule_code,
+                {
+                    "submodule_code": submodule_code,
+                    "submodule_name": scenario["scenario_set"]["scenario_set_name"] or submodule_code,
+                    "testcases": [],
+                    "test_interfaces": [],
+                },
+            )
+            submodule_node["testcases"].append(
+                {
+                    "scenario_id": scenario["scenario_id"],
+                    "scenario_code": scenario["scenario_code"],
+                    "scenario_name": scenario["scenario_name"],
+                    "review_status": scenario["review_status"],
+                    "execution_status": scenario["execution_status"],
+                }
+            )
+        projects: list[dict] = []
+        for project_node in project_index.values():
+            modules: list[dict] = []
+            for module_node in project_node["modules"].values():
+                submodules: list[dict] = []
+                for submodule_node in module_node["submodules"].values():
+                    submodule_node["test_interfaces"] = self._filter_module_interfaces(
+                        interfaces=interface_catalog["interfaces"],
+                        module_code=module_node["module_code"],
+                    ) or shared_interfaces
+                    submodules.append(submodule_node)
+                module_node["submodules"] = submodules
+                modules.append(module_node)
+            project_node["modules"] = modules
+            projects.append(project_node)
+        return {
+            "projects": projects,
+            "interface_catalog_summary": {
+                "total": interface_catalog["total"],
+            },
+        }
+
+    def build_test_interface_catalog(self) -> dict:
+        """扫描 `api_test/core` 目录并返回测试接口目录。"""
+        project_root = Path(__file__).resolve().parents[1]
+        core_root = project_root / "api_test" / "core"
+        test_root = project_root / "api_test" / "tests"
+        interfaces = self.api_test_registry.load_from_core_directory(core_root)
+        enriched_interfaces = [
+            {
+                **item,
+                "referenced_by": self._collect_testcase_references(
+                    test_root=test_root,
+                    method_name=str(item["method_name"]),
+                ),
+            }
+            for item in interfaces
+        ]
+        return {
+            "interfaces": enriched_interfaces,
+            "total": len(enriched_interfaces),
+        }
+
+    def get_test_interface_detail(self, interface_id: str) -> dict:
+        """返回单个测试接口的详细摘要。"""
+        interface_catalog = self.build_test_interface_catalog()
+        for item in interface_catalog["interfaces"]:
+            if item["interface_id"] == interface_id:
+                return item
+        raise ScenarioServiceError(
+            code="test_interface_not_found",
+            message=f"未找到测试接口: {interface_id}",
+            status_code=404,
+        )
+
     def annotate_candidate_with_method_state(self, candidate: dict) -> dict:
         """根据注册表命中情况为候选接口标注方法状态。"""
         matched = self.api_test_registry.match(str(candidate.get("method", "")), str(candidate.get("path", "")))
@@ -2027,25 +2145,6 @@ class FunctionalCaseScenarioService:
             "pytest_status": record.pytest_status,
             "submission_allowed": gate_summary["submission_allowed"],
             "status": gate_summary["status"],
-        }
-
-    def build_workbench_shell_context(self) -> dict:
-        """返回主工作台三段式壳层渲染所需的最小上下文。"""
-        theme_preference = self.get_workbench_theme_preference()
-        return {
-            "page_title": "V3 场景工作台",
-            "left_panel_title": "左侧树区",
-            "middle_panel_title": "中部列表区",
-            "right_panel_title": "右侧详情区",
-            "middle_panel_default_view": "testcase-list",
-            "capture_primary_action": "导入功能测试用例",
-            "capture_secondary_action": "导入抓包草稿",
-            "method_chain_label": "方法链",
-            "execution_history_label": "历史执行",
-            "allure_report_label": "测试报告",
-            "current_theme": theme_preference["theme_code"],
-            "theme_options": theme_preference["theme_options"],
-            "layout_locked": theme_preference["layout_locked"],
         }
 
     def activate_baseline_version(
@@ -2776,6 +2875,7 @@ class FunctionalCaseScenarioService:
             "scenario_id": scenario.scenario_id,
             "scenario_code": scenario.scenario_code,
             "scenario_name": scenario.scenario_name,
+            "module_id": scenario.module_id or "",
             "review_status": scenario.review_status,
             "execution_status": scenario.execution_status,
             "current_stage": scenario.current_stage,
@@ -2796,6 +2896,27 @@ class FunctionalCaseScenarioService:
         if formalization is not None:
             summary["traffic_capture_formalization"] = self._build_traffic_capture_formalization_summary(formalization)
         return summary
+
+    @staticmethod
+    def _collect_testcase_references(*, test_root: Path, method_name: str) -> list[str]:
+        """扫描 `api_test/tests` 目录，返回引用指定方法名的测试文件列表。"""
+        references: list[str] = []
+        if not test_root.exists():
+            return references
+        match_pattern = f"{method_name}("
+        for file_path in test_root.rglob("*.py"):
+            if file_path.name == "__init__.py":
+                continue
+            content = file_path.read_text(encoding="utf-8")
+            if match_pattern not in content:
+                continue
+            references.append(file_path.resolve().as_posix())
+        return references
+
+    @staticmethod
+    def _filter_module_interfaces(*, interfaces: list[dict], module_code: str) -> list[dict]:
+        """按模块编码过滤测试接口列表。"""
+        return [item for item in interfaces if item["module_code"] == module_code]
 
     @staticmethod
     def _derive_stage(review_status: str, execution_status: str) -> str:

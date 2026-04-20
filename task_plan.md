@@ -1,5 +1,37 @@
 # 当前任务计划
 
+## 2026-04-20 Vue3 前后端分离工作台重构
+
+### 目标
+- 基于项目根目录 `DESIGN.md`，将当前 Django 模板工作台整体重构为 **Vue3 + TypeScript** 独立前端，并保持 Django + DRF 作为后端服务层。
+- 当前正式页面只保留接口自动化相关展示：项目、模块、子模块、测试用例、测试接口、执行结果、报告与重试，不再承接数据清洗等后台处理界面。
+- 严格按 TDD 推进，最终删除旧 Jinja2 前端模板代码，完成全量验证、文档同步、提交与推送。
+
+### 本轮范围
+1. 把 `DESIGN.md` 前置规则写入 `AGENTS.md` 与 `CLAUDE.md`，并同步更新产品 / 架构 / UI 文档中的前端技术栈与交互口径。
+2. 编写本轮正式设计说明与实施计划，明确 Vue3 前后端分离架构、页面范围、接口契约与旧模板清理策略。
+3. 先写失败测试，再改造后端 UI 契约与前端入口，再实现 Vue3 工作台。
+4. 删除旧 `scenario_service/templates/scenario_service/workbench.html` 及其依赖的模板式前端承载逻辑。
+5. 执行前端、后端、集成与浏览器验收，完成 commit / push。
+
+### 当前阶段状态
+| 阶段 | 状态 | 说明 |
+| --- | --- | --- |
+| 规则与文档口径收敛 | 已完成 | 已将 `DESIGN.md` 前置规则写入 `AGENTS.md` 与 `CLAUDE.md`，并同步收敛产品 / 架构 / UI 文档中的 Vue3 前后端分离口径 |
+| 正式设计与实施计划 | 已完成 | 已新增 `docs/superpowers/specs/2026-04-20-vue3-workbench-frontend-separation-design.md` 与对应实施计划 |
+| 后端契约红灯测试 | 已完成 | 已新增并通过 `service_tests/test_vue_frontend_entry.py` 与 `service_tests/test_workbench_read_models.py`，补齐前端入口与工作台读模型 API |
+| Vue3 前端红灯测试 | 已完成 | 已新增独立前端工程 `frontend/`，并通过 `vitest` 壳层 / 导航 / 动作三组红绿测试 |
+| 旧模板清理与验收 | 已完成 | 已删除旧 `scenario_service/templates/scenario_service/workbench.html`，并完成浏览器烟雾验证、服务层 / 根治理 / platform_core / api_test 全量回归 |
+
+### 当前结果
+1. `frontend vitest=3 passed`
+2. `frontend build=passed`
+3. `service_tests=76 passed`
+4. `tests/platform_core=71 passed`
+5. `tests=82 passed`
+6. `api_test/tests=39 passed`
+7. `/ui/v3/workbench/` 浏览器烟雾验证通过，控制台新增错误 / 警告为 `0`
+
 ## 2026-04-16 V3 P2 AI 治理边界实现
 
 ### 目标

@@ -52,6 +52,19 @@
     - `tests=80 passed`
     - `api_test/tests=39 passed`
     - `manage.py makemigrations scenario_service --check --dry-run` -> `No changes detected in app 'scenario_service'`
+- 2026-04-20 起，当前工作台前端已进一步完成 **Vue3 + TypeScript 前后端分离重构**：
+  - 新增独立前端工程 `frontend/`，当前正式页面只聚焦项目、模块、子模块、测试用例、测试接口、执行结果与报告重试；
+  - `/ui/v2/workbench/` 与 `/ui/v3/workbench/` 当前统一返回 Vue 前端入口；
+  - 旧 `scenario_service/templates/scenario_service/workbench.html` 已删除，Jinja2 当前只保留为代码生成模板能力；
+  - 已新增 `/api/v2/workbench/bootstrap/`、`/api/v2/workbench/navigation/`、`/api/v2/workbench/test-interfaces/` 与详情接口，供 Vue 工作台消费；
+  - 当前新增验证结果为：
+    - `frontend vitest=3 passed`
+    - `frontend build=passed`
+    - `service_tests=76 passed`
+    - `tests/platform_core=71 passed`
+    - `tests=82 passed`
+    - `api_test/tests=39 passed`
+  - 已完成 `/ui/v3/workbench/` 浏览器烟雾验证，页面标题正确，控制台新增错误 / 警告为 `0`。
 
 当前已完成的 V2 第一实施子阶段首批落地包括：
 
@@ -437,6 +450,7 @@ api-test-platform/
 │  ├─ README.md
 │  └─ QUICKSTART.md
 ├─ platform_core/           # V1 平台核心最小闭环
+├─ frontend/                # Vue3 + TypeScript 前后端分离工作台前端
 ├─ tests/platform_core/     # platform_core 自动化测试
 ├─ product_document/        # 产品、架构、阶段、测试文档
 ├─ docs/superpowers/        # 当前轮设计说明与实施计划
@@ -533,6 +547,15 @@ $env:DJANGO_SETTINGS_MODULE='platform_service.test_settings'; .\.venv_service\Sc
 python -m pytest tests/platform_core -q --basetemp=.pytest_tmp\v3_p1_g2_platform_core
 python -m pytest tests -q --basetemp=.pytest_tmp\v3_p1_g2_root
 python -m pytest api_test/tests -q --basetemp=.pytest_tmp\v3_p1_g2_api_test
+```
+
+Vue3 前端当前验证：
+
+```bash
+cd frontend
+npm install
+npm run test
+npm run build
 ```
 
 V1 验收回归验证：
