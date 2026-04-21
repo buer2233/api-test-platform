@@ -49,24 +49,31 @@ describe('WorkbenchView 执行动作', () => {
                       module_code: 'account_center',
                       module_name: '账号中心',
                       submodules: [
-                        {
-                          submodule_code: 'profile_management',
-                          submodule_name: '资料管理',
-                          testcases: [
-                            {
+                          {
+                            submodule_code: 'profile_management',
+                            submodule_name: '资料管理',
+                            testcases: [
+                              {
                               scenario_id: 'scenario-001',
                               scenario_code: 'query_user_profile',
                               scenario_name: '查询用户资料',
-                              review_status: 'approved',
-                              execution_status: 'failed'
-                            }
-                          ],
-                          test_interfaces: []
-                        }
-                      ]
-                    }
-                  ]
-                }
+                                review_status: 'approved',
+                                execution_status: 'failed'
+                              }
+                            ],
+                            test_interfaces: [
+                              {
+                                interface_id: 'interface-01',
+                                method_name: 'get_user_01',
+                                http_method: 'GET',
+                                path_template: '/users/01'
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
               ]
             }
           })

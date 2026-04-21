@@ -20,6 +20,11 @@ export interface WorkbenchTestInterfaceSummary {
   path_template: string
 }
 
+export interface WorkbenchTestInterfaceDetail extends WorkbenchTestInterfaceSummary {
+  source_file?: string
+  referenced_by?: string[]
+}
+
 export interface WorkbenchSubmoduleNode {
   submodule_code: string
   submodule_name: string
@@ -68,3 +73,5 @@ export interface ScenarioResultPayload {
   latest_allure_report_path: string
   retry_available: boolean
 }
+
+export type WorkbenchMiddleView = 'modules' | 'submodules' | 'testcases' | 'interfaces'

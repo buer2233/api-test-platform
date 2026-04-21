@@ -2,7 +2,8 @@ import type {
   ScenarioDetailPayload,
   ScenarioResultPayload,
   WorkbenchBootstrap,
-  WorkbenchNavigationPayload
+  WorkbenchNavigationPayload,
+  WorkbenchTestInterfaceDetail
 } from './types'
 
 
@@ -32,6 +33,10 @@ export function fetchScenarioDetail(scenarioId: string): Promise<ScenarioDetailP
 
 export function fetchScenarioResult(scenarioId: string): Promise<ScenarioResultPayload> {
   return request(`/api/v2/scenarios/${scenarioId}/result/`)
+}
+
+export function fetchTestInterfaceDetail(interfaceId: string): Promise<WorkbenchTestInterfaceDetail> {
+  return request(`/api/v2/workbench/test-interfaces/${interfaceId}/`)
 }
 
 export function executeScenario(scenarioId: string): Promise<unknown> {

@@ -14,12 +14,26 @@ function createJsonResponse(payload: unknown): Response {
 }
 
 
+function buildInterfaceItems(count: number) {
+  return Array.from({ length: count }, (_, index) => {
+    const sequence = String(index + 1).padStart(2, '0')
+    return {
+      interface_id: `interface-${sequence}`,
+      method_name: `get_user_${sequence}`,
+      http_method: 'GET',
+      path_template: `/users/${sequence}`
+    }
+  })
+}
+
+
 describe('WorkbenchView 导航树', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
   })
 
-  it('渲染项目-模块-子模块-测试用例-测试接口导航树并切换详情', async () => {
+  it('项目、模块、子模块可点击，测试接口列表支持分页并可切换详情', async () => {
+    const interfaces = buildInterfaceItems(12)
     vi.stubGlobal(
       'fetch',
       vi.fn((input: RequestInfo | URL) => {
@@ -63,14 +77,7 @@ describe('WorkbenchView 导航树', () => {
                                 execution_status: 'passed'
                               }
                             ],
-                            test_interfaces: [
-                              {
-                                interface_id: 'shared__common__JsonPlaceholderAPI__get_user',
-                                method_name: 'get_user',
-                                http_method: 'GET',
-                                path_template: '/users/{user_id}'
-                              }
-                            ]
+                            test_interfaces: interfaces
                           }
                         ]
                       }
@@ -119,6 +126,21 @@ describe('WorkbenchView 导航树', () => {
             })
           )
         }
+        if (url.endsWith('/api/v2/workbench/test-interfaces/interface-11/')) {
+          return Promise.resolve(
+            createJsonResponse({
+              success: true,
+              data: {
+                interface_id: 'interface-11',
+                method_name: 'get_user_11',
+                http_method: 'GET',
+                path_template: '/users/11',
+                source_file: 'api_test/core/jsonplaceholder_api.py',
+                referenced_by: ['api_test/tests/jsonplaceholder/test_get_user_11.py']
+              }
+            })
+          )
+        }
         return Promise.reject(new Error(`未处理的请求: ${url}`))
       })
     )
@@ -126,17 +148,30 @@ describe('WorkbenchView 导航树', () => {
     const wrapper = mount(WorkbenchView)
     await flushPromises()
 
-    expect(wrapper.text()).toContain('示例项目')
-    expect(wrapper.text()).toContain('账号中心')
-    expect(wrapper.text()).toContain('资料管理')
+    expect(wrapper.get('[data-testid="project-node-demo-project"]').text()).toContain('示例项目')
+    expect(wrapper.get('[data-testid="module-node-account_center"]').text()).toContain('账号中心')
+    expect(wrapper.get('[data-testid="submodule-node-profile_management"]').text()).toContain('资料管理')
+    expect(wrapper.get('[data-testid="middle-panel-title"]').text()).toContain('测试用例')
     expect(wrapper.text()).toContain('查询用户资料')
-    expect(wrapper.text()).toContain('get_user')
 
-    await wrapper.get('[data-testid="testcase-node-scenario-001"]').trigger('click')
+    await wrapper.get('[data-testid="tree-switch-interfaces"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('query_user_profile')
-    expect(wrapper.text()).toContain('execution-001')
-    expect(wrapper.text()).toContain('report/allure/index.html')
+    expect(wrapper.get('[data-testid="middle-panel-title"]').text()).toContain('测试接口')
+    expect(wrapper.text()).toContain('get_user_01')
+    expect(wrapper.text()).not.toContain('get_user_11')
+    expect(wrapper.get('[data-testid="pagination-indicator"]').text()).toBe('1 / 2')
+
+    await wrapper.get('[data-testid="pagination-next"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('get_user_11')
+    expect(wrapper.get('[data-testid="pagination-indicator"]').text()).toBe('2 / 2')
+
+    await wrapper.get('[data-testid="middle-item-interface-interface-11"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('/users/11')
+    expect(wrapper.text()).toContain('api_test/core/jsonplaceholder_api.py')
   })
 })

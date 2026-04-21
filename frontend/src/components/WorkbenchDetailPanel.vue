@@ -1,6 +1,18 @@
 <template>
   <div class="detail-panel">
-    <template v-if="detail">
+    <template v-if="interfaceDetail">
+      <div class="detail-card">
+        <span class="detail-label">测试接口</span>
+        <h3>{{ interfaceDetail.method_name }}</h3>
+        <p>{{ interfaceDetail.http_method }} {{ interfaceDetail.path_template }}</p>
+      </div>
+      <div class="detail-card">
+        <span class="detail-label">来源与引用</span>
+        <p>{{ interfaceDetail.source_file || '未知来源' }}</p>
+        <p>{{ interfaceDetail.referenced_by?.join(' / ') || '当前没有引用记录' }}</p>
+      </div>
+    </template>
+    <template v-else-if="detail">
       <div class="detail-card">
         <span class="detail-label">测试用例</span>
         <h3>{{ detail.scenario_name }}</h3>
@@ -34,11 +46,16 @@
 </template>
 
 <script setup lang="ts">
-import type { ScenarioDetailPayload, ScenarioResultPayload } from '../services/types'
+import type {
+  ScenarioDetailPayload,
+  ScenarioResultPayload,
+  WorkbenchTestInterfaceDetail
+} from '../services/types'
 
 defineProps<{
   detail: ScenarioDetailPayload | null
   result: ScenarioResultPayload | null
+  interfaceDetail: WorkbenchTestInterfaceDetail | null
 }>()
 
 defineEmits<{
